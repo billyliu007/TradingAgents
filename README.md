@@ -160,6 +160,50 @@ An interface will appear showing results as they load, letting you track the age
   <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
 
+### API Service + Web UI (Dark Theme)
+
+This repository now includes a service wrapper and a lightweight web UI:
+
+- API app: `service/app.py`
+- UI page: `service/static/index.html`
+
+Start the service:
+
+```bash
+pip install .
+tradingagents-service
+```
+
+Or with uvicorn:
+
+```bash
+uvicorn service.app:app --host 0.0.0.0 --port 8000
+```
+
+Open:
+
+- Web UI: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
+- Options endpoint: `GET /api/options`
+- Analyze endpoint: `POST /api/analyze`
+
+Example request:
+
+```bash
+curl -X POST "http://localhost:8000/api/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticker": "NVDA",
+    "analysis_date": "2026-03-20",
+    "selected_analysts": ["market", "social", "news", "fundamentals"],
+    "llm_provider": "openai",
+    "quick_think_llm": "gpt-5-mini",
+    "deep_think_llm": "gpt-5.2",
+    "max_debate_rounds": 1,
+    "max_risk_discuss_rounds": 1
+  }'
+```
+
 ## TradingAgents Package
 
 ### Implementation Details

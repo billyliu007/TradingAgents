@@ -1,0 +1,33 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# After push: https://dashboard.render.com/blueprint/new?repo=<your-repo-https-url>
+
+services:
+  - type: web
+    name: tradingagents-service
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: pip install --upgrade pip && pip install .
+    startCommand: uvicorn service.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/options
+    envVars:
+      # Python version: see runtime.txt in repo root (Render-native).
+      # At least one provider key is required at runtime (set in Dashboard; never commit secrets).
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: XAI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      # Optional overrides
+      - key: TRADINGAGENTS_RESULTS_DIR
+        value: /tmp/tradingagents-results
+      - key: TRADINGAGENTS_SERVICE_HOST
+        value: "0.0.0.0"

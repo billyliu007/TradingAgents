@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TradingAgents API UI</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #111935;
+      --panel-2: #1a2550;
+      --text: #e7ecff;
+      --muted: #9dafdf;
+      --accent: #66a3ff;
+      --ok: #32d583;
+      --error: #ff6b6b;
+      --border: #2a396f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top right, #1a2860 0%, var(--bg) 45%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .title { margin: 0 0 8px; font-size: 28px; }
+    .subtitle { margin: 0 0 24px; color: var(--muted); }
+    .grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(12, 1fr);
+    }
+    .card {
+      grid-column: span 12;
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .form-card { grid-column: span 5; }
+    .result-card { grid-column: span 7; }
+    @media (max-width: 980px) {
+      .form-card, .result-card { grid-column: span 12; }
+    }
+    label { display: block; font-weight: 600; margin: 12px 0 6px; }
+    input, select {
+      width: 100%;
+      background: #0e1736;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .check-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .check {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px; border: 1px solid var(--border); border-radius: 8px;
+      background: #0d1633;
+    }
+    .check input { width: auto; }
+    .btn {
+      margin-top: 16px;
+      width: 100%;
+      background: linear-gradient(90deg, #4f86ff, #68c1ff);
+      color: #03102a;
+      font-weight: 700;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.6; cursor: wait; }
+    .btn-secondary {
+      margin-top: 12px;
+      width: 100%;
+      background: #1d2a57;
+      color: #d6e3ff;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+    .status { margin-top: 12px; font-size: 14px; color: var(--muted); }
+    .status.ok { color: var(--ok); }
+    .status.error { color: var(--error); }
+    .status.wait { color: #8fc1ff; }
+    .decision {
+      padding: 10px 12px; border-radius: 8px; margin-bottom: 12px;
+      background: #0e1736; border: 1px solid var(--border);
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #0a132f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin: 0;
+      max-height: 65vh;
+      overflow: auto;
+    }
+    .log-box {
+      max-height: 30vh;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">TradingAgents Service</h1>
+    <p class="subtitle">Run multi-agent stock analysis through HTTP and review a readable report.</p>
+
+    <div class="grid">
+      <section class="card form-card">
+        <form id="analyzeForm">
+          <label for="ticker">Ticker</label>
+          <input id="ticker" name="ticker" value="NVDA" required />
+
+          <label for="analysis_date">Analysis Date</label>
+          <input id="analysis_date" name="analysis_date" type="date" required />
+
+          <label for="llm_provider">LLM Provider</label>
+          <select id="llm_provider" name="llm_provider">
+            <option value="openai">openai</option>
+            <option value="google">google</option>
+            <option value="anthropic">anthropic</option>
+            <option value="xai">xai</option>
+            <option value="openrouter">openrouter</option>
+            <option value="ollama">ollama</option>
+          </select>
+
+          <label for="backend_url">Backend URL (optional)</label>
+          <input id="backend_url" name="backend_url" placeholder="https://api.openai.com/v1" />
+
+          <label for="quick_think_llm">Quick Model</label>
+          <input id="quick_think_llm" name="quick_think_llm" value="gpt-5-mini" required />
+
+          <label for="deep_think_llm">Deep Model</label>
+          <input id="deep_think_llm" name="deep_think_llm" value="gpt-5.2" required />
+
+          <label for="max_debate_rounds">Debate Rounds</label>
+          <input id="max_debate_rounds" name="max_debate_rounds" type="number" min="1" max="5" value="1" />
+
+          <label for="max_risk_discuss_rounds">Risk Rounds</label>
+          <input id="max_risk_discuss_rounds" name="max_risk_discuss_rounds" type="number" min="1" max="5" value="1" />
+
+          <label>Analysts</label>
+          <div class="check-row">
+            <label class="check"><input type="checkbox" name="analysts" value="market" checked /> market</label>
+            <label class="check"><input type="checkbox" name="analysts" value="social" checked /> social</label>
+            <label class="check"><input type="checkbox" name="analysts" value="news" checked /> news</label>
+            <label class="check"><input type="checkbox" name="analysts" value="fundamentals" checked /> fundamentals</label>
+          </div>
+          <p class="hint">At least one analyst must be selected.</p>
+
+          <button class="btn-secondary" id="fastModeBtn" type="button">Apply Fast Mode</button>
+          <button class="btn" id="submitBtn" type="submit">Run Analysis</button>
+          <div class="status" id="status">Ready.</div>
+        </form>
+      </section>
+
+      <section class="card result-card">
+        <div class="decision"><strong>Decision:</strong> <span id="decisionText">-</span></div>
+        <label for="requestText">API Request Sent</label>
+        <pre id="requestText">No request sent yet.</pre>
+        <label for="logText">Live Backend Logs</label>
+        <pre id="logText" class="log-box">Waiting for logs...</pre>
+        <pre id="reportText">Analysis output will appear here.</pre>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("analyzeForm");
+    const fastModeBtn = document.getElementById("fastModeBtn");
+    const submitBtn = document.getElementById("submitBtn");
+    const statusEl = document.getElementById("status");
+    const decisionEl = document.getElementById("decisionText");
+    const requestEl = document.getElementById("requestText");
+    const logEl = document.getElementById("logText");
+    const reportEl = document.getElementById("reportText");
+    const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
+    const LOG_POLL_MS = 2000;
+    const LOG_LIMIT = 300;
+    const LOG_SCROLL_BOTTOM_THRESHOLD = 48;
+    let waitTimerId = null;
+    let waitStartMs = 0;
+    let logTimerId = null;
+    let logStickToBottom = true;
+
+    function updateLogStickFromScroll() {
+      const el = logEl;
+      const nearBottom =
+        el.scrollHeight - el.scrollTop - el.clientHeight <= LOG_SCROLL_BOTTOM_THRESHOLD;
+      logStickToBottom = nearBottom;
+    }
+
+    logEl.addEventListener("scroll", updateLogStickFromScroll);
+
+    const today = new Date().toISOString().split("T")[0];
+    document.getElementById("analysis_date").value = today;
+
+    function setStatus(text, kind = "") {
+      statusEl.textContent = text;
+      statusEl.className = `status ${kind}`.trim();
+    }
+
+    function formatElapsed(ms) {
+      const totalSeconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+
+    function startWaitStatus() {
+      waitStartMs = Date.now();
+      setStatus("Please wait... TradingAgents may take up to ~5 minutes.", "wait");
+      waitTimerId = window.setInterval(() => {
+        const elapsed = formatElapsed(Date.now() - waitStartMs);
+        setStatus(
+          `Please wait... running multi-agent analysis (${elapsed} elapsed, up to ~5 minutes).`,
+          "wait"
+        );
+      }, 1000);
+    }
+
+    function stopWaitStatus() {
+      if (waitTimerId) {
+        window.clearInterval(waitTimerId);
+        waitTimerId = null;
+      }
+    }
+
+    async function fetchLogs() {
+      try {
+        const response = await fetch(`/api/logs?limit=${LOG_LIMIT}`);
+        if (!response.ok) return;
+        const body = await response.json();
+        const lines = Array.isArray(body.logs) ? body.logs : [];
+        const oldScrollHeight = logEl.scrollHeight;
+        const oldScrollTop = logEl.scrollTop;
+        const oldClientHeight = logEl.clientHeight;
+        const distanceFromBottom = oldScrollHeight - oldScrollTop - oldClientHeight;
+
+        logEl.textContent = lines.length ? lines.join("\n") : "No logs yet.";
+
+        if (logStickToBottom) {
+          logEl.scrollTop = logEl.scrollHeight;
+        } else {
+          const newScrollHeight = logEl.scrollHeight;
+          logEl.scrollTop = Math.max(0, newScrollHeight - oldClientHeight - distanceFromBottom);
+        }
+      } catch (_) {
+        // Keep UI stable if polling fails temporarily.
+      }
+    }
+
+    function startLogPolling() {
+      if (logTimerId) return;
+      fetchLogs();
+      logTimerId = window.setInterval(fetchLogs, LOG_POLL_MS);
+    }
+
+    function applyFastMode() {
+      document.getElementById("quick_think_llm").value = "gpt-5-mini";
+      document.getElementById("deep_think_llm").value = "gpt-5-mini";
+      document.getElementById("max_debate_rounds").value = "1";
+      document.getElementById("max_risk_discuss_rounds").value = "1";
+
+      const analystChecks = document.querySelectorAll('input[name="analysts"]');
+      analystChecks.forEach((node) => {
+        node.checked = node.value === "market";
+      });
+
+      setStatus("Fast Mode applied: 1 analyst + small models + 1 round.", "ok");
+    }
+
+    fastModeBtn.addEventListener("click", applyFastMode);
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const analystValues = Array.from(
+        document.querySelectorAll('input[name="analysts"]:checked')
+      ).map((node) => node.value);
+
+      if (analystValues.length === 0) {
+        setStatus("Select at least one analyst.", "error");
+        return;
+      }
+
+      const payload = {
+        ticker: document.getElementById("ticker").value.trim(),
+        analysis_date: document.getElementById("analysis_date").value,
+        llm_provider: document.getElementById("llm_provider").value,
+        backend_url: document.getElementById("backend_url").value.trim() || null,
+        quick_think_llm: document.getElementById("quick_think_llm").value.trim(),
+        deep_think_llm: document.getElementById("deep_think_llm").value.trim(),
+        max_debate_rounds: Number(document.getElementById("max_debate_rounds").value),
+        max_risk_discuss_rounds: Number(document.getElementById("max_risk_discuss_rounds").value),
+        selected_analysts: analystValues
+      };
+      requestEl.textContent = JSON.stringify(payload, null, 2);
+      logStickToBottom = true;
+
+      submitBtn.disabled = true;
+      startWaitStatus();
+      decisionEl.textContent = "-";
+      reportEl.textContent = "Waiting for API response...";
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        window.clearTimeout(timeoutId);
+
+        const body = await response.json();
+        if (!response.ok) {
+          throw new Error(body.detail || "Unknown API error");
+        }
+
+        decisionEl.textContent = body.decision || "No decision";
+        reportEl.textContent = body.human_readable_report || "No report generated.";
+        setStatus("Analysis completed successfully.", "ok");
+      } catch (error) {
+        if (error.name === "AbortError") {
+          setStatus("Timed out after 30 minutes. Please retry with lighter settings.", "error");
+        } else {
+          setStatus(`Error: ${error.message}`, "error");
+        }
+        reportEl.textContent = "Request failed.";
+      } finally {
+        stopWaitStatus();
+        submitBtn.disabled = false;
+      }
+    });
+
+    startLogPolling();
+  </script>
+</body>
+</html>
+

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import json
 from datetime import date
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Dict, Any, Tuple, List, Optional, Callable
 
 from langgraph.prebuilt import ToolNode
 
@@ -49,6 +49,7 @@ class TradingAgentsGraph:
         debug=False,
         config: Dict[str, Any] = None,
         callbacks: Optional[List] = None,
+        progress_callback: Optional[Callable[[str], None]] = None,
     ):
         """Initialize the trading agents graph and components.
 
@@ -57,10 +58,12 @@ class TradingAgentsGraph:
             debug: Whether to run in debug mode
             config: Configuration dictionary. If None, uses default config
             callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
+            progress_callback: Optional callback for progress messages during execution
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
         self.callbacks = callbacks or []
+        self.progress_callback = progress_callback
 
         # Update the interface's config
         set_config(self.config)
@@ -133,6 +136,52 @@ class TradingAgentsGraph:
         # Set up the graph
         self.graph = self.graph_setup.setup_graph(selected_analysts)
 
+    def _emit_progress(self, message: str) -> None:
+        if self.progress_callback:
+            try:
+                self.progress_callback(message)
+            except Exception:
+                # Progress logging should never interrupt analysis.
+                pass
+
+    def _extract_progress_events(
+        self, prev_state: Optional[Dict[str, Any]], curr_state: Dict[str, Any]
+    ) -> List[str]:
+        events: List[str] = []
+
+        if prev_state is None:
+            events.append("Execution started")
+
+        report_fields = [
+            ("market_report", "Market analysis ready"),
+            ("sentiment_report", "Social sentiment analysis ready"),
+            ("news_report", "News analysis ready"),
+            ("fundamentals_report", "Fundamentals analysis ready"),
+            ("investment_plan", "Research team decision ready"),
+            ("trader_investment_plan", "Trader plan ready"),
+            ("final_trade_decision", "Final trade decision ready"),
+        ]
+
+        for key, msg in report_fields:
+            prev_val = (prev_state or {}).get(key)
+            curr_val = curr_state.get(key)
+            if (not prev_val) and curr_val:
+                events.append(msg)
+
+        prev_invest_count = ((prev_state or {}).get("investment_debate_state") or {}).get(
+            "count", 0
+        )
+        curr_invest_count = (curr_state.get("investment_debate_state") or {}).get("count", 0)
+        if curr_invest_count > prev_invest_count:
+            events.append(f"Investment debate round {curr_invest_count}")
+
+        prev_risk_count = ((prev_state or {}).get("risk_debate_state") or {}).get("count", 0)
+        curr_risk_count = (curr_state.get("risk_debate_state") or {}).get("count", 0)
+        if curr_risk_count > prev_risk_count:
+            events.append(f"Risk debate round {curr_risk_count}")
+
+        return events
+
     def _get_provider_kwargs(self) -> Dict[str, Any]:
         """Get provider-specific kwargs for LLM client creation."""
         kwargs = {}
@@ -202,19 +251,20 @@ class TradingAgentsGraph:
         )
         args = self.propagator.get_graph_args()
 
-        if self.debug:
-            # Debug mode with tracing
-            trace = []
+        use_stream = self.debug or self.progress_callback is not None
+        if use_stream:
+            prev_state = None
+            final_state = init_agent_state
             for chunk in self.graph.stream(init_agent_state, **args):
-                if len(chunk["messages"]) == 0:
-                    pass
-                else:
+                if self.debug and "messages" in chunk and len(chunk["messages"]) > 0:
                     chunk["messages"][-1].pretty_print()
-                    trace.append(chunk)
 
-            final_state = trace[-1]
+                for event in self._extract_progress_events(prev_state, chunk):
+                    self._emit_progress(event)
+
+                prev_state = chunk
+                final_state = chunk
         else:
-            # Standard mode without tracing
             final_state = self.graph.invoke(init_agent_state, **args)
 
         # Store current state for reflection
