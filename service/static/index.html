@@ -109,6 +109,68 @@
     .log-box {
       max-height: 30vh;
     }
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .log-header label { margin: 0; }
+    .btn-log-clear {
+      flex-shrink: 0;
+      background: #1d2a57;
+      color: #d6e3ff;
+      font-weight: 600;
+      font-size: 13px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .btn-log-clear:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .btn-log-clear:disabled {
+      opacity: 0.5;
+      cursor: wait;
+    }
+    .exports-panel {
+      margin: 16px 0;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .exports-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .exports-list {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0 0;
+      max-height: 22vh;
+      overflow: auto;
+    }
+    .exports-list li { margin: 6px 0; font-size: 14px; }
+    .exports-list a { color: var(--accent); }
+    .exports-list .muted { color: var(--muted); }
+    .exports-zip-link { color: var(--accent); font-size: 13px; font-weight: 600; }
+    .exports-zip-link.muted { opacity: 0.45; pointer-events: none; }
+    .exports-hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; line-height: 1.4; }
+    .export-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 8px 0;
+      font-size: 14px;
+    }
+    .export-item input[type="checkbox"] { width: auto; margin-top: 4px; flex-shrink: 0; }
+    .export-item a { color: var(--accent); word-break: break-all; }
+    .latest-pdf { margin-top: 10px; font-size: 14px; color: var(--muted); }
+    .latest-pdf a { color: var(--ok); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -167,9 +229,29 @@
 
       <section class="card result-card">
         <div class="decision"><strong>Decision:</strong> <span id="decisionText">-</span></div>
+        <div class="exports-panel">
+          <div class="log-header">
+            <label>Saved PDF reports</label>
+            <div class="exports-actions">
+              <button type="button" class="btn-log-clear" id="refreshExportsBtn">Refresh list</button>
+              <button type="button" class="btn-log-clear" id="selectAllExportsBtn" disabled>Select all</button>
+              <button type="button" class="btn-log-clear" id="deselectAllExportsBtn" disabled>Deselect all</button>
+              <button type="button" class="btn-log-clear" id="downloadSelectedZipBtn" disabled>Download selected (ZIP)</button>
+              <a class="exports-zip-link muted" id="downloadAllZip" href="/api/exports/all.zip">Download all (ZIP)</a>
+            </div>
+          </div>
+          <p class="exports-hint">
+            Use each link to download <strong>one</strong> PDF. Check several rows and use <strong>Download selected</strong> for a ZIP, or <strong>Download all</strong> for every saved PDF.
+          </p>
+          <ul class="exports-list" id="exportsList"></ul>
+          <p class="latest-pdf" id="latestPdfLine"></p>
+        </div>
         <label for="requestText">API Request Sent</label>
         <pre id="requestText">No request sent yet.</pre>
-        <label for="logText">Live Backend Logs</label>
+        <div class="log-header">
+          <label for="logText">Live Backend Logs</label>
+          <button type="button" class="btn-log-clear" id="clearLogsBtn">Clear logs</button>
+        </div>
         <pre id="logText" class="log-box">Waiting for logs...</pre>
         <pre id="reportText">Analysis output will appear here.</pre>
       </section>
@@ -184,6 +266,14 @@
     const decisionEl = document.getElementById("decisionText");
     const requestEl = document.getElementById("requestText");
     const logEl = document.getElementById("logText");
+    const clearLogsBtn = document.getElementById("clearLogsBtn");
+    const refreshExportsBtn = document.getElementById("refreshExportsBtn");
+    const selectAllExportsBtn = document.getElementById("selectAllExportsBtn");
+    const deselectAllExportsBtn = document.getElementById("deselectAllExportsBtn");
+    const downloadSelectedZipBtn = document.getElementById("downloadSelectedZipBtn");
+    const exportsListEl = document.getElementById("exportsList");
+    const latestPdfLine = document.getElementById("latestPdfLine");
+    const downloadAllZip = document.getElementById("downloadAllZip");
     const reportEl = document.getElementById("reportText");
     const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
     const LOG_POLL_MS = 2000;
@@ -267,6 +357,120 @@
       logTimerId = window.setInterval(fetchLogs, LOG_POLL_MS);
     }
 
+    async function loadExportsList() {
+      try {
+        const response = await fetch("/api/exports");
+        if (!response.ok) return;
+        const data = await response.json();
+        const files = Array.isArray(data.files) ? data.files : [];
+        exportsListEl.innerHTML = "";
+        if (files.length === 0) {
+          exportsListEl.innerHTML = '<li class="muted">No PDFs saved yet.</li>';
+          downloadAllZip.classList.add("muted");
+          downloadAllZip.setAttribute("aria-disabled", "true");
+          downloadSelectedZipBtn.disabled = true;
+          selectAllExportsBtn.disabled = true;
+          deselectAllExportsBtn.disabled = true;
+          return;
+        }
+        downloadAllZip.classList.remove("muted");
+        downloadAllZip.removeAttribute("aria-disabled");
+        downloadSelectedZipBtn.disabled = false;
+        selectAllExportsBtn.disabled = false;
+        deselectAllExportsBtn.disabled = false;
+        files.forEach((f) => {
+          const li = document.createElement("li");
+          li.className = "export-item";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.className = "export-cb";
+          cb.dataset.filename = f.filename;
+          const a = document.createElement("a");
+          a.href = `/api/exports/download/${encodeURIComponent(f.filename)}`;
+          const kb = (f.size_bytes / 1024).toFixed(1);
+          a.textContent = `${f.filename} (${kb} KB)`;
+          a.setAttribute("download", f.filename);
+          li.appendChild(cb);
+          li.appendChild(a);
+          exportsListEl.appendChild(li);
+        });
+      } catch (_) {
+        exportsListEl.innerHTML = '<li class="muted">Could not load export list.</li>';
+        downloadAllZip.classList.add("muted");
+        downloadSelectedZipBtn.disabled = true;
+        selectAllExportsBtn.disabled = true;
+        deselectAllExportsBtn.disabled = true;
+      }
+    }
+
+    refreshExportsBtn.addEventListener("click", () => {
+      loadExportsList();
+    });
+
+    selectAllExportsBtn.addEventListener("click", () => {
+      document.querySelectorAll(".export-cb").forEach((cb) => {
+        cb.checked = true;
+      });
+    });
+
+    deselectAllExportsBtn.addEventListener("click", () => {
+      document.querySelectorAll(".export-cb").forEach((cb) => {
+        cb.checked = false;
+      });
+    });
+
+    downloadSelectedZipBtn.addEventListener("click", async () => {
+      const names = Array.from(document.querySelectorAll(".export-cb:checked")).map(
+        (cb) => cb.dataset.filename
+      );
+      if (names.length === 0) {
+        setStatus("Select at least one PDF to zip.", "error");
+        return;
+      }
+      downloadSelectedZipBtn.disabled = true;
+      try {
+        const response = await fetch("/api/exports/zip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filenames: names }),
+        });
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => ({}));
+          throw new Error(errBody.detail || response.statusText || "ZIP failed");
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "tradingagents-selected.zip";
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setStatus(`Downloaded ZIP with ${names.length} file(s).`, "ok");
+      } catch (err) {
+        setStatus(`ZIP download failed: ${err.message}`, "error");
+      } finally {
+        downloadSelectedZipBtn.disabled = false;
+      }
+    });
+
+    clearLogsBtn.addEventListener("click", async () => {
+      clearLogsBtn.disabled = true;
+      try {
+        const response = await fetch("/api/logs", { method: "DELETE" });
+        if (!response.ok) throw new Error("Clear failed");
+        logEl.textContent = "Logs cleared.";
+        logStickToBottom = true;
+        logEl.scrollTop = logEl.scrollHeight;
+      } catch (err) {
+        logEl.textContent = `Could not clear logs: ${err.message}`;
+      } finally {
+        clearLogsBtn.disabled = false;
+      }
+    });
+
     function applyFastMode() {
       document.getElementById("quick_think_llm").value = "gpt-5-mini";
       document.getElementById("deep_think_llm").value = "gpt-5-mini";
@@ -332,6 +536,12 @@
 
         decisionEl.textContent = body.decision || "No decision";
         reportEl.textContent = body.human_readable_report || "No report generated.";
+        if (body.pdf_download_url && body.pdf_filename) {
+          latestPdfLine.innerHTML = `Latest PDF: <a href="${body.pdf_download_url}">${body.pdf_filename}</a>`;
+        } else {
+          latestPdfLine.textContent = "PDF was not generated (see logs).";
+        }
+        loadExportsList();
         setStatus("Analysis completed successfully.", "ok");
       } catch (error) {
         if (error.name === "AbortError") {
@@ -340,6 +550,7 @@
           setStatus(`Error: ${error.message}`, "error");
         }
         reportEl.textContent = "Request failed.";
+        latestPdfLine.textContent = "";
       } finally {
         stopWaitStatus();
         submitBtn.disabled = false;
@@ -347,6 +558,7 @@
     });
 
     startLogPolling();
+    loadExportsList();
   </script>
 </body>
 </html>

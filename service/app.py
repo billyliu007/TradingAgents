@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import io
 import os
+import re
+import zipfile
 from datetime import date
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,12 +13,14 @@ from typing import Any, Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+
+from service.pdf_export import export_filename, unique_path, write_analysis_pdf
 
 load_dotenv()
 
@@ -42,6 +47,66 @@ def _get_logs(limit: int) -> list[str]:
         return list(_log_buffer)[-limit:]
 
 
+def _clear_logs() -> None:
+    with _log_lock:
+        _log_buffer.clear()
+
+
+_EXPORT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.pdf$")
+
+
+def _exports_dir() -> Path:
+    raw = os.getenv("TRADINGAGENTS_EXPORTS_DIR")
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return (APP_DIR.parent / "exports").resolve()
+
+
+def _safe_export_basename(name: str) -> bool:
+    if not name or len(name) > 240:
+        return False
+    if "/" in name or "\\" in name or ".." in name:
+        return False
+    return bool(_EXPORT_NAME_RE.match(name))
+
+
+def _resolve_export_file(filename: str) -> Path:
+    if not _safe_export_basename(filename):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    base = _exports_dir().resolve()
+    path = (base / filename).resolve()
+    try:
+        path.relative_to(base)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid path") from exc
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return path
+
+
+def _paths_for_export_filenames(filenames: list[str]) -> list[Path]:
+    """Resolve existing PDF paths under exports dir; dedupe; skip invalid or missing."""
+    base = _exports_dir().resolve()
+    out: list[Path] = []
+    seen: set[str] = set()
+    for name in filenames:
+        if not _safe_export_basename(name) or name in seen:
+            continue
+        seen.add(name)
+        path = (base / name).resolve()
+        try:
+            path.relative_to(base)
+        except ValueError:
+            continue
+        if path.is_file() and path.suffix.lower() == ".pdf":
+            out.append(path)
+    return out
+
+
+class ExportZipRequest(BaseModel):
+    filenames: list[str] = Field(default_factory=list, max_length=100)
+
+
 class AnalyzeRequest(BaseModel):
     ticker: str = Field(..., min_length=1, description="Ticker, e.g. NVDA")
     analysis_date: date
@@ -66,6 +131,8 @@ class AnalyzeResponse(BaseModel):
     human_readable_report: str
     sections: dict[str, str]
     raw_state: dict[str, Any]
+    pdf_filename: str | None = None
+    pdf_download_url: str | None = None
 
 
 def _as_text(value: Any) -> str:
@@ -135,6 +202,78 @@ def logs(limit: int = 200) -> dict[str, Any]:
     return {"logs": _get_logs(capped_limit)}
 
 
+@app.delete("/api/logs")
+def clear_logs() -> dict[str, bool]:
+    _clear_logs()
+    return {"cleared": True}
+
+
+@app.get("/api/exports")
+def list_exports() -> dict[str, Any]:
+    d = _exports_dir()
+    if not d.is_dir():
+        return {"files": []}
+    files: list[dict[str, Any]] = []
+    for p in sorted(d.glob("*.pdf"), key=lambda x: x.stat().st_mtime, reverse=True):
+        st = p.stat()
+        files.append(
+            {
+                "filename": p.name,
+                "size_bytes": st.st_size,
+                "modified_unix": int(st.st_mtime),
+            }
+        )
+    return {"files": files}
+
+
+@app.get("/api/exports/download/{filename}")
+def download_export(filename: str) -> FileResponse:
+    path = _resolve_export_file(filename)
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=filename,
+        content_disposition_type="attachment",
+    )
+
+
+@app.post("/api/exports/zip")
+def download_selected_exports_zip(body: ExportZipRequest) -> StreamingResponse:
+    if not body.filenames:
+        raise HTTPException(status_code=400, detail="No filenames provided")
+    paths = _paths_for_export_filenames(body.filenames)
+    if not paths:
+        raise HTTPException(status_code=404, detail="No matching PDF files")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for p in paths:
+            zf.write(p, arcname=p.name)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="tradingagents-selected.zip"'},
+    )
+
+
+@app.get("/api/exports/all.zip")
+def download_all_exports_zip() -> StreamingResponse:
+    exports = _exports_dir()
+    pdfs = sorted(exports.glob("*.pdf")) if exports.is_dir() else []
+    if not pdfs:
+        raise HTTPException(status_code=404, detail="No PDF exports available")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for p in pdfs:
+            zf.write(p, arcname=p.name)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="tradingagents-exports.zip"'},
+    )
+
+
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
     try:
@@ -171,12 +310,35 @@ def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
             f"final_trade_decision={_as_text(final_state.get('final_trade_decision')) or 'N/A'}"
         )
 
+        pdf_filename: str | None = None
+        pdf_download_url: str | None = None
+        try:
+            fname = export_filename(
+                payload.ticker, payload.analysis_date, payload.selected_analysts
+            )
+            out_path = unique_path(_exports_dir(), fname)
+            write_analysis_pdf(
+                out_path,
+                ticker=payload.ticker,
+                analysis_date=payload.analysis_date,
+                analysts=list(payload.selected_analysts),
+                decision=_as_text(decision),
+                human_readable_report=human_report,
+            )
+            pdf_filename = out_path.name
+            pdf_download_url = f"/api/exports/download/{out_path.name}"
+            _log(f"PDF export saved: {pdf_filename}")
+        except Exception as pdf_exc:
+            _log(f"PDF export failed: {pdf_exc}")
+
         return AnalyzeResponse(
             decision=_as_text(decision),
             final_trade_decision=_as_text(final_state.get("final_trade_decision")),
             human_readable_report=human_report,
             sections=sections,
             raw_state=final_state,
+            pdf_filename=pdf_filename,
+            pdf_download_url=pdf_download_url,
         )
     except Exception as exc:
         _log(f"Analyze failed ticker={payload.ticker} error={exc}")

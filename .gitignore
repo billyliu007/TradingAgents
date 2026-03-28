@@ -220,3 +220,6 @@ __marimo__/
 
 # Local evaluation / run outputs (large; do not commit)
 eval_results/
+
+# Generated PDF exports from the HTTP service
+exports/

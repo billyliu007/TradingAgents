@@ -32,6 +32,7 @@ dependencies = [
     "yfinance>=0.2.63",
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
+    "fpdf2>=2.8.0",
 ]
 
 [project.scripts]
@@ -43,3 +44,4 @@ include = ["tradingagents*", "cli*", "service*"]
 
 [tool.setuptools.package-data]
 cli = ["static/*"]
+service = ["static/*", "fonts/*.ttf", "fonts/README.txt"]

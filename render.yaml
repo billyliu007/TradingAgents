@@ -29,5 +29,7 @@ services:
       # Optional overrides
       - key: TRADINGAGENTS_RESULTS_DIR
         value: /tmp/tradingagents-results
+      - key: TRADINGAGENTS_EXPORTS_DIR
+        value: /tmp/tradingagents-exports
       - key: TRADINGAGENTS_SERVICE_HOST
         value: "0.0.0.0"
