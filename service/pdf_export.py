@@ -21,12 +21,12 @@ def export_filename(
     analysis_date: date,
     analysts: list[Literal["market", "social", "news", "fundamentals"]],
 ) -> str:
-    """Base filename without path: ASSET_DATE_analyst1-analyst2.pdf"""
+    """Base filename: ASSET_asof_DATE_analyst1-analyst2.pdf (session / close date)."""
     sym = _safe_ticker(ticker)
     d = analysis_date.isoformat()
     parts = sorted(set(analysts))
     analyst_part = "-".join(parts) if parts else "none"
-    return f"{sym}_{d}_{analyst_part}.pdf"
+    return f"{sym}_asof_{d}_{analyst_part}.pdf"
 
 
 def _register_font(pdf: FPDF) -> str:
@@ -84,9 +84,10 @@ def write_analysis_pdf(
     pdf.set_font(family, "", 10)
     meta_lines = [
         f"Ticker: {ticker.strip().upper()}",
-        f"Analysis date: {analysis_date.isoformat()}",
+        f"As-of session date (daily close): {analysis_date.isoformat()}",
         f"Analysts: {', '.join(analysts)}",
         f"Decision: {decision or 'N/A'}",
+        "Note: OHLCV from Yahoo Finance is aligned to include this session date.",
     ]
     pdf.multi_cell(usable_w, 6, "\n".join(meta_lines))
     pdf.ln(6)

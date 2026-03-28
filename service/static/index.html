@@ -184,8 +184,12 @@
           <label for="ticker">Ticker</label>
           <input id="ticker" name="ticker" value="NVDA" required />
 
-          <label for="analysis_date">Analysis Date</label>
+          <label for="analysis_date">Analysis date (session / close)</label>
           <input id="analysis_date" name="analysis_date" type="date" required />
+          <p class="hint">
+            Use the trading <strong>session</strong> you want the report to reflect. For Yahoo Finance price data,
+            the service loads daily bars <strong>through the close on this date</strong> (inclusive), not the prior day.
+          </p>
 
           <label for="llm_provider">LLM Provider</label>
           <select id="llm_provider" name="llm_provider">

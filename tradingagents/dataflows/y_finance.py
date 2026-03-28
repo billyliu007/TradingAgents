@@ -1,5 +1,5 @@
 from typing import Annotated
-from datetime import datetime
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import yfinance as yf
 import os
@@ -8,17 +8,20 @@ from .stockstats_utils import StockstatsUtils, _clean_dataframe, yf_retry
 def get_YFin_data_online(
     symbol: Annotated[str, "ticker symbol of the company"],
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
-    end_date: Annotated[str, "End date in yyyy-mm-dd format"],
+    end_date: Annotated[str, "End date in yyyy-mm-dd format (inclusive last session close)"],
 ):
 
     datetime.strptime(start_date, "%Y-%m-%d")
-    datetime.strptime(end_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    # Yahoo daily history treats `end` as exclusive. Shift by +1 calendar day so
+    # `end_date` is the last trading day included (e.g. include 2026-03-27 close).
+    yahoo_end = (end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     # Create ticker object
     ticker = yf.Ticker(symbol.upper())
 
     # Fetch historical data for the specified date range
-    data = yf_retry(lambda: ticker.history(start=start_date, end=end_date))
+    data = yf_retry(lambda: ticker.history(start=start_date, end=yahoo_end))
 
     # Check if data is empty
     if data.empty:
@@ -39,8 +42,8 @@ def get_YFin_data_online(
     # Convert DataFrame to CSV string
     csv_string = data.to_csv()
 
-    # Add header information
-    header = f"# Stock data for {symbol.upper()} from {start_date} to {end_date}\n"
+    # Add header information (end_date is inclusive for traders / UI semantics)
+    header = f"# Stock data for {symbol.upper()} from {start_date} through {end_date} (inclusive)\n"
     header += f"# Total records: {len(data)}\n"
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 

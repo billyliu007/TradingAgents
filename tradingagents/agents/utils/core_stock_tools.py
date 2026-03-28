@@ -15,7 +15,8 @@ def get_stock_data(
     Args:
         symbol (str): Ticker symbol of the company, e.g. AAPL, TSM
         start_date (str): Start date in yyyy-mm-dd format
-        end_date (str): End date in yyyy-mm-dd format
+        end_date (str): End date in yyyy-mm-dd format (last calendar day to include;
+            for Yahoo Finance the backend maps this to an inclusive session close)
     Returns:
         str: A formatted dataframe containing the stock price data for the specified ticker symbol in the specified date range.
     """
