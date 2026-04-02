@@ -14,6 +14,7 @@
       --accent: #66a3ff;
       --ok: #32d583;
       --error: #ff6b6b;
+      --warn: #ffc060;
       --border: #2a396f;
     }
     * { box-sizing: border-box; }
@@ -91,6 +92,86 @@
     .status.ok { color: var(--ok); }
     .status.error { color: var(--error); }
     .status.wait { color: #8fc1ff; }
+
+    /* ── Job status banner ───────────────────────────────────────────── */
+    .job-banner {
+      border-radius: 12px;
+      padding: 16px 20px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #0f1d45, #162040);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .job-banner-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .job-badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 3px 9px;
+      border-radius: 20px;
+      flex-shrink: 0;
+    }
+    .job-badge.pending  { background: #2a3a6f; color: #8fc1ff; border: 1px solid #3a4f8f; }
+    .job-badge.running  { background: #1a3a5f; color: #68c1ff; border: 1px solid #2a6faf; animation: pulse 2s ease-in-out infinite; }
+    .job-badge.done     { background: #0e3325; color: var(--ok); border: 1px solid #1a5035; }
+    .job-badge.failed   { background: #3a1a1a; color: var(--error); border: 1px solid #6a2a2a; }
+    .job-badge.lost     { background: #3a2a0a; color: var(--warn); border: 1px solid #6a4a0a; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+    .job-ticker { font-weight: 700; font-size: 16px; }
+    .job-elapsed { color: var(--muted); font-size: 13px; margin-left: auto; }
+    .job-safe-msg {
+      margin: 0;
+      font-size: 13px;
+      color: var(--ok);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .job-safe-msg::before { content: "✓"; font-weight: 700; }
+    .job-result-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .job-decision-chip {
+      background: #0e1736;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 14px;
+    }
+    .job-pdf-link {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .job-pdf-link a { color: var(--ok); }
+    .job-error-msg { font-size: 13px; color: var(--error); }
+    .job-lost-msg  { font-size: 13px; color: var(--warn); }
+    .job-id-label  { font-size: 11px; color: var(--muted); font-family: monospace; }
+    .btn-dismiss {
+      margin-left: auto;
+      flex-shrink: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+    .btn-dismiss:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── rest of existing styles ─────────────────────────────────────── */
     .decision {
       padding: 10px 12px; border-radius: 8px; margin-bottom: 12px;
       background: #0e1736; border: 1px solid var(--border);
@@ -106,9 +187,7 @@
       max-height: 65vh;
       overflow: auto;
     }
-    .log-box {
-      max-height: 30vh;
-    }
+    .log-box { max-height: 30vh; }
     .log-header {
       display: flex;
       align-items: center;
@@ -128,14 +207,8 @@
       padding: 6px 12px;
       cursor: pointer;
     }
-    .btn-log-clear:hover {
-      border-color: var(--accent);
-      color: var(--text);
-    }
-    .btn-log-clear:disabled {
-      opacity: 0.5;
-      cursor: wait;
-    }
+    .btn-log-clear:hover { border-color: var(--accent); color: var(--text); }
+    .btn-log-clear:disabled { opacity: 0.5; cursor: wait; }
     .exports-panel {
       margin: 16px 0;
       padding-top: 12px;
@@ -179,6 +252,32 @@
     <p class="subtitle">Run multi-agent stock analysis through HTTP and review a readable report.</p>
 
     <div class="grid">
+
+      <!-- ── Active job banner (full width, shown when a job is tracked) ── -->
+      <div id="jobBanner" class="card job-banner" style="display:none">
+        <div class="job-banner-row">
+          <span class="job-badge pending" id="jobBadge">PENDING</span>
+          <span class="job-ticker" id="jobTickerLabel">–</span>
+          <span class="job-elapsed" id="jobElapsed"></span>
+          <button class="btn-dismiss" id="jobDismissBtn">Dismiss</button>
+        </div>
+        <div id="jobRunningMsg" style="display:none">
+          <p class="job-safe-msg">Safe to close this tab — the analysis runs on the server. Come back anytime to check status.</p>
+        </div>
+        <div id="jobDoneMsg" style="display:none" class="job-result-row">
+          <span class="job-decision-chip"><strong>Decision:</strong> <span id="jobDecisionText">–</span></span>
+          <span class="job-pdf-link" id="jobPdfLink"></span>
+        </div>
+        <div id="jobFailedMsg" style="display:none">
+          <p class="job-error-msg" id="jobErrorText">–</p>
+        </div>
+        <div id="jobLostMsg" style="display:none">
+          <p class="job-lost-msg">Job status unavailable — server may have restarted. Check the exports list below for your PDF.</p>
+        </div>
+        <span class="job-id-label" id="jobIdLabel"></span>
+      </div>
+
+      <!-- ── Form ── -->
       <section class="card form-card">
         <form id="analyzeForm">
           <label for="ticker">Ticker</label>
@@ -188,7 +287,7 @@
           <input id="analysis_date" name="analysis_date" type="date" required />
           <p class="hint">
             Use the trading <strong>session</strong> you want the report to reflect. For Yahoo Finance price data,
-            the service loads daily bars <strong>through the close on this date</strong> (inclusive), not the prior day.
+            the service loads daily bars <strong>through the close on this date</strong> (inclusive).
           </p>
 
           <label for="llm_provider">LLM Provider</label>
@@ -231,8 +330,8 @@
         </form>
       </section>
 
+      <!-- ── Results ── -->
       <section class="card result-card">
-        <div class="decision"><strong>Decision:</strong> <span id="decisionText">-</span></div>
         <div class="exports-panel">
           <div class="log-header">
             <label>Saved PDF reports</label>
@@ -263,208 +362,110 @@
   </div>
 
   <script>
-    const form = document.getElementById("analyzeForm");
-    const fastModeBtn = document.getElementById("fastModeBtn");
-    const submitBtn = document.getElementById("submitBtn");
-    const statusEl = document.getElementById("status");
-    const decisionEl = document.getElementById("decisionText");
-    const requestEl = document.getElementById("requestText");
-    const logEl = document.getElementById("logText");
-    const clearLogsBtn = document.getElementById("clearLogsBtn");
-    const refreshExportsBtn = document.getElementById("refreshExportsBtn");
-    const selectAllExportsBtn = document.getElementById("selectAllExportsBtn");
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const form                  = document.getElementById("analyzeForm");
+    const fastModeBtn           = document.getElementById("fastModeBtn");
+    const submitBtn             = document.getElementById("submitBtn");
+    const statusEl              = document.getElementById("status");
+    const requestEl             = document.getElementById("requestText");
+    const logEl                 = document.getElementById("logText");
+    const clearLogsBtn          = document.getElementById("clearLogsBtn");
+    const refreshExportsBtn     = document.getElementById("refreshExportsBtn");
+    const selectAllExportsBtn   = document.getElementById("selectAllExportsBtn");
     const deselectAllExportsBtn = document.getElementById("deselectAllExportsBtn");
-    const downloadSelectedZipBtn = document.getElementById("downloadSelectedZipBtn");
-    const exportsListEl = document.getElementById("exportsList");
-    const latestPdfLine = document.getElementById("latestPdfLine");
-    const downloadAllZip = document.getElementById("downloadAllZip");
-    const reportEl = document.getElementById("reportText");
-    const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
-    const LOG_POLL_MS = 2000;
-    const LOG_LIMIT = 300;
+    const downloadSelectedZipBtn= document.getElementById("downloadSelectedZipBtn");
+    const exportsListEl         = document.getElementById("exportsList");
+    const latestPdfLine         = document.getElementById("latestPdfLine");
+    const downloadAllZip        = document.getElementById("downloadAllZip");
+    const reportEl              = document.getElementById("reportText");
+
+    // Job banner refs
+    const jobBanner       = document.getElementById("jobBanner");
+    const jobBadge        = document.getElementById("jobBadge");
+    const jobTickerLabel  = document.getElementById("jobTickerLabel");
+    const jobElapsed      = document.getElementById("jobElapsed");
+    const jobDismissBtn   = document.getElementById("jobDismissBtn");
+    const jobRunningMsg   = document.getElementById("jobRunningMsg");
+    const jobDoneMsg      = document.getElementById("jobDoneMsg");
+    const jobFailedMsg    = document.getElementById("jobFailedMsg");
+    const jobLostMsg      = document.getElementById("jobLostMsg");
+    const jobDecisionText = document.getElementById("jobDecisionText");
+    const jobPdfLink      = document.getElementById("jobPdfLink");
+    const jobErrorText    = document.getElementById("jobErrorText");
+    const jobIdLabel      = document.getElementById("jobIdLabel");
+
+    // ── Constants ─────────────────────────────────────────────────────────────
+    const LOG_POLL_MS   = 2000;
+    const JOB_POLL_MS   = 3000;
+    const LOG_LIMIT     = 300;
     const LOG_SCROLL_BOTTOM_THRESHOLD = 48;
-    let waitTimerId = null;
-    let waitStartMs = 0;
-    let logTimerId = null;
+    const LS_KEY_JOB_ID     = "ta_active_job_id";
+    const LS_KEY_JOB_START  = "ta_active_job_start";
+    const LS_KEY_JOB_TICKER = "ta_active_job_ticker";
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let logTimerId      = null;
+    let jobPollTimerId  = null;
     let logStickToBottom = true;
+    let activeJobId     = null;
+    let jobStartMs      = 0;
+    let jobElapsedTimerId = null;
 
-    function updateLogStickFromScroll() {
-      const el = logEl;
-      const nearBottom =
-        el.scrollHeight - el.scrollTop - el.clientHeight <= LOG_SCROLL_BOTTOM_THRESHOLD;
-      logStickToBottom = nearBottom;
-    }
+    // ── Init ──────────────────────────────────────────────────────────────────
+    document.getElementById("analysis_date").value = new Date().toISOString().split("T")[0];
+    startLogPolling();
+    loadExportsList();
+    restoreJobFromStorage();
 
-    logEl.addEventListener("scroll", updateLogStickFromScroll);
-
-    const today = new Date().toISOString().split("T")[0];
-    document.getElementById("analysis_date").value = today;
-
+    // ── Helpers ───────────────────────────────────────────────────────────────
     function setStatus(text, kind = "") {
       statusEl.textContent = text;
       statusEl.className = `status ${kind}`.trim();
     }
 
     function formatElapsed(ms) {
-      const totalSeconds = Math.floor(ms / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
     }
 
-    function startWaitStatus() {
-      waitStartMs = Date.now();
-      setStatus("Please wait... TradingAgents may take up to ~5 minutes.", "wait");
-      waitTimerId = window.setInterval(() => {
-        const elapsed = formatElapsed(Date.now() - waitStartMs);
-        setStatus(
-          `Please wait... running multi-agent analysis (${elapsed} elapsed, up to ~5 minutes).`,
-          "wait"
-        );
-      }, 1000);
+    // ── Log polling ───────────────────────────────────────────────────────────
+    function updateLogStickFromScroll() {
+      logStickToBottom =
+        logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight <= LOG_SCROLL_BOTTOM_THRESHOLD;
     }
-
-    function stopWaitStatus() {
-      if (waitTimerId) {
-        window.clearInterval(waitTimerId);
-        waitTimerId = null;
-      }
-    }
+    logEl.addEventListener("scroll", updateLogStickFromScroll);
 
     async function fetchLogs() {
       try {
-        const response = await fetch(`/api/logs?limit=${LOG_LIMIT}`);
-        if (!response.ok) return;
-        const body = await response.json();
+        const r = await fetch(`/api/logs?limit=${LOG_LIMIT}`);
+        if (!r.ok) return;
+        const body = await r.json();
         const lines = Array.isArray(body.logs) ? body.logs : [];
         const oldScrollHeight = logEl.scrollHeight;
-        const oldScrollTop = logEl.scrollTop;
+        const oldScrollTop    = logEl.scrollTop;
         const oldClientHeight = logEl.clientHeight;
-        const distanceFromBottom = oldScrollHeight - oldScrollTop - oldClientHeight;
-
+        const distFromBottom  = oldScrollHeight - oldScrollTop - oldClientHeight;
         logEl.textContent = lines.length ? lines.join("\n") : "No logs yet.";
-
         if (logStickToBottom) {
           logEl.scrollTop = logEl.scrollHeight;
         } else {
-          const newScrollHeight = logEl.scrollHeight;
-          logEl.scrollTop = Math.max(0, newScrollHeight - oldClientHeight - distanceFromBottom);
+          logEl.scrollTop = Math.max(0, logEl.scrollHeight - oldClientHeight - distFromBottom);
         }
-      } catch (_) {
-        // Keep UI stable if polling fails temporarily.
-      }
+      } catch (_) {}
     }
 
     function startLogPolling() {
       if (logTimerId) return;
       fetchLogs();
-      logTimerId = window.setInterval(fetchLogs, LOG_POLL_MS);
+      logTimerId = setInterval(fetchLogs, LOG_POLL_MS);
     }
-
-    async function loadExportsList() {
-      try {
-        const response = await fetch("/api/exports");
-        if (!response.ok) return;
-        const data = await response.json();
-        const files = Array.isArray(data.files) ? data.files : [];
-        exportsListEl.innerHTML = "";
-        if (files.length === 0) {
-          exportsListEl.innerHTML = '<li class="muted">No PDFs saved yet.</li>';
-          downloadAllZip.classList.add("muted");
-          downloadAllZip.setAttribute("aria-disabled", "true");
-          downloadSelectedZipBtn.disabled = true;
-          selectAllExportsBtn.disabled = true;
-          deselectAllExportsBtn.disabled = true;
-          return;
-        }
-        downloadAllZip.classList.remove("muted");
-        downloadAllZip.removeAttribute("aria-disabled");
-        downloadSelectedZipBtn.disabled = false;
-        selectAllExportsBtn.disabled = false;
-        deselectAllExportsBtn.disabled = false;
-        files.forEach((f) => {
-          const li = document.createElement("li");
-          li.className = "export-item";
-          const cb = document.createElement("input");
-          cb.type = "checkbox";
-          cb.className = "export-cb";
-          cb.dataset.filename = f.filename;
-          const a = document.createElement("a");
-          a.href = `/api/exports/download/${encodeURIComponent(f.filename)}`;
-          const kb = (f.size_bytes / 1024).toFixed(1);
-          a.textContent = `${f.filename} (${kb} KB)`;
-          a.setAttribute("download", f.filename);
-          li.appendChild(cb);
-          li.appendChild(a);
-          exportsListEl.appendChild(li);
-        });
-      } catch (_) {
-        exportsListEl.innerHTML = '<li class="muted">Could not load export list.</li>';
-        downloadAllZip.classList.add("muted");
-        downloadSelectedZipBtn.disabled = true;
-        selectAllExportsBtn.disabled = true;
-        deselectAllExportsBtn.disabled = true;
-      }
-    }
-
-    refreshExportsBtn.addEventListener("click", () => {
-      loadExportsList();
-    });
-
-    selectAllExportsBtn.addEventListener("click", () => {
-      document.querySelectorAll(".export-cb").forEach((cb) => {
-        cb.checked = true;
-      });
-    });
-
-    deselectAllExportsBtn.addEventListener("click", () => {
-      document.querySelectorAll(".export-cb").forEach((cb) => {
-        cb.checked = false;
-      });
-    });
-
-    downloadSelectedZipBtn.addEventListener("click", async () => {
-      const names = Array.from(document.querySelectorAll(".export-cb:checked")).map(
-        (cb) => cb.dataset.filename
-      );
-      if (names.length === 0) {
-        setStatus("Select at least one PDF to zip.", "error");
-        return;
-      }
-      downloadSelectedZipBtn.disabled = true;
-      try {
-        const response = await fetch("/api/exports/zip", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filenames: names }),
-        });
-        if (!response.ok) {
-          const errBody = await response.json().catch(() => ({}));
-          throw new Error(errBody.detail || response.statusText || "ZIP failed");
-        }
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "tradingagents-selected.zip";
-        a.rel = "noopener";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        setStatus(`Downloaded ZIP with ${names.length} file(s).`, "ok");
-      } catch (err) {
-        setStatus(`ZIP download failed: ${err.message}`, "error");
-      } finally {
-        downloadSelectedZipBtn.disabled = false;
-      }
-    });
 
     clearLogsBtn.addEventListener("click", async () => {
       clearLogsBtn.disabled = true;
       try {
-        const response = await fetch("/api/logs", { method: "DELETE" });
-        if (!response.ok) throw new Error("Clear failed");
+        const r = await fetch("/api/logs", { method: "DELETE" });
+        if (!r.ok) throw new Error("Clear failed");
         logEl.textContent = "Logs cleared.";
         logStickToBottom = true;
         logEl.scrollTop = logEl.scrollHeight;
@@ -475,95 +476,280 @@
       }
     });
 
-    function applyFastMode() {
-      document.getElementById("quick_think_llm").value = "gpt-5-mini";
-      document.getElementById("deep_think_llm").value = "gpt-5-mini";
-      document.getElementById("max_debate_rounds").value = "1";
-      document.getElementById("max_risk_discuss_rounds").value = "1";
-
-      const analystChecks = document.querySelectorAll('input[name="analysts"]');
-      analystChecks.forEach((node) => {
-        node.checked = node.value === "market";
-      });
-
-      setStatus("Fast Mode applied: 1 analyst + small models + 1 round.", "ok");
+    // ── Exports list ──────────────────────────────────────────────────────────
+    async function loadExportsList() {
+      try {
+        const r = await fetch("/api/exports");
+        if (!r.ok) return;
+        const data = await r.json();
+        const files = Array.isArray(data.files) ? data.files : [];
+        exportsListEl.innerHTML = "";
+        if (files.length === 0) {
+          exportsListEl.innerHTML = '<li class="muted">No PDFs saved yet.</li>';
+          downloadAllZip.classList.add("muted");
+          downloadAllZip.setAttribute("aria-disabled", "true");
+          [downloadSelectedZipBtn, selectAllExportsBtn, deselectAllExportsBtn].forEach(b => b.disabled = true);
+          return;
+        }
+        downloadAllZip.classList.remove("muted");
+        downloadAllZip.removeAttribute("aria-disabled");
+        [downloadSelectedZipBtn, selectAllExportsBtn, deselectAllExportsBtn].forEach(b => b.disabled = false);
+        files.forEach((f) => {
+          const li  = document.createElement("li");
+          li.className = "export-item";
+          const cb  = document.createElement("input");
+          cb.type = "checkbox"; cb.className = "export-cb"; cb.dataset.filename = f.filename;
+          const a   = document.createElement("a");
+          a.href = `/api/exports/download/${encodeURIComponent(f.filename)}`;
+          a.textContent = `${f.filename} (${(f.size_bytes / 1024).toFixed(1)} KB)`;
+          a.setAttribute("download", f.filename);
+          li.appendChild(cb); li.appendChild(a);
+          exportsListEl.appendChild(li);
+        });
+      } catch (_) {
+        exportsListEl.innerHTML = '<li class="muted">Could not load export list.</li>';
+        downloadAllZip.classList.add("muted");
+        [downloadSelectedZipBtn, selectAllExportsBtn, deselectAllExportsBtn].forEach(b => b.disabled = true);
+      }
     }
 
-    fastModeBtn.addEventListener("click", applyFastMode);
+    refreshExportsBtn.addEventListener("click", loadExportsList);
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
+    selectAllExportsBtn.addEventListener("click", () => {
+      document.querySelectorAll(".export-cb").forEach(cb => cb.checked = true);
+    });
+    deselectAllExportsBtn.addEventListener("click", () => {
+      document.querySelectorAll(".export-cb").forEach(cb => cb.checked = false);
+    });
 
-      const analystValues = Array.from(
-        document.querySelectorAll('input[name="analysts"]:checked')
-      ).map((node) => node.value);
-
-      if (analystValues.length === 0) {
-        setStatus("Select at least one analyst.", "error");
-        return;
-      }
-
-      const payload = {
-        ticker: document.getElementById("ticker").value.trim(),
-        analysis_date: document.getElementById("analysis_date").value,
-        llm_provider: document.getElementById("llm_provider").value,
-        backend_url: document.getElementById("backend_url").value.trim() || null,
-        quick_think_llm: document.getElementById("quick_think_llm").value.trim(),
-        deep_think_llm: document.getElementById("deep_think_llm").value.trim(),
-        max_debate_rounds: Number(document.getElementById("max_debate_rounds").value),
-        max_risk_discuss_rounds: Number(document.getElementById("max_risk_discuss_rounds").value),
-        selected_analysts: analystValues
-      };
-      requestEl.textContent = JSON.stringify(payload, null, 2);
-      logStickToBottom = true;
-
-      submitBtn.disabled = true;
-      startWaitStatus();
-      decisionEl.textContent = "-";
-      reportEl.textContent = "Waiting for API response...";
-
+    downloadSelectedZipBtn.addEventListener("click", async () => {
+      const names = Array.from(document.querySelectorAll(".export-cb:checked")).map(cb => cb.dataset.filename);
+      if (!names.length) { setStatus("Select at least one PDF to zip.", "error"); return; }
+      downloadSelectedZipBtn.disabled = true;
       try {
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-        const response = await fetch("/api/analyze", {
+        const r = await fetch("/api/exports/zip", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal
+          body: JSON.stringify({ filenames: names }),
         });
-        window.clearTimeout(timeoutId);
-
-        const body = await response.json();
-        if (!response.ok) {
-          throw new Error(body.detail || "Unknown API error");
-        }
-
-        decisionEl.textContent = body.decision || "No decision";
-        reportEl.textContent = body.human_readable_report || "No report generated.";
-        if (body.pdf_download_url && body.pdf_filename) {
-          latestPdfLine.innerHTML = `Latest PDF: <a href="${body.pdf_download_url}">${body.pdf_filename}</a>`;
-        } else {
-          latestPdfLine.textContent = "PDF was not generated (see logs).";
-        }
-        loadExportsList();
-        setStatus("Analysis completed successfully.", "ok");
-      } catch (error) {
-        if (error.name === "AbortError") {
-          setStatus("Timed out after 30 minutes. Please retry with lighter settings.", "error");
-        } else {
-          setStatus(`Error: ${error.message}`, "error");
-        }
-        reportEl.textContent = "Request failed.";
-        latestPdfLine.textContent = "";
+        if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || r.statusText); }
+        const blob = await r.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        a.href = url; a.download = "tradingagents-selected.zip"; a.rel = "noopener";
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        setStatus(`Downloaded ZIP with ${names.length} file(s).`, "ok");
+      } catch (err) {
+        setStatus(`ZIP download failed: ${err.message}`, "error");
       } finally {
-        stopWaitStatus();
-        submitBtn.disabled = false;
+        downloadSelectedZipBtn.disabled = false;
       }
     });
 
-    startLogPolling();
-    loadExportsList();
+    // ── Job banner ────────────────────────────────────────────────────────────
+    function showJobBanner(jobId, ticker, status, opts = {}) {
+      const { decision, pdfFilename, pdfUrl, error, startMs } = opts;
+
+      jobBanner.style.display = "";
+      jobTickerLabel.textContent = ticker || "–";
+      jobIdLabel.textContent = `Job ID: ${jobId}`;
+
+      // Reset sub-sections
+      [jobRunningMsg, jobDoneMsg, jobFailedMsg, jobLostMsg].forEach(el => el.style.display = "none");
+
+      // Badge
+      jobBadge.className = `job-badge ${status}`;
+      const labels = { pending: "PENDING", running: "RUNNING", done: "DONE", failed: "FAILED", lost: "LOST" };
+      jobBadge.textContent = labels[status] || status.toUpperCase();
+
+      if (status === "pending" || status === "running") {
+        jobRunningMsg.style.display = "";
+        startElapsedTimer(startMs || jobStartMs);
+      } else {
+        stopElapsedTimer();
+        jobElapsed.textContent = "";
+        if (status === "done") {
+          jobDoneMsg.style.display = "";
+          jobDecisionText.textContent = decision || "–";
+          if (pdfFilename && pdfUrl) {
+            jobPdfLink.innerHTML = `PDF ready: <a href="${pdfUrl}" download="${pdfFilename}">${pdfFilename}</a>`;
+          } else {
+            jobPdfLink.textContent = "PDF not generated — see logs.";
+          }
+        } else if (status === "failed") {
+          jobFailedMsg.style.display = "";
+          jobErrorText.textContent = error || "Unknown error";
+        } else if (status === "lost") {
+          jobLostMsg.style.display = "";
+        }
+      }
+    }
+
+    function hideJobBanner() {
+      jobBanner.style.display = "none";
+      stopElapsedTimer();
+      activeJobId = null;
+      localStorage.removeItem(LS_KEY_JOB_ID);
+      localStorage.removeItem(LS_KEY_JOB_START);
+      localStorage.removeItem(LS_KEY_JOB_TICKER);
+    }
+
+    function startElapsedTimer(startMs) {
+      stopElapsedTimer();
+      jobStartMs = startMs || Date.now();
+      function tick() {
+        jobElapsed.textContent = `${formatElapsed(Date.now() - jobStartMs)} elapsed`;
+      }
+      tick();
+      jobElapsedTimerId = setInterval(tick, 1000);
+    }
+
+    function stopElapsedTimer() {
+      if (jobElapsedTimerId) { clearInterval(jobElapsedTimerId); jobElapsedTimerId = null; }
+    }
+
+    jobDismissBtn.addEventListener("click", () => {
+      stopJobPolling();
+      hideJobBanner();
+      setStatus("Ready.", "");
+    });
+
+    // ── Job polling ───────────────────────────────────────────────────────────
+    async function pollJob(jobId) {
+      try {
+        const r = await fetch(`/api/jobs/${jobId}`);
+        if (r.status === 404) {
+          // Server restarted — job state lost
+          stopJobPolling();
+          showJobBanner(jobId, localStorage.getItem(LS_KEY_JOB_TICKER) || "?", "lost");
+          setStatus("Server restarted — check the exports list for your PDF.", "error");
+          return;
+        }
+        if (!r.ok) return;
+        const job = await r.json();
+
+        showJobBanner(jobId, job.ticker, job.status, {
+          decision:    job.decision,
+          pdfFilename: job.pdf_filename,
+          pdfUrl:      job.pdf_download_url,
+          error:       job.error,
+          startMs:     jobStartMs,
+        });
+
+        if (job.status === "done") {
+          stopJobPolling();
+          setStatus("Analysis complete.", "ok");
+          loadExportsList();
+          if (job.pdf_download_url && job.pdf_filename) {
+            latestPdfLine.innerHTML = `Latest PDF: <a href="${job.pdf_download_url}">${job.pdf_filename}</a>`;
+          }
+          // Clear storage — job finished
+          localStorage.removeItem(LS_KEY_JOB_ID);
+          localStorage.removeItem(LS_KEY_JOB_START);
+          localStorage.removeItem(LS_KEY_JOB_TICKER);
+          submitBtn.disabled = false;
+        } else if (job.status === "failed") {
+          stopJobPolling();
+          setStatus(`Analysis failed: ${job.error || "unknown error"}`, "error");
+          localStorage.removeItem(LS_KEY_JOB_ID);
+          localStorage.removeItem(LS_KEY_JOB_START);
+          localStorage.removeItem(LS_KEY_JOB_TICKER);
+          submitBtn.disabled = false;
+        }
+      } catch (_) {
+        // Network hiccup — keep polling
+      }
+    }
+
+    function startJobPolling(jobId) {
+      stopJobPolling();
+      activeJobId = jobId;
+      pollJob(jobId);
+      jobPollTimerId = setInterval(() => pollJob(jobId), JOB_POLL_MS);
+    }
+
+    function stopJobPolling() {
+      if (jobPollTimerId) { clearInterval(jobPollTimerId); jobPollTimerId = null; }
+    }
+
+    // ── Restore job from localStorage on page load ────────────────────────────
+    function restoreJobFromStorage() {
+      const savedJobId = localStorage.getItem(LS_KEY_JOB_ID);
+      if (!savedJobId) return;
+      const savedStart  = parseInt(localStorage.getItem(LS_KEY_JOB_START) || "0", 10) || Date.now();
+      const savedTicker = localStorage.getItem(LS_KEY_JOB_TICKER) || "?";
+      jobStartMs = savedStart;
+      // Show "resuming" state while we check
+      showJobBanner(savedJobId, savedTicker, "pending", { startMs: savedStart });
+      setStatus("Resuming job status check...", "wait");
+      submitBtn.disabled = true;
+      startJobPolling(savedJobId);
+    }
+
+    // ── Fast mode ─────────────────────────────────────────────────────────────
+    fastModeBtn.addEventListener("click", () => {
+      document.getElementById("quick_think_llm").value = "gpt-5-mini";
+      document.getElementById("deep_think_llm").value  = "gpt-5-mini";
+      document.getElementById("max_debate_rounds").value = "1";
+      document.getElementById("max_risk_discuss_rounds").value = "1";
+      document.querySelectorAll('input[name="analysts"]').forEach(n => n.checked = n.value === "market");
+      setStatus("Fast Mode applied: 1 analyst + small models + 1 round.", "ok");
+    });
+
+    // ── Form submit ───────────────────────────────────────────────────────────
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const analystValues = Array.from(document.querySelectorAll('input[name="analysts"]:checked')).map(n => n.value);
+      if (!analystValues.length) { setStatus("Select at least one analyst.", "error"); return; }
+
+      const payload = {
+        ticker:                  document.getElementById("ticker").value.trim(),
+        analysis_date:           document.getElementById("analysis_date").value,
+        llm_provider:            document.getElementById("llm_provider").value,
+        backend_url:             document.getElementById("backend_url").value.trim() || null,
+        quick_think_llm:         document.getElementById("quick_think_llm").value.trim(),
+        deep_think_llm:          document.getElementById("deep_think_llm").value.trim(),
+        max_debate_rounds:       Number(document.getElementById("max_debate_rounds").value),
+        max_risk_discuss_rounds: Number(document.getElementById("max_risk_discuss_rounds").value),
+        selected_analysts:       analystValues,
+      };
+
+      requestEl.textContent = JSON.stringify(payload, null, 2);
+      logStickToBottom = true;
+      submitBtn.disabled = true;
+      setStatus("Submitting job...", "wait");
+      reportEl.textContent = "Job submitted — results will appear here when complete.";
+      latestPdfLine.textContent = "";
+
+      try {
+        const r = await fetch("/api/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const body = await r.json();
+        if (!r.ok) throw new Error(body.detail || "Failed to submit job");
+
+        const jobId = body.job_id;
+        const startMs = Date.now();
+
+        // Persist to localStorage so the user can close the tab and come back
+        localStorage.setItem(LS_KEY_JOB_ID,     jobId);
+        localStorage.setItem(LS_KEY_JOB_START,  String(startMs));
+        localStorage.setItem(LS_KEY_JOB_TICKER, payload.ticker);
+        jobStartMs = startMs;
+
+        showJobBanner(jobId, payload.ticker, "pending", { startMs });
+        setStatus("Analysis running on server — you can safely close this tab.", "wait");
+        startJobPolling(jobId);
+
+      } catch (err) {
+        setStatus(`Error: ${err.message}`, "error");
+        submitBtn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
-
