@@ -159,6 +159,7 @@ class JobStatusResponse(BaseModel):
     decision: str | None = None
     pdf_filename: str | None = None
     pdf_download_url: str | None = None
+    gdrive_url: str | None = None
     error: str | None = None
 
 
@@ -233,6 +234,7 @@ def _execute_analysis(payload: AnalyzeRequest) -> dict[str, Any]:
 
     pdf_filename: str | None = None
     pdf_download_url: str | None = None
+    gdrive_url: str | None = None
     try:
         fname = export_filename(
             payload.ticker, payload.analysis_date, payload.selected_analysts
@@ -248,15 +250,15 @@ def _execute_analysis(payload: AnalyzeRequest) -> dict[str, Any]:
         )
         pdf_filename = out_path.name
         pdf_download_url = f"/api/exports/download/{out_path.name}"
-        _log(f"PDF export saved: {pdf_filename}")
+        _log(f"✔ PDF saved locally: {pdf_filename}")
 
         try:
-            drive_url = gdrive_upload_pdf(out_path, payload.ticker)
-            _log(f"PDF uploaded to Google Drive: {drive_url}")
+            gdrive_url = gdrive_upload_pdf(out_path, payload.ticker)
+            _log(f"✔ PDF uploaded to Google Drive: {gdrive_url}")
         except Exception as drive_exc:
-            _log(f"Google Drive upload failed (PDF still saved locally): {drive_exc}")
+            _log(f"✘ Google Drive upload failed (PDF still saved locally): {drive_exc}")
     except Exception as pdf_exc:
-        _log(f"PDF export failed: {pdf_exc}")
+        _log(f"✘ PDF export failed: {pdf_exc}")
 
     return {
         "decision": _as_text(decision),
@@ -266,6 +268,7 @@ def _execute_analysis(payload: AnalyzeRequest) -> dict[str, Any]:
         "raw_state": final_state,
         "pdf_filename": pdf_filename,
         "pdf_download_url": pdf_download_url,
+        "gdrive_url": gdrive_url,
     }
 
 
@@ -283,6 +286,7 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
                 decision=result["decision"],
                 pdf_filename=result["pdf_filename"],
                 pdf_download_url=result["pdf_download_url"],
+                gdrive_url=result["gdrive_url"],
             )
         _log(f"[Job {job_id[:8]}] Done ticker={payload.ticker}")
     except Exception as exc:

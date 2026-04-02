@@ -267,6 +267,7 @@
         <div id="jobDoneMsg" style="display:none" class="job-result-row">
           <span class="job-decision-chip"><strong>Decision:</strong> <span id="jobDecisionText">–</span></span>
           <span class="job-pdf-link" id="jobPdfLink"></span>
+          <span class="job-pdf-link" id="jobGdriveLink"></span>
         </div>
         <div id="jobFailedMsg" style="display:none">
           <p class="job-error-msg" id="jobErrorText">–</p>
@@ -549,7 +550,7 @@
 
     // ── Job banner ────────────────────────────────────────────────────────────
     function showJobBanner(jobId, ticker, status, opts = {}) {
-      const { decision, pdfFilename, pdfUrl, error, startMs } = opts;
+      const { decision, pdfFilename, pdfUrl, gdriveUrl, error, startMs } = opts;
 
       jobBanner.style.display = "";
       jobTickerLabel.textContent = ticker || "–";
@@ -576,6 +577,12 @@
             jobPdfLink.innerHTML = `PDF ready: <a href="${pdfUrl}" download="${pdfFilename}">${pdfFilename}</a>`;
           } else {
             jobPdfLink.textContent = "PDF not generated — see logs.";
+          }
+          const gdriveEl = document.getElementById("jobGdriveLink");
+          if (gdriveUrl) {
+            gdriveEl.innerHTML = `&#x2601; <a href="${gdriveUrl}" target="_blank" rel="noopener">View on Google Drive</a>`;
+          } else {
+            gdriveEl.textContent = "";
           }
         } else if (status === "failed") {
           jobFailedMsg.style.display = "";
@@ -633,6 +640,7 @@
           decision:    job.decision,
           pdfFilename: job.pdf_filename,
           pdfUrl:      job.pdf_download_url,
+          gdriveUrl:   job.gdrive_url,
           error:       job.error,
           startMs:     jobStartMs,
         });
