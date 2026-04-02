@@ -9,22 +9,31 @@ _SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 def _build_service():
+    import json
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
 
-    key_path = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON", "")
-    if not key_path:
-        raise RuntimeError("GDRIVE_SERVICE_ACCOUNT_JSON is not set")
+    # Prefer inline JSON content (safe for env vars / Render secrets)
+    json_content = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON_CONTENT", "").strip()
+    if json_content:
+        info = json.loads(json_content)
+        creds = service_account.Credentials.from_service_account_info(info, scopes=_SCOPES)
+        return build("drive", "v3", credentials=creds, cache_discovery=False)
 
+    # Fall back to file path (local dev)
+    key_path = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON", "").strip()
+    if not key_path:
+        raise RuntimeError(
+            "Set either GDRIVE_SERVICE_ACCOUNT_JSON_CONTENT (JSON text) "
+            "or GDRIVE_SERVICE_ACCOUNT_JSON (file path)"
+        )
     resolved = Path(key_path)
     if not resolved.is_absolute():
         resolved = Path(__file__).resolve().parent.parent / key_path
     if not resolved.is_file():
         raise RuntimeError(f"Service account key not found: {resolved}")
 
-    creds = service_account.Credentials.from_service_account_file(
-        str(resolved), scopes=_SCOPES
-    )
+    creds = service_account.Credentials.from_service_account_file(str(resolved), scopes=_SCOPES)
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
