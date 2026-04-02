@@ -23,6 +23,7 @@ from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 from service.pdf_export import export_filename, unique_path, write_analysis_pdf
+from service.gdrive import upload_pdf as gdrive_upload_pdf
 
 load_dotenv()
 
@@ -248,6 +249,12 @@ def _execute_analysis(payload: AnalyzeRequest) -> dict[str, Any]:
         pdf_filename = out_path.name
         pdf_download_url = f"/api/exports/download/{out_path.name}"
         _log(f"PDF export saved: {pdf_filename}")
+
+        try:
+            drive_url = gdrive_upload_pdf(out_path, payload.ticker)
+            _log(f"PDF uploaded to Google Drive: {drive_url}")
+        except Exception as drive_exc:
+            _log(f"Google Drive upload failed (PDF still saved locally): {drive_exc}")
     except Exception as pdf_exc:
         _log(f"PDF export failed: {pdf_exc}")
 

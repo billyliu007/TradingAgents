@@ -223,3 +223,6 @@ eval_results/
 
 # Generated PDF exports from the HTTP service
 exports/
+
+# Google service account credentials (never commit private keys)
+Google/
