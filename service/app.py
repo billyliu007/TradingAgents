@@ -10,14 +10,16 @@ from datetime import date
 from datetime import datetime, timezone
 from pathlib import Path
 from collections import deque
-from threading import Lock
+from threading import Lock, Event
 from typing import Any, Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from langchain_core.callbacks import BaseCallbackHandler
+import json
 
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
@@ -40,6 +42,8 @@ _executor = ThreadPoolExecutor(max_workers=3)
 _jobs: dict[str, dict] = {}
 _jobs_lock = Lock()
 MAX_JOBS_STORE = 100
+_job_websockets: dict[str, list[WebSocket]] = {}
+_ws_lock = Lock()
 
 
 def _log(message: str) -> None:
@@ -160,6 +164,7 @@ class JobStatusResponse(BaseModel):
     pdf_filename: str | None = None
     pdf_download_url: str | None = None
     gdrive_url: str | None = None
+    sections: dict[str, str] | None = None
     error: str | None = None
 
 
@@ -169,6 +174,56 @@ def _as_text(value: Any) -> str:
     if isinstance(value, str):
         return value.strip()
     return str(value).strip()
+
+
+_TOOL_LABELS: dict[str, tuple[str, str]] = {
+    "get_stock_data":           ("market",       "📈 Stock Price & Volume"),
+    "get_indicators":           ("market",       "📊 Technical Indicators"),
+    "get_fundamentals":         ("fundamentals", "🏦 Company Fundamentals"),
+    "get_balance_sheet":        ("fundamentals", "📋 Balance Sheet"),
+    "get_cashflow":             ("fundamentals", "💵 Cash Flow Statement"),
+    "get_income_statement":     ("fundamentals", "📄 Income Statement"),
+    "get_news":                 ("news",         "📰 News & Sentiment"),
+    "get_global_news":          ("news",         "🌐 Global Market News"),
+    "get_insider_transactions": ("news",         "👤 Insider Transactions"),
+}
+
+
+class DataFeedCallback(BaseCallbackHandler):
+    """LangChain callback — fires on every tool call, emits raw data events immediately."""
+
+    def __init__(self, job_id: str) -> None:
+        self.job_id = job_id
+        self._pending: dict[str, str] = {}  # run_id -> tool_name
+
+    def on_tool_start(self, serialized: dict, input_str: str, *, run_id: Any, **kwargs: Any) -> None:
+        name = (serialized or {}).get("name", "")
+        if name:
+            self._pending[str(run_id)] = name
+
+    def on_tool_end(self, output: Any, *, run_id: Any, **kwargs: Any) -> None:
+        name = self._pending.pop(str(run_id), "")
+        if not name:
+            return
+        content = str(output)[:1200] if output else ""
+        if not content:
+            return
+        analyst_key, label = _TOOL_LABELS.get(name, ("market", f"🔧 {name}"))
+        _emit_event(self.job_id, "data_fetched", {
+            "analyst": analyst_key,
+            "tool": name,
+            "label": label,
+            "preview": content,
+        })
+
+
+def _emit_event(job_id: str, event_type: str, data: dict[str, Any]) -> None:
+    """Emit event (thread-safe, appends to persistent event log)."""
+    event = {"type": event_type, "timestamp": datetime.now(timezone.utc).isoformat(), **data}
+    with _jobs_lock:
+        if job_id in _jobs:
+            _jobs[job_id]["event_log"].append(event)
+    _log(f"[Event] {event_type}: {data.get('analyst', data.get('phase', ''))}")
 
 
 def _build_report(state: dict[str, Any]) -> tuple[str, dict[str, str]]:
@@ -197,7 +252,7 @@ def _build_report(state: dict[str, Any]) -> tuple[str, dict[str, str]]:
     return combined, sections
 
 
-def _execute_analysis(payload: AnalyzeRequest) -> dict[str, Any]:
+def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None) -> dict[str, Any]:
     """Run the full analysis and return a result dict. Called by both sync and async paths."""
     _log(
         "Analyze request received "
@@ -205,6 +260,13 @@ def _execute_analysis(payload: AnalyzeRequest) -> dict[str, Any]:
         f"provider={payload.llm_provider} analysts={','.join(payload.selected_analysts)} "
         f"debate_rounds={payload.max_debate_rounds} risk_rounds={payload.max_risk_discuss_rounds}"
     )
+
+    if job_id:
+        _emit_event(job_id, "analysis_start", {
+            "ticker": payload.ticker,
+            "analysts": payload.selected_analysts,
+        })
+
     config = DEFAULT_CONFIG.copy()
     config["llm_provider"] = payload.llm_provider
     config["deep_think_llm"] = payload.deep_think_llm
@@ -218,13 +280,84 @@ def _execute_analysis(payload: AnalyzeRequest) -> dict[str, Any]:
     if payload.backend_url:
         config["backend_url"] = payload.backend_url
 
+    def state_callback(prev_state: dict | None, curr_state: dict) -> None:
+        if not job_id:
+            return
+        prev = prev_state or {}
+
+        # ── Analyst reports
+        for state_key, analyst_key, title in [
+            ("market_report",          "market",          "Market Analysis"),
+            ("sentiment_report",       "social",          "Social Sentiment"),
+            ("news_report",            "news",            "News Analysis"),
+            ("fundamentals_report",    "fundamentals",    "Fundamentals Analysis"),
+            ("trader_investment_plan", "trader",          "Trader Plan"),
+        ]:
+            if not prev.get(state_key) and curr_state.get(state_key):
+                _emit_event(job_id, "analyst_complete", {
+                    "analyst": analyst_key, "title": title,
+                    "content": _as_text(curr_state[state_key]),
+                })
+
+        # ── Bull/Bear debate messages
+        for role, hist_key in [("bull", "bull_history"), ("bear", "bear_history")]:
+            prev_hist = (prev.get("investment_debate_state") or {}).get(hist_key, "")
+            curr_hist = (curr_state.get("investment_debate_state") or {}).get(hist_key, "")
+            if curr_hist and len(curr_hist) > len(prev_hist):
+                new_text = curr_hist[len(prev_hist):].strip()
+                if new_text:
+                    _emit_event(job_id, "debate_message", {"role": role, "content": new_text})
+
+        # Research Manager decision (investment_plan)
+        if not prev.get("investment_plan") and curr_state.get("investment_plan"):
+            _emit_event(job_id, "analyst_complete", {
+                "analyst": "research_manager",
+                "title": "Research Manager Decision",
+                "content": _as_text(curr_state["investment_plan"]),
+            })
+
+        # ── Risk debate messages
+        for role, hist_key in [
+            ("aggressive",   "aggressive_history"),
+            ("conservative", "conservative_history"),
+            ("neutral",      "neutral_history"),
+        ]:
+            prev_hist = (prev.get("risk_debate_state") or {}).get(hist_key, "")
+            curr_hist = (curr_state.get("risk_debate_state") or {}).get(hist_key, "")
+            if curr_hist and len(curr_hist) > len(prev_hist):
+                new_text = curr_hist[len(prev_hist):].strip()
+                if new_text:
+                    _emit_event(job_id, "risk_message", {"role": role, "content": new_text})
+
+        # ── Portfolio Manager final decision
+        if not prev.get("final_trade_decision") and curr_state.get("final_trade_decision"):
+            _emit_event(job_id, "analyst_complete", {
+                "analyst": "portfolio",
+                "title": "Portfolio Manager Decision",
+                "content": _as_text(curr_state["final_trade_decision"]),
+            })
+
     graph = TradingAgentsGraph(
         selected_analysts=payload.selected_analysts,
         debug=payload.debug,
         config=config,
-        progress_callback=lambda msg: _log(f"Progress: {msg}"),
     )
-    final_state, decision = graph.propagate(payload.ticker, payload.analysis_date.isoformat())
+
+    callbacks = [DataFeedCallback(job_id)] if job_id else []
+
+    if job_id:
+        _emit_event(job_id, "phase_update", {"phase": "data_collection", "message": "Fetching market data..."})
+
+    final_state, decision = graph.propagate(
+        payload.ticker,
+        payload.analysis_date.isoformat(),
+        state_callback=state_callback,
+        callbacks=callbacks,
+    )
+
+    if job_id:
+        _emit_event(job_id, "phase_update", {"phase": "analysis_complete", "message": "Analysis complete"})
+
     human_report, sections = _build_report(final_state)
     _log(
         "Analyze completed "
@@ -278,7 +411,15 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
         _jobs[job_id]["status"] = "running"
     _log(f"[Job {job_id[:8]}] Starting ticker={payload.ticker}")
     try:
-        result = _execute_analysis(payload)
+        result = _execute_analysis(payload, job_id=job_id)
+
+        # Emit completion event
+        _emit_event(job_id, "job_complete", {
+            "decision": result["decision"],
+            "pdf_filename": result["pdf_filename"],
+            "pdf_download_url": result["pdf_download_url"],
+        })
+
         with _jobs_lock:
             _jobs[job_id].update(
                 status="done",
@@ -287,10 +428,12 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
                 pdf_filename=result["pdf_filename"],
                 pdf_download_url=result["pdf_download_url"],
                 gdrive_url=result["gdrive_url"],
+                sections=result.get("sections"),
             )
         _log(f"[Job {job_id[:8]}] Done ticker={payload.ticker}")
     except Exception as exc:
         _log(f"[Job {job_id[:8]}] Failed ticker={payload.ticker} error={exc}")
+        _emit_event(job_id, "job_failed", {"error": str(exc)})
         with _jobs_lock:
             _jobs[job_id].update(
                 status="failed",
@@ -421,6 +564,7 @@ def submit_job(payload: AnalyzeRequest) -> JobSubmitResponse:
             "pdf_filename": None,
             "pdf_download_url": None,
             "error": None,
+            "event_log": [],  # persistent — survives reconnects
         }
         # Trim oldest jobs if over limit
         if len(_jobs) > MAX_JOBS_STORE:
@@ -432,7 +576,7 @@ def submit_job(payload: AnalyzeRequest) -> JobSubmitResponse:
     return JobSubmitResponse(
         job_id=job_id,
         status="pending",
-        message="Job queued. Poll GET /api/jobs/{job_id} for status.",
+        message="Job queued. Connect to /ws/job/{job_id} for live results.",
     )
 
 
@@ -446,7 +590,8 @@ def get_job_status(job_id: str) -> JobStatusResponse:
             status_code=404,
             detail="Job not found. The server may have restarted — check the exports list for your PDF.",
         )
-    return JobStatusResponse(job_id=job_id, **job)
+    job_data = {k: v for k, v in job.items() if k != "event_log"}
+    return JobStatusResponse(job_id=job_id, **job_data)
 
 
 @app.get("/api/jobs")
@@ -458,12 +603,62 @@ def list_recent_jobs() -> dict[str, Any]:
     return {"jobs": [{"job_id": jid, **job} for jid, job in snapshot[:20]]}
 
 
+@app.websocket("/ws/job/{job_id}")
+async def websocket_job_stream(websocket: WebSocket, job_id: str) -> None:
+    """WebSocket stream of live analysis events for a job.
+    Uses a persistent event log so reconnects replay all prior events.
+    """
+    import asyncio
+    await websocket.accept()
+    _log(f"[WS] Client connected to job {job_id[:8]}")
+
+    with _jobs_lock:
+        if job_id not in _jobs:
+            await websocket.send_json({"type": "error", "message": "Job not found"})
+            await websocket.close()
+            return
+
+    sent_index = 0  # how many events from the log we've sent so far
+    try:
+        while True:
+            # Grab any new events since last send
+            with _jobs_lock:
+                if job_id not in _jobs:
+                    break
+                job = _jobs[job_id]
+                new_events = job["event_log"][sent_index:]
+                status = job["status"]
+
+            for event in new_events:
+                await websocket.send_json(event)
+                sent_index += 1
+
+            # If job is finished and all events sent, close cleanly
+            if status in ("done", "failed") and not new_events:
+                break
+
+            # Keep-alive ping while waiting for new events
+            try:
+                await websocket.send_json({"type": "ping"})
+            except Exception:
+                break
+
+            await asyncio.sleep(0.5)
+
+    except WebSocketDisconnect:
+        _log(f"[WS] Client disconnected from job {job_id[:8]}")
+    except Exception as exc:
+        _log(f"[WS] Error on job {job_id[:8]}: {exc}")
+    finally:
+        _log(f"[WS] Closed connection for job {job_id[:8]}")
+
+
 # ── Legacy synchronous endpoint (kept for backward compatibility) ─────────────
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
     try:
-        result = _execute_analysis(payload)
+        result = _execute_analysis(payload, job_id=None)
         return AnalyzeResponse(**result)
     except Exception as exc:
         _log(f"Analyze failed ticker={payload.ticker} error={exc}")

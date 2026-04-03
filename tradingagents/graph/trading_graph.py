@@ -240,7 +240,7 @@ class TradingAgentsGraph:
             ),
         }
 
-    def propagate(self, company_name, trade_date):
+    def propagate(self, company_name, trade_date, state_callback=None, callbacks=None):
         """Run the trading agents graph for a company on a specific date."""
 
         self.ticker = company_name
@@ -249,9 +249,9 @@ class TradingAgentsGraph:
         init_agent_state = self.propagator.create_initial_state(
             company_name, trade_date
         )
-        args = self.propagator.get_graph_args()
+        args = self.propagator.get_graph_args(callbacks=callbacks or [])
 
-        use_stream = self.debug or self.progress_callback is not None
+        use_stream = self.debug or self.progress_callback is not None or state_callback is not None
         if use_stream:
             prev_state = None
             final_state = init_agent_state
@@ -261,6 +261,9 @@ class TradingAgentsGraph:
 
                 for event in self._extract_progress_events(prev_state, chunk):
                     self._emit_progress(event)
+
+                if state_callback:
+                    state_callback(prev_state, chunk)
 
                 prev_state = chunk
                 final_state = chunk
