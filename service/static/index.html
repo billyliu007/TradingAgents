@@ -93,12 +93,15 @@
     .btn-primary { width: 100%; padding: 10px; background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: all .2s; margin-top: 4px; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,143,255,.3); }
     .btn-primary:disabled { opacity: .55; cursor: wait; }
-    .btn-clear { width: 100%; padding: 8px; background: rgba(224,82,82,.1); border: 1px solid var(--red); border-radius: 6px; color: var(--red); font-size: 11px; cursor: pointer; margin-top: 6px; display: none; }
+    .btn-stop  { width: 100%; padding: 9px; background: rgba(224,82,82,.12); border: 1px solid var(--red); border-radius: 6px; color: var(--red); font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 6px; display: none; transition: all .2s; }
+    .btn-stop:hover { background: rgba(224,82,82,.22); }
+    .btn-clear { width: 100%; padding: 8px; background: rgba(79,143,255,.08); border: 1px solid var(--border); border-radius: 6px; color: var(--txt2); font-size: 11px; cursor: pointer; margin-top: 6px; display: none; }
     .status-msg { font-size: 11px; margin-top: 6px; padding: 7px 10px; border-radius: 5px; display: none; }
     .status-msg.show { display: block; }
     .status-msg.info    { background: rgba(79,143,255,.1); color: var(--blue); }
     .status-msg.success { background: rgba(43,182,125,.1); color: var(--green); }
     .status-msg.error   { background: rgba(224,82,82,.1);  color: var(--red); }
+    .status-msg.warn    { background: rgba(224,150,42,.1);  color: var(--warn); }
 
     /* ── PROGRESS BAR ──────────────────────────────────────── */
     .progress-wrap { flex-shrink: 0; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
@@ -235,6 +238,7 @@
         <div class="advisor-grid" id="advisorGrid"></div>
 
         <button class="btn-primary" id="submitBtn" type="submit">▶ Start Research</button>
+        <button class="btn-stop"  id="stopBtn"  type="button">⏹ Stop Analysis</button>
         <button class="btn-clear" id="clearBtn" type="button">🗑 Clear &amp; Reset</button>
         <div class="status-msg" id="statusMsg"></div>
       </form>
@@ -293,20 +297,27 @@
 </div>
 
 <script>
-// ── TEAM ROSTER ─────────────────────────────────────────────────────────────
+// ── RANDOM NAME GENERATOR ────────────────────────────────────────────────────
+const _FIRST = ["James","Emma","Liam","Olivia","Noah","Sophia","Mason","Isabella","Ethan","Mia","Lucas","Charlotte","Alexander","Amelia","Henry","Harper","Sebastian","Evelyn","Jack","Abigail","Owen","Emily","Daniel","Avery","Aiden","Sofia","Logan","Chloe","Matthew","Ella","Jayden","Grace","Benjamin","Lily","Samuel","Zoe","David","Riley","Joseph","Aria","Carter","Scarlett","John","Victoria","Luke","Madison","Julian","Luna","Penelope","Caleb","Layla","Ryan","Nora","Nathan","Zoey","Aaron","Hannah","Isaiah","Lillian","Eli","Addison","Connor","Aubrey","Landon","Ellie","Adrian","Stella","Jonathan","Natalie","Nolan","Zara","Dominic","Violet","Brandon","Aurora","Colton","Savannah","Wyatt","Audrey","Hunter","Brooklyn","Dylan","Bella","Marcus","Claire"];
+const _LAST  = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez","Hernandez","Lopez","Gonzalez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin","Lee","Perez","Thompson","White","Harris","Sanchez","Clark","Ramirez","Lewis","Robinson","Walker","Young","Allen","King","Wright","Scott","Torres","Nguyen","Hill","Flores","Green","Adams","Nelson","Baker","Hall","Rivera","Campbell","Mitchell","Carter","Roberts","Patel","Kim","Chen","Wang","Tanaka","Yamamoto","Park","Choi","Gupta","Singh","Khan","Ali","Okafor","Diallo","Mensah","Osei","Russo","Ferrari","Costa","Becker","Schmidt","Fischer","Weber","Müller","Dupont","Leblanc","Bernard","Morin","Laurent","Simon","Dubois"];
+
+function _pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function _randName() { return `${_pick(_FIRST)} ${_pick(_LAST)}`; }
+
+// ── TEAM ROSTER (random names, fixed roles/avatars) ──────────────────────────
 const TEAM = {
-  market:          { name: "Alex Chen",      role: "Market Analyst",         avatar: "📊", color: "var(--blue)"   },
-  fundamentals:    { name: "Sarah Wong",     role: "Fundamentals Expert",    avatar: "📈", color: "var(--green)"  },
-  social:          { name: "Mike Torres",    role: "Sentiment Analyst",      avatar: "💬", color: "var(--gold)"   },
-  news:            { name: "Priya Patel",    role: "News Researcher",        avatar: "📰", color: "var(--warn)"   },
-  bull:            { name: "Jake Kim",       role: "Bull Researcher",        avatar: "🐂", color: "var(--green)"  },
-  bear:            { name: "Emma Davis",     role: "Bear Researcher",        avatar: "🐻", color: "var(--red)"    },
-  research_manager:{ name: "Dr. Robert Chen",role: "Research Manager",       avatar: "👔", color: "var(--purple)" },
-  trader:          { name: "Tom Zhang",      role: "Senior Trader",          avatar: "💹", color: "var(--teal)"   },
-  aggressive:      { name: "Ryan O'Brien",   role: "Risk · Aggressive",      avatar: "⚡", color: "var(--red)"    },
-  conservative:    { name: "Lisa Park",      role: "Risk · Conservative",    avatar: "🛡️", color: "var(--blue)"   },
-  neutral:         { name: "Sam Johnson",    role: "Risk · Neutral",         avatar: "⚖️", color: "var(--txt2)"   },
-  portfolio:       { name: "Victoria Chen",  role: "Portfolio Manager",      avatar: "💼", color: "var(--gold)"   },
+  market:          { name: _randName(), role: "Market Analyst",         avatar: "📊", color: "var(--blue)"   },
+  fundamentals:    { name: _randName(), role: "Fundamentals Expert",    avatar: "📈", color: "var(--green)"  },
+  social:          { name: _randName(), role: "Sentiment Analyst",      avatar: "💬", color: "var(--gold)"   },
+  news:            { name: _randName(), role: "News Researcher",        avatar: "📰", color: "var(--warn)"   },
+  bull:            { name: _randName(), role: "Bull Researcher",        avatar: "🐂", color: "var(--green)"  },
+  bear:            { name: _randName(), role: "Bear Researcher",        avatar: "🐻", color: "var(--red)"    },
+  research_manager:{ name: _randName(), role: "Research Manager",       avatar: "👔", color: "var(--purple)" },
+  trader:          { name: _randName(), role: "Senior Trader",          avatar: "💹", color: "var(--teal)"   },
+  aggressive:      { name: _randName(), role: "Risk · Aggressive",      avatar: "⚡", color: "var(--red)"    },
+  conservative:    { name: _randName(), role: "Risk · Conservative",    avatar: "🛡️", color: "var(--blue)"   },
+  neutral:         { name: _randName(), role: "Risk · Neutral",         avatar: "⚖️", color: "var(--txt2)"   },
+  portfolio:       { name: _randName(), role: "Portfolio Manager",      avatar: "💼", color: "var(--gold)"   },
 };
 
 const ADVISOR_CHOICES = ["market","fundamentals","social","news"];
@@ -314,6 +325,7 @@ const ADVISOR_CHOICES = ["market","fundamentals","social","news"];
 // ── DOM REFS ─────────────────────────────────────────────────────────────────
 const form         = document.getElementById("analyzeForm");
 const submitBtn    = document.getElementById("submitBtn");
+const stopBtn      = document.getElementById("stopBtn");
 const clearBtn     = document.getElementById("clearBtn");
 const statusMsg    = document.getElementById("statusMsg");
 const hdrStatus    = document.getElementById("hdrStatus");
@@ -326,7 +338,7 @@ const progressLabel= document.getElementById("progressLabel");
 const advisorGrid  = document.getElementById("advisorGrid");
 const overlay      = document.getElementById("overlay");
 
-const LS_JOB = "ta_job_v2";
+const LS_JOB    = "ta_job_v2";
 const LS_TICKER = "ta_ticker_v2";
 
 let ws = null;
@@ -372,6 +384,12 @@ function setProgress(pct, label) {
 
 function advanceProgress(by, label) { setProgress(progress + by, label); }
 
+function setRunningUI(running) {
+  submitBtn.disabled = running;
+  stopBtn.style.display  = running ? "block" : "none";
+  clearBtn.style.display = running ? "none"  : "block";
+}
+
 // ── CHAT HELPERS ──────────────────────────────────────────────────────────────
 function now() {
   const d = new Date();
@@ -388,11 +406,8 @@ function addSectionLabel(text) {
 
 function addChatMsg(role, content, extraLabel) {
   const m = TEAM[role] || { name: role, role: "", avatar: "🤖", color: "var(--txt2)" };
-
-  // Remove placeholder if present
   const ph = chatFeed.querySelector(".chat-placeholder");
   if (ph) ph.remove();
-
   const wrap = document.createElement("div");
   wrap.className = "chat-msg";
   wrap.innerHTML = `
@@ -409,15 +424,28 @@ function addChatMsg(role, content, extraLabel) {
   chatFeed.scrollTop = chatFeed.scrollHeight;
 }
 
+function addSystemMsg(icon, text, color) {
+  const ph = chatFeed.querySelector(".chat-placeholder");
+  if (ph) ph.remove();
+  const el = document.createElement("div");
+  el.style.cssText = `font-size:11px;color:${color || "var(--txt2)"};padding:6px 10px;border:1px solid ${color || "var(--border)"};border-radius:6px;opacity:.85;`;
+  el.textContent = `${icon}  ${text}`;
+  chatFeed.appendChild(el);
+  chatFeed.scrollTop = chatFeed.scrollHeight;
+}
+
 function escHtml(s) {
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
 // ── DATA FEED ─────────────────────────────────────────────────────────────────
-function addDataEntry(event) {
+function clearDataPlaceholder() {
   const ph = dataFeed.querySelector("div[style]");
   if (ph && ph.textContent.includes("appear here")) { dataFeed.innerHTML = ""; dataStatus.textContent = "Receiving..."; }
+}
 
+function addDataEntry(event) {
+  clearDataPlaceholder();
   const el = document.createElement("div");
   el.className = "data-entry";
   el.innerHTML = `
@@ -425,6 +453,27 @@ function addDataEntry(event) {
     <div class="data-preview">${escHtml(event.preview)}</div>`;
   dataFeed.insertBefore(el, dataFeed.firstChild);
 }
+
+function addDataError(event) {
+  clearDataPlaceholder();
+  const el = document.createElement("div");
+  el.className = "data-entry";
+  el.style.borderColor = "var(--red)";
+  el.innerHTML = `
+    <div class="data-lbl" style="color:var(--red)">⚠ ${escHtml(event.label || event.tool)}<span class="data-tag ${event.analyst}">${event.analyst}</span></div>
+    <div class="data-preview" style="color:var(--red);opacity:.8">${escHtml(event.error)}</div>`;
+  dataFeed.insertBefore(el, dataFeed.firstChild);
+}
+
+// ── STOP ANALYSIS ─────────────────────────────────────────────────────────────
+stopBtn.addEventListener("click", async () => {
+  if (!jobId) return;
+  stopBtn.disabled = true;
+  stopBtn.textContent = "Stopping...";
+  try {
+    await fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
+  } catch(e) { /* server will emit job_cancelled via WS anyway */ }
+});
 
 // ── WEBSOCKET ─────────────────────────────────────────────────────────────────
 function connectWS(jid) {
@@ -439,7 +488,7 @@ function connectWS(jid) {
     if (ev.type === "error") {
       if (ev.message === "Job not found") {
         setStatus("Previous job not found. Submit a new analysis.", "error");
-        clearSaved(); submitBtn.disabled = false; clearBtn.style.display = "block";
+        clearSaved(); setRunningUI(false);
       }
       return;
     }
@@ -447,6 +496,13 @@ function connectWS(jid) {
     if (ev.type === "data_fetched") {
       addDataEntry(ev);
       advanceProgress(2, "Fetching market data...");
+      return;
+    }
+
+    if (ev.type === "data_error") {
+      addDataError(ev);
+      // Surface the failure in the chat feed so analysts can acknowledge it
+      addSystemMsg("⚠", `Data fetch failed for ${ev.label || ev.tool}: ${ev.error}`, "var(--warn)");
       return;
     }
 
@@ -499,8 +555,18 @@ function connectWS(jid) {
         chatFeed.appendChild(btn);
         chatFeed.scrollTop = chatFeed.scrollHeight;
       }
-      submitBtn.disabled = false;
-      clearSaved();
+      setRunningUI(false); clearSaved();
+      return;
+    }
+
+    if (ev.type === "job_cancelled") {
+      setProgress(progress, "Analysis stopped");
+      hdrStatus.textContent = "Stopped"; hdrStatus.className = "hdr-status";
+      setStatus("Analysis stopped by user.", "warn");
+      addSystemMsg("⏹", "Analysis was stopped. Partial results shown above.", "var(--txt2)");
+      dataStatus.textContent = "Stopped";
+      stopBtn.disabled = false; stopBtn.textContent = "⏹ Stop Analysis";
+      setRunningUI(false); clearSaved();
       return;
     }
 
@@ -508,8 +574,7 @@ function connectWS(jid) {
       setProgress(0, "Analysis failed");
       hdrStatus.textContent = "Failed"; hdrStatus.className = "hdr-status";
       setStatus(`❌ ${ev.error}`, "error");
-      submitBtn.disabled = false; clearBtn.style.display = "block";
-      clearSaved();
+      setRunningUI(false); clearSaved();
       return;
     }
   };
@@ -537,20 +602,21 @@ form.addEventListener("submit", async e => {
   };
 
   // Reset UI
-  submitBtn.disabled = true; clearBtn.style.display = "none";
+  setRunningUI(true);
   chatFeed.innerHTML = ""; delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
   dataFeed.innerHTML = '<div style="color:var(--txt2);font-size:11px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:8px;">Raw data from providers will appear here...</div>';
   dataStatus.textContent = "Waiting...";
   progress = 0; setProgress(5, "Submitting analysis request...");
   hdrStatus.textContent = `Researching ${payload.ticker}...`; hdrStatus.className = "hdr-status running";
   setStatus("Submitting...", "info");
+  stopBtn.disabled = false; stopBtn.textContent = "⏹ Stop Analysis";
 
   try {
     const r = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!r.ok) {
       const b = await r.json();
       setStatus("Error: " + (typeof b.detail === "string" ? b.detail : JSON.stringify(b.detail)), "error");
-      submitBtn.disabled = false; return;
+      setRunningUI(false); return;
     }
     const b = await r.json();
     jobId = b.job_id;
@@ -561,7 +627,7 @@ form.addEventListener("submit", async e => {
     connectWS(jobId);
   } catch(err) {
     setStatus("Error: " + err.message, "error");
-    submitBtn.disabled = false;
+    setRunningUI(false);
   }
 });
 
@@ -571,8 +637,8 @@ function clearSaved() {
 }
 
 clearBtn.addEventListener("click", () => {
-  clearSaved(); if (ws) ws.close();
-  submitBtn.disabled = false; clearBtn.style.display = "none";
+  clearSaved(); if (ws) ws.close(); jobId = null;
+  setRunningUI(false); clearBtn.style.display = "none";
   hdrStatus.textContent = "Ready"; hdrStatus.className = "hdr-status";
   progress = 0; setProgress(0, "Waiting for analysis...");
   chatFeed.innerHTML = '<div class="chat-placeholder">Enter a ticker and press <strong>Start Research</strong><br/>to see the team\'s live discussion here.</div>';
@@ -588,7 +654,7 @@ if (savedJob) {
   jobId = savedJob;
   hdrStatus.textContent = `Resuming ${savedTicker || ""}...`; hdrStatus.className = "hdr-status running";
   setStatus("Reconnecting to previous analysis...", "info");
-  submitBtn.disabled = true; clearBtn.style.display = "block";
+  setRunningUI(true);
   setProgress(5, "Reconnecting...");
   connectWS(savedJob);
 }

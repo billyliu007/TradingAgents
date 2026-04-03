@@ -10,7 +10,7 @@ from datetime import date
 from datetime import datetime, timezone
 from pathlib import Path
 from collections import deque
-from threading import Lock, Event
+from threading import Lock, Event as ThreadEvent
 from typing import Any, Literal
 
 from dotenv import load_dotenv
@@ -156,7 +156,7 @@ class JobSubmitResponse(BaseModel):
 
 class JobStatusResponse(BaseModel):
     job_id: str
-    status: str  # pending | running | done | failed
+    status: str  # pending | running | done | failed | cancelled
     ticker: str
     created_at: str
     completed_at: str | None = None
@@ -216,6 +216,27 @@ class DataFeedCallback(BaseCallbackHandler):
             "preview": content,
         })
 
+    def on_tool_error(self, error: Any, *, run_id: Any, **kwargs: Any) -> None:
+        name = self._pending.pop(str(run_id), "")
+        error_msg = str(error)
+        analyst_key, label = _TOOL_LABELS.get(name, ("market", f"🔧 {name}"))
+        _log(f"[DataFetchError] tool={name or 'unknown'} analyst={analyst_key} error={error_msg}")
+        # Store in error_notes so it can be injected into analyst dialogue context later
+        with _jobs_lock:
+            if self.job_id in _jobs:
+                _jobs[self.job_id]["error_notes"].append({
+                    "tool": name,
+                    "analyst": analyst_key,
+                    "label": label,
+                    "error": error_msg,
+                })
+        _emit_event(self.job_id, "data_error", {
+            "analyst": analyst_key,
+            "tool": name,
+            "label": label,
+            "error": error_msg,
+        })
+
 
 def _emit_event(job_id: str, event_type: str, data: dict[str, Any]) -> None:
     """Emit event (thread-safe, appends to persistent event log)."""
@@ -252,7 +273,7 @@ def _build_report(state: dict[str, Any]) -> tuple[str, dict[str, str]]:
     return combined, sections
 
 
-def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None) -> dict[str, Any]:
+def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel_event: ThreadEvent | None = None) -> dict[str, Any]:
     """Run the full analysis and return a result dict. Called by both sync and async paths."""
     _log(
         "Analyze request received "
@@ -353,6 +374,7 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None) -> dic
         payload.analysis_date.isoformat(),
         state_callback=state_callback,
         callbacks=callbacks,
+        cancel_event=cancel_event,
     )
 
     if job_id:
@@ -409,9 +431,10 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
     """Background worker: runs analysis and updates job state."""
     with _jobs_lock:
         _jobs[job_id]["status"] = "running"
+        cancel_event = _jobs[job_id]["cancel_event"]
     _log(f"[Job {job_id[:8]}] Starting ticker={payload.ticker}")
     try:
-        result = _execute_analysis(payload, job_id=job_id)
+        result = _execute_analysis(payload, job_id=job_id, cancel_event=cancel_event)
 
         # Emit completion event
         _emit_event(job_id, "job_complete", {
@@ -431,6 +454,15 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
                 sections=result.get("sections"),
             )
         _log(f"[Job {job_id[:8]}] Done ticker={payload.ticker}")
+    except InterruptedError:
+        _log(f"[Job {job_id[:8]}] Cancelled ticker={payload.ticker}")
+        _emit_event(job_id, "job_cancelled", {})
+        with _jobs_lock:
+            _jobs[job_id].update(
+                status="cancelled",
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                error="Cancelled by user",
+            )
     except Exception as exc:
         _log(f"[Job {job_id[:8]}] Failed ticker={payload.ticker} error={exc}")
         _emit_event(job_id, "job_failed", {"error": str(exc)})
@@ -564,7 +596,9 @@ def submit_job(payload: AnalyzeRequest) -> JobSubmitResponse:
             "pdf_filename": None,
             "pdf_download_url": None,
             "error": None,
-            "event_log": [],  # persistent — survives reconnects
+            "event_log": [],      # persistent — survives reconnects
+            "error_notes": [],    # data-fetch errors for dialogue context
+            "cancel_event": ThreadEvent(),
         }
         # Trim oldest jobs if over limit
         if len(_jobs) > MAX_JOBS_STORE:
@@ -590,8 +624,22 @@ def get_job_status(job_id: str) -> JobStatusResponse:
             status_code=404,
             detail="Job not found. The server may have restarted — check the exports list for your PDF.",
         )
-    job_data = {k: v for k, v in job.items() if k != "event_log"}
+    job_data = {k: v for k, v in job.items() if k not in ("event_log", "error_notes", "cancel_event")}
     return JobStatusResponse(job_id=job_id, **job_data)
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str) -> dict[str, Any]:
+    """Signal a running job to stop at the next graph checkpoint."""
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] not in ("pending", "running"):
+        raise HTTPException(status_code=400, detail=f"Job is already {job['status']}")
+    job["cancel_event"].set()
+    _log(f"[Job {job_id[:8]}] Cancel requested")
+    return {"cancelled": True, "job_id": job_id}
 
 
 @app.get("/api/jobs")
@@ -634,7 +682,7 @@ async def websocket_job_stream(websocket: WebSocket, job_id: str) -> None:
                 sent_index += 1
 
             # If job is finished and all events sent, close cleanly
-            if status in ("done", "failed") and not new_events:
+            if status in ("done", "failed", "cancelled") and not new_events:
                 break
 
             # Keep-alive ping while waiting for new events

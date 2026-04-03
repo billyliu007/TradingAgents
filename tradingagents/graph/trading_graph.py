@@ -240,7 +240,7 @@ class TradingAgentsGraph:
             ),
         }
 
-    def propagate(self, company_name, trade_date, state_callback=None, callbacks=None):
+    def propagate(self, company_name, trade_date, state_callback=None, callbacks=None, cancel_event=None):
         """Run the trading agents graph for a company on a specific date."""
 
         self.ticker = company_name
@@ -251,11 +251,14 @@ class TradingAgentsGraph:
         )
         args = self.propagator.get_graph_args(callbacks=callbacks or [])
 
-        use_stream = self.debug or self.progress_callback is not None or state_callback is not None
+        use_stream = self.debug or self.progress_callback is not None or state_callback is not None or cancel_event is not None
         if use_stream:
             prev_state = None
             final_state = init_agent_state
             for chunk in self.graph.stream(init_agent_state, **args):
+                if cancel_event and cancel_event.is_set():
+                    raise InterruptedError("Analysis cancelled by user")
+
                 if self.debug and "messages" in chunk and len(chunk["messages"]) > 0:
                     chunk["messages"][-1].pretty_print()
 
