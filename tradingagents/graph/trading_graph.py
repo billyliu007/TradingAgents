@@ -191,16 +191,46 @@ class TradingAgentsGraph:
             thinking_level = self.config.get("google_thinking_level")
             if thinking_level:
                 kwargs["thinking_level"] = thinking_level
+            # Google uses 'google_api_key' parameter
+            api_key = self.config.get("google_api_key")
+            if api_key:
+                kwargs["google_api_key"] = api_key
 
         elif provider == "openai":
             reasoning_effort = self.config.get("openai_reasoning_effort")
             if reasoning_effort:
                 kwargs["reasoning_effort"] = reasoning_effort
+            # OpenAI uses 'api_key' parameter
+            api_key = self.config.get("openai_api_key")
+            if api_key:
+                kwargs["api_key"] = api_key
 
         elif provider == "anthropic":
             effort = self.config.get("anthropic_effort")
             if effort:
                 kwargs["effort"] = effort
+            # Anthropic uses 'api_key' parameter
+            api_key = self.config.get("anthropic_api_key")
+            if api_key:
+                kwargs["api_key"] = api_key
+
+        elif provider == "xai":
+            # xAI uses 'api_key' parameter (via OpenAI client)
+            api_key = self.config.get("xai_api_key")
+            if api_key:
+                kwargs["api_key"] = api_key
+
+        elif provider == "openrouter":
+            # OpenRouter uses 'api_key' parameter (via OpenAI client)
+            api_key = self.config.get("openrouter_api_key")
+            if api_key:
+                kwargs["api_key"] = api_key
+
+        elif provider == "ollama":
+            # Ollama typically doesn't need an API key, but support it if provided
+            api_key = self.config.get("openai_api_key")
+            if api_key:
+                kwargs["api_key"] = api_key
 
         return kwargs
 

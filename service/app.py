@@ -136,6 +136,12 @@ class AnalyzeRequest(BaseModel):
     openai_reasoning_effort: str | None = None
     anthropic_effort: str | None = None
     debug: bool = False
+    # Optional API keys — override .env configuration if provided
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+    google_api_key: str | None = None
+    xai_api_key: str | None = None
+    openrouter_api_key: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -299,6 +305,18 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
 
     if payload.backend_url:
         config["backend_url"] = payload.backend_url
+
+    # Add API key override from request if provided (overrides .env)
+    api_key_fields = {
+        "openai_api_key": payload.openai_api_key,
+        "anthropic_api_key": payload.anthropic_api_key,
+        "google_api_key": payload.google_api_key,
+        "xai_api_key": payload.xai_api_key,
+        "openrouter_api_key": payload.openrouter_api_key,
+    }
+    for key, value in api_key_fields.items():
+        if value:
+            config[key] = value
 
     def state_callback(prev_state: dict | None, curr_state: dict) -> None:
         if not job_id:
