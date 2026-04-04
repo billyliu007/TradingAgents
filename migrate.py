@@ -20,6 +20,11 @@ if not db_url:
     print("DATABASE_URL not set — skipping DB migration.")
     sys.exit(0)
 
+# Neon pooler URLs include channel_binding=require which older psycopg2
+# versions don't recognise — strip it so the connection doesn't fail.
+import re as _re
+db_url = _re.sub(r"[?&]channel_binding=[^&]*", "", db_url)
+
 try:
     import psycopg2
 except ImportError:

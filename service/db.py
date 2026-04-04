@@ -47,6 +47,10 @@ def _get_pool() -> Any:
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
         return None
+    # Strip channel_binding=require — Neon pooler URLs include it but older
+    # psycopg2 versions don't recognise the parameter and raise on connect.
+    import re as _re
+    db_url = _re.sub(r"[?&]channel_binding=[^&]*", "", db_url)
     try:
         _pool = psycopg2.pool.ThreadedConnectionPool(1, 10, db_url)
         logger.info("DB connection pool created")
