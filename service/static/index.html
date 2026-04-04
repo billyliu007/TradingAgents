@@ -176,7 +176,10 @@
       background: rgba(0,0,0,.25); border: 1px solid var(--border); border-radius: 8px;
       padding: 8px 10px; animation: fadeUp .3s ease-out; font-size: 11px;
     }
-    .data-lbl { font-weight: 700; color: var(--txt); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .data-lbl { font-weight: 700; color: var(--txt); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .data-lbl:hover { color: var(--blue); }
+    .data-fold-arrow { font-size: 9px; color: var(--txt2); transition: transform .2s; flex-shrink: 0; }
+    .data-entry.collapsed .data-fold-arrow { transform: rotate(-90deg); }
     .data-tag { font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: 600; margin-left: auto; }
     .data-tag.market       { background: rgba(79,143,255,.15); color: var(--blue); }
     .data-tag.fundamentals { background: rgba(43,182,125,.15); color: var(--green); }
@@ -187,6 +190,8 @@
       white-space: pre-wrap; word-break: break-all; max-height: 100px; overflow-y: auto;
       border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; line-height: 1.4;
     }
+    .data-entry.collapsed .data-preview { display: none; }
+    .data-entry.collapsed { padding-bottom: 8px; }
 
     /* ── DOWNLOAD BUTTON ───────────────────────────────────── */
     .dl-btn {
@@ -1069,25 +1074,28 @@ function clearDataPlaceholder() {
   if (ph && ph.textContent.includes("appear here")) { dataFeed.innerHTML = ""; dataStatus.textContent = t("data_receiving"); }
 }
 
+function makeDataEntry(labelHtml, previewHtml, extraStyle) {
+  const el = document.createElement("div");
+  el.className = "data-entry collapsed";
+  if (extraStyle) Object.assign(el.style, extraStyle);
+  el.innerHTML = `
+    <div class="data-lbl"><span class="data-fold-arrow">▼</span>${labelHtml}</div>
+    <div class="data-preview">${previewHtml}</div>`;
+  el.querySelector(".data-lbl").addEventListener("click", () => el.classList.toggle("collapsed"));
+  return el;
+}
+
 function addDataEntry(event) {
   clearDataPlaceholder();
-  const el = document.createElement("div");
-  el.className = "data-entry";
-  el.innerHTML = `
-    <div class="data-lbl">${escHtml(event.label)}<span class="data-tag ${event.analyst}">${event.analyst}</span></div>
-    <div class="data-preview">${escHtml(event.preview)}</div>`;
-  dataFeed.insertBefore(el, dataFeed.firstChild);
+  const labelHtml = `${escHtml(event.label)}<span class="data-tag ${event.analyst}">${event.analyst}</span>`;
+  dataFeed.insertBefore(makeDataEntry(labelHtml, escHtml(event.preview)), dataFeed.firstChild);
 }
 
 function addDataError(event) {
   clearDataPlaceholder();
-  const el = document.createElement("div");
-  el.className = "data-entry";
-  el.style.borderColor = "var(--red)";
-  el.innerHTML = `
-    <div class="data-lbl" style="color:var(--red)">⚠ ${escHtml(event.label || event.tool)}<span class="data-tag ${event.analyst}">${event.analyst}</span></div>
-    <div class="data-preview" style="color:var(--red);opacity:.8">${escHtml(event.error)}</div>`;
-  dataFeed.insertBefore(el, dataFeed.firstChild);
+  const labelHtml = `<span style="color:var(--red)">⚠ ${escHtml(event.label || event.tool)}</span><span class="data-tag ${event.analyst}">${event.analyst}</span>`;
+  const previewHtml = `<span style="color:var(--red);opacity:.8">${escHtml(event.error)}</span>`;
+  dataFeed.insertBefore(makeDataEntry(labelHtml, previewHtml, { borderColor: "var(--red)" }), dataFeed.firstChild);
 }
 
 // ── STOP ANALYSIS ─────────────────────────────────────────────────────────────
