@@ -496,6 +496,62 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
     }
 
 
+def _cache_lookup(payload: AnalyzeRequest, label: str = "") -> dict[str, Any] | None:
+    """Check the DB cache for a previous analysis with identical parameters.
+
+    Returns the cached result dict on hit, or None on miss / DB unavailable.
+    The cache key is (ticker, analysis_date, selected_analysts sorted, language)
+    so results are shared across all users and sessions automatically.
+    """
+    prefix = f"[{label}] " if label else ""
+    try:
+        cached = db.get_cached_analysis(
+            payload.ticker,
+            payload.analysis_date,
+            list(payload.selected_analysts),
+            language=payload.language,
+        )
+    except Exception as exc:
+        _log(f"{prefix}DB lookup error (skipping cache): {exc}")
+        return None
+
+    if cached is None:
+        _log(
+            f"{prefix}Cache miss — ticker={payload.ticker} "
+            f"date={payload.analysis_date} lang={payload.language} "
+            f"analysts={sorted(payload.selected_analysts)}"
+        )
+    return cached
+
+
+def _cache_save(payload: AnalyzeRequest, result: dict[str, Any],
+                events: list[dict[str, Any]], label: str = "") -> None:
+    """Persist an analysis result to the DB cache (non-fatal on error)."""
+    prefix = f"[{label}] " if label else ""
+    try:
+        pdf_name = result.get("pdf_filename")
+        if not pdf_name and result.get("pdf_filenames"):
+            pdf_name = result["pdf_filenames"][0]
+        pdf_path = str(_exports_dir() / pdf_name) if pdf_name else None
+        if db.save_analysis(
+            payload.ticker,
+            payload.analysis_date,
+            list(payload.selected_analysts),
+            result,
+            events,
+            pdf_path,
+            language=payload.language,
+        ):
+            _log(f"{prefix}Saved to DB cache ticker={payload.ticker}")
+        else:
+            _log(
+                f"{prefix}DB cache not used — set DATABASE_URL "
+                "and ensure psycopg2 is installed"
+            )
+    except Exception as db_exc:
+        _log(f"{prefix}DB save failed (non-fatal): {db_exc}")
+
+
 def _replay_cached_job(job_id: str, payload: AnalyzeRequest, cached: dict[str, Any]) -> None:
     """Replay a cached analysis: write PDF if needed, then push all stored events."""
     _log(f"[Job {job_id[:8]}] Cache hit — replaying ticker={payload.ticker}")
@@ -575,23 +631,8 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
         cancel_event = _jobs[job_id]["cancel_event"]
     _log(f"[Job {job_id[:8]}] Starting ticker={payload.ticker}")
 
-    # ── Cache lookup ────────────────────────────────────────────────────────
-    try:
-        cached = db.get_cached_analysis(
-            payload.ticker, payload.analysis_date, list(payload.selected_analysts),
-            language=payload.language,
-        )
-    except Exception as exc:
-        _log(f"[Job {job_id[:8]}] DB lookup error (continuing without cache): {exc}")
-        cached = None
-
-    if cached is None:
-        _log(
-            f"[Job {job_id[:8]}] Cache miss — ticker={payload.ticker} "
-            f"date={payload.analysis_date} lang={payload.language} "
-            f"analysts={sorted(payload.selected_analysts)}"
-        )
-
+    # ── Cache lookup (global: same ticker/date/analysts/lang = same result) ──
+    cached = _cache_lookup(payload, label=job_id[:8])
     if cached is not None:
         try:
             _replay_cached_job(job_id, payload, cached)
@@ -628,31 +669,7 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
             events_snapshot = list(_jobs[job_id]["event_log"])
         _log(f"[Job {job_id[:8]}] Done ticker={payload.ticker}")
 
-        # ── Persist to DB cache ─────────────────────────────────────────────
-        try:
-            pdf_path: str | None = None
-            pdf_name = result.get("pdf_filename")
-            if not pdf_name and result.get("pdf_filenames"):
-                pdf_name = result["pdf_filenames"][0]
-            if pdf_name:
-                pdf_path = str(_exports_dir() / pdf_name)
-            if db.save_analysis(
-                payload.ticker,
-                payload.analysis_date,
-                list(payload.selected_analysts),
-                result,
-                events_snapshot,
-                pdf_path,
-                language=payload.language,
-            ):
-                _log(f"[Job {job_id[:8]}] Saved to DB cache")
-            else:
-                _log(
-                    f"[Job {job_id[:8]}] DB cache not used — set DATABASE_URL "
-                    "and ensure psycopg2 is installed (pip install psycopg2-binary)"
-                )
-        except Exception as db_exc:
-            _log(f"[Job {job_id[:8]}] DB save failed (non-fatal): {db_exc}")
+        _cache_save(payload, result, events_snapshot, label=job_id[:8])
 
     except InterruptedError:
         _log(f"[Job {job_id[:8]}] Cancelled ticker={payload.ticker}")
@@ -926,8 +943,23 @@ async def websocket_job_stream(websocket: WebSocket, job_id: str) -> None:
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
+    # Always check DB cache first — same key as the async job path so results
+    # are shared across all users, sessions, and entry points.
+    cached = _cache_lookup(payload, label="sync")
+    if cached is not None:
+        _log(f"[sync] Cache hit ticker={payload.ticker} lang={payload.language}")
+        return AnalyzeResponse(
+            decision=cached["decision"],
+            final_trade_decision=cached.get("final_trade_decision", ""),
+            human_readable_report=cached.get("human_readable_report", ""),
+            sections=cached.get("sections") or {},
+            raw_state={},
+            pdf_filenames=None,
+            pdf_download_urls=None,
+        )
     try:
         result = _execute_analysis(payload, job_id=None)
+        _cache_save(payload, result, [], label="sync")
         return AnalyzeResponse(**result)
     except Exception as exc:
         _log(f"Analyze failed ticker={payload.ticker} error={exc}")
