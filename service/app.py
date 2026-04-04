@@ -404,27 +404,36 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
         cancel_event=cancel_event,
     )
 
-    # If language is not English, also run analysis in English for the EN PDF
+    # For non-English runs we also need English content for the bilingual PDF.
+    # Check the DB cache first — the English result may already exist from a
+    # previous run (or from a prior zh analysis that cached it).  Only if
+    # there is no cached English result do we run a second LLM pass.
     if payload.language != "en":
-        if job_id:
-            _emit_event(job_id, "phase_update", {"phase": "translation", "message": "Generating English analysis..."})
+        payload_en = payload.model_copy(update={"language": "en"})
+        cached_en = _cache_lookup(payload_en, label="EN-for-bilingual")
 
-        config_en = config.copy()
-        graph_en = TradingAgentsGraph(
-            selected_analysts=payload.selected_analysts,
-            debug=payload.debug,
-            config=config_en,
-            language="en",
-        )
+        if cached_en:
+            _log(f"[Job {job_id[:8] if job_id else '?'}] English result already cached — skipping second LLM run")
+            final_state_en = cached_en.get("raw_state") or {}
+            decision_en = cached_en.get("decision", "")
+        else:
+            if job_id:
+                _emit_event(job_id, "phase_update", {"phase": "translation", "message": "Generating English analysis..."})
 
-        # Run English analysis (without state callback to avoid duplicate events)
-        final_state_en, decision_en = graph_en.propagate(
-            payload.ticker,
-            payload.analysis_date.isoformat(),
-            state_callback=None,  # Don't emit events for English analysis
-            callbacks=callbacks,
-            cancel_event=cancel_event,
-        )
+            config_en = config.copy()
+            graph_en = TradingAgentsGraph(
+                selected_analysts=payload.selected_analysts,
+                debug=payload.debug,
+                config=config_en,
+                language="en",
+            )
+            final_state_en, decision_en = graph_en.propagate(
+                payload.ticker,
+                payload.analysis_date.isoformat(),
+                state_callback=None,
+                callbacks=callbacks,
+                cancel_event=cancel_event,
+            )
     else:
         final_state_en = final_state_requested
         decision_en = decision_requested
@@ -485,7 +494,7 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
         _log(f"✘ PDF export failed: {pdf_exc}")
 
     primary_pdf = pdf_filenames[0] if pdf_filenames else None
-    return {
+    result: dict[str, Any] = {
         "decision": _as_text(decision_requested),
         "final_trade_decision": _as_text(final_state_requested.get("final_trade_decision")),
         "human_readable_report": human_report,
@@ -495,6 +504,12 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
         "pdf_filenames": pdf_filenames if pdf_filenames else None,
         "pdf_download_urls": pdf_download_urls if pdf_download_urls else None,
     }
+    # Stash English state so the caller can cache it under language="en"
+    if payload.language != "en":
+        result["decision_en"] = _as_text(decision_en)
+        result["raw_state_en"] = final_state_en
+        result["human_readable_report_en"] = _build_report(final_state_en)[0]
+    return result
 
 
 def _cache_lookup(payload: AnalyzeRequest, label: str = "") -> dict[str, Any] | None:
@@ -670,7 +685,23 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
             events_snapshot = list(_jobs[job_id]["event_log"])
         _log(f"[Job {job_id[:8]}] Done ticker={payload.ticker}")
 
+        # Save result for the requested language
         _cache_save(payload, result, events_snapshot, label=job_id[:8])
+
+        # When a non-English analysis is run, also cache the English result so
+        # that English users can reuse it without a second LLM call.
+        if payload.language != "en" and result.get("raw_state_en") is not None:
+            try:
+                payload_en = payload.model_copy(update={"language": "en"})
+                result_en = {
+                    **result,
+                    "decision": result.get("decision_en", result["decision"]),
+                    "raw_state": result.get("raw_state_en", {}),
+                    "human_readable_report": result.get("human_readable_report_en", result["human_readable_report"]),
+                }
+                _cache_save(payload_en, result_en, events_snapshot, label=f"{job_id[:8]}-EN")
+            except Exception as _ce:
+                _log(f"[Job {job_id[:8]}] Non-fatal: could not cache English result: {_ce}")
 
     except InterruptedError:
         _log(f"[Job {job_id[:8]}] Cancelled ticker={payload.ticker}")

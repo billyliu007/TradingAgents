@@ -45,15 +45,46 @@ def _register_font(pdf: FPDF) -> str:
     return "Helvetica"
 
 
+# Common paths where a CJK-capable font may be found (bundled first, then system).
+_CJK_FONT_CANDIDATES = [
+    _FONT_DIR / "WQY-ZenHei.ttc",          # bundled in repo (preferred)
+    _FONT_DIR / "NotoSansSC-Regular.ttf",
+    Path("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"),
+    Path("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
+    Path("/System/Library/Fonts/PingFang.ttc"),          # macOS
+    Path("/System/Library/Fonts/STHeiti Light.ttc"),     # macOS
+]
+
+
+def _register_cjk_font(pdf: FPDF) -> str:
+    """Register and return a CJK-capable font family name.
+
+    Tries bundled WQY-ZenHei first, then common system paths.
+    Raises RuntimeError if no CJK font can be found.
+    """
+    for candidate in _CJK_FONT_CANDIDATES:
+        if candidate.is_file():
+            try:
+                pdf.add_font("CJK", "", str(candidate))
+                pdf.add_font("CJK", "B", str(candidate))
+                return "CJK"
+            except Exception:
+                continue
+    raise RuntimeError(
+        "No CJK font found for Chinese PDF export. "
+        "Ensure service/fonts/WQY-ZenHei.ttc is present "
+        "(it is bundled in the repository)."
+    )
+
+
+def _require_cjk(pdf: FPDF) -> str:
+    """CJK font required for Chinese / bilingual PDFs."""
+    return _register_cjk_font(pdf)
+
+
 def _require_dejavu(pdf: FPDF) -> str:
-    """DejaVu is required for Chinese and bilingual PDFs (Helvetica shows garbage)."""
-    family = _register_font(pdf)
-    if family != "DejaVu":
-        raise RuntimeError(
-            "Chinese PDF export needs DejaVu fonts. Add DejaVuSans.ttf and "
-            "DejaVuSans-Bold.ttf under service/fonts/ (see service/fonts/README.txt)."
-        )
-    return family
+    """Alias kept for compatibility — now delegates to _require_cjk."""
+    return _require_cjk(pdf)
 
 
 def _write_body(pdf: FPDF, family: str, text: str, usable_w: float, line_h: float) -> None:
