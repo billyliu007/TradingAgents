@@ -39,6 +39,24 @@ def get_global_news(
     return route_to_vendor("get_global_news", curr_date, look_back_days, limit)
 
 @tool
+def get_sentiment_news(
+    ticker: Annotated[str, "Ticker symbol"],
+    start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
+    end_date: Annotated[str, "End date in yyyy-mm-dd format"],
+) -> str:
+    """
+    Retrieve news articles to assess market sentiment for a given ticker.
+    Args:
+        ticker (str): Ticker symbol
+        start_date (str): Start date in yyyy-mm-dd format
+        end_date (str): End date in yyyy-mm-dd format
+    Returns:
+        str: A formatted string containing news data for sentiment analysis
+    """
+    return route_to_vendor("get_news", ticker, start_date, end_date)
+
+
+@tool
 def get_insider_transactions(
     ticker: Annotated[str, "ticker symbol"],
 ) -> str:

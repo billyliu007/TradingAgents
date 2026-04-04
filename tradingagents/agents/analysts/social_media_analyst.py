@@ -1,7 +1,7 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import time
 import json
-from tradingagents.agents.utils.agent_utils import build_instrument_context, get_news
+from tradingagents.agents.utils.agent_utils import build_instrument_context, get_sentiment_news
 from tradingagents.prompts import get_social_media_analyst_prompt, get_analyst_system_message
 from tradingagents.dataflows.config import get_config
 
@@ -12,7 +12,7 @@ def create_social_media_analyst(llm, language: str = "en"):
         instrument_context = build_instrument_context(state["company_of_interest"])
 
         tools = [
-            get_news,
+            get_sentiment_news,
         ]
 
         system_message = get_social_media_analyst_prompt(language)

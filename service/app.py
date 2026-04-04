@@ -197,7 +197,8 @@ _TOOL_LABELS: dict[str, tuple[str, str]] = {
     "get_income_statement":     ("fundamentals", "📄 Income Statement"),
     "get_news":                 ("news",         "📰 News & Sentiment"),
     "get_global_news":          ("news",         "🌐 Global Market News"),
-    "get_insider_transactions": ("news",         "👤 Insider Transactions"),
+    "get_sentiment_news":       ("social",       "💬 Sentiment News"),         # called by social analyst
+    "get_insider_transactions": ("fundamentals", "👤 Insider Transactions"),   # called by fundamentals analyst
 }
 
 
