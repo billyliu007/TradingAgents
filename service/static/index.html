@@ -131,6 +131,8 @@
       display: none;
     }
     .new-msgs-pill.show { display: block; }
+    /* On mobile, raise pill above the fixed tab bar (56px) */
+    @media (max-width: 767px) { .new-msgs-pill { bottom: 70px; } }
 
     /* ── SUBMIT BTN ────────────────────────────────────────── */
     .btn-primary { width: 100%; padding: 10px; background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: all .2s; margin-top: 4px; }
@@ -416,6 +418,7 @@
         padding-bottom: env(safe-area-inset-bottom, 0px);
       }
       .mobile-tab-btn {
+        position: relative;
         flex: 1;
         display: flex;
         flex-direction: column;
@@ -657,6 +660,8 @@ const TRANSLATIONS = {
     "hdr_complete": "Complete",
     "hdr_stopped": "Stopped",
     "hdr_failed": "Failed",
+    "hdr_researching": "Researching",
+    "hdr_resuming": "Resuming",
     "settings": "Settings",
 
     // Form Labels
@@ -770,6 +775,8 @@ const TRANSLATIONS = {
     "hdr_complete": "完成",
     "hdr_stopped": "已停止",
     "hdr_failed": "失败",
+    "hdr_researching": "研究中",
+    "hdr_resuming": "恢复中",
     "settings": "设置",
 
     // Form Labels
@@ -1318,8 +1325,9 @@ function connectWS(jid, isReconnect) {
         trader: t("trader_complete"),
         portfolio: t("portfolio_complete"),
       };
-      addChatMsg(ev.analyst, ev.content, ev.title);
-      advanceProgress(12, roleLabels[ev.analyst] || "Analysis progressing...");
+      // Use translated label; fall back to server title only if no translation exists
+      addChatMsg(ev.analyst, ev.content, roleLabels[ev.analyst] || ev.title);
+      advanceProgress(12, roleLabels[ev.analyst] || ev.title || "Analysis progressing...");
       return;
     }
 
