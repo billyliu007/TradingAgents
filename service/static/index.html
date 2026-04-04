@@ -58,7 +58,7 @@
       overflow: hidden;
     }
     @media (max-width: 1200px) { .layout { grid-template-columns: 280px 1fr; } .data-col { display: none; } }
-    @media (max-width: 900px)  { .layout { grid-template-columns: 1fr; } .left-col { display: none; } }
+    @media (max-width: 900px) and (min-width: 768px)  { .layout { grid-template-columns: 1fr; } .left-col { display: none; } }
 
     /* ── COLUMNS ───────────────────────────────────────────── */
     .left-col  { border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
@@ -209,6 +209,122 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--blue); }
+
+    /* ── MOBILE TAB BAR (hidden on desktop) ───────────────── */
+    .mobile-tabs { display: none; }
+
+    /* ── MOBILE (≤767px) ───────────────────────────────────── */
+    @media (max-width: 767px) {
+      body { height: 100dvh; }
+
+      header { padding: 10px 14px; gap: 8px; }
+      .logo { font-size: 14px; }
+      .hdr-status { font-size: 10px; padding: 3px 8px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .layout { grid-template-columns: 1fr !important; }
+
+      /* All columns hidden by default; JS activates one at a time */
+      .left-col, .mid-col, .data-col {
+        display: none !important;
+        width: 100%;
+        border: none !important;
+      }
+      .left-col.mobile-active,
+      .mid-col.mobile-active,
+      .data-col.mobile-active { display: flex !important; }
+
+      /* Scrollable side panels */
+      .left-col { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 14px 72px; }
+      .data-col  { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px 72px; }
+
+      /* Chat panel — inner scroll stays in chat-feed */
+      .mid-col  { overflow: hidden; }
+      .chat-feed { padding-bottom: 72px; }
+
+      /* Larger touch targets for form elements */
+      input, select { font-size: 16px !important; padding: 11px 12px; min-height: 44px; }
+      .form-group label { font-size: 13px; }
+      .section-title { font-size: 11px; }
+      .status-msg { font-size: 13px; padding: 9px 12px; }
+
+      /* Advisor grid */
+      .advisor-grid { gap: 8px; }
+      .adv-btn { padding: 14px 8px; min-height: 72px; }
+      .adv-emoji { font-size: 26px; }
+      .adv-name { font-size: 11px; white-space: normal; text-align: center; }
+      .adv-role { font-size: 10px; white-space: normal; text-align: center; }
+
+      /* Buttons */
+      .btn-primary { padding: 14px; font-size: 14px; min-height: 50px; margin-top: 8px; }
+      .btn-stop    { padding: 13px; font-size: 13px; min-height: 46px; }
+      .btn-clear   { padding: 11px; font-size: 12px; min-height: 44px; }
+
+      /* Chat messages */
+      .chat-bubble { max-height: none; font-size: 13px; line-height: 1.65; padding: 11px 13px; }
+      .chat-avatar { width: 34px; height: 34px; font-size: 15px; }
+      .chat-name   { font-size: 13px; }
+      .chat-role   { font-size: 11px; }
+      .chat-time   { font-size: 10px; }
+      .chat-feed   { gap: 16px; padding-top: 14px; }
+
+      /* Progress bar */
+      .progress-wrap  { padding: 10px 14px; }
+      .progress-label { font-size: 12px; }
+      .progress-pct   { font-size: 12px; }
+
+      /* Data feed */
+      .data-entry   { padding: 10px 12px; }
+      .data-lbl     { font-size: 12px; }
+      .data-preview { max-height: none; font-size: 11px; }
+      .data-col-title { font-size: 11px; margin-bottom: 8px; }
+
+      /* Settings panel — full width on mobile */
+      .settings-panel { width: 100%; border-left: none; }
+
+      /* ── MOBILE TAB BAR ──────────────────────────────────── */
+      .mobile-tabs {
+        display: flex;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: var(--bg-card);
+        border-top: 1px solid var(--border);
+        z-index: 50;
+        height: 56px;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      .mobile-tab-btn {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        background: none;
+        border: none;
+        color: var(--txt2);
+        cursor: pointer;
+        font-family: inherit;
+        padding: 6px 4px;
+        transition: color .2s;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+      .mobile-tab-btn .tab-icon  { font-size: 20px; line-height: 1; }
+      .mobile-tab-btn .tab-label { font-size: 10px; font-weight: 600; letter-spacing: .02em; }
+      .mobile-tab-btn.active       { color: var(--blue); }
+      .mobile-tab-btn.active .tab-icon { filter: drop-shadow(0 0 5px rgba(79,143,255,.55)); }
+
+      /* Notification badge on tab */
+      .mobile-tab-btn .tab-badge {
+        position: absolute;
+        top: 6px; right: calc(50% - 18px);
+        width: 8px; height: 8px;
+        background: var(--red);
+        border-radius: 50%;
+        display: none;
+      }
+      .mobile-tab-btn.has-badge .tab-badge { display: block; }
+    }
   </style>
 </head>
 <body>
@@ -246,7 +362,7 @@
   </aside>
 
   <!-- ── MID: CHAT FEED ─────────────────────────────────── -->
-  <section class="mid-col">
+  <section class="mid-col mobile-active">
     <div class="progress-wrap">
       <div class="progress-header">
         <span class="progress-label" id="progressLabel">Waiting for analysis...</span>
@@ -267,6 +383,24 @@
     </div>
   </aside>
 </div>
+
+<!-- ── MOBILE TAB BAR ───────────────────────────────────── -->
+<nav class="mobile-tabs" id="mobileTabs" aria-label="Main navigation">
+  <button class="mobile-tab-btn" id="tabForm" data-panel="left-col" aria-label="Setup form">
+    <span class="tab-icon">📋</span>
+    <span class="tab-label">Setup</span>
+  </button>
+  <button class="mobile-tab-btn active" id="tabChat" data-panel="mid-col" aria-label="Research chat">
+    <span class="tab-icon">💬</span>
+    <span class="tab-label">Research</span>
+    <span class="tab-badge"></span>
+  </button>
+  <button class="mobile-tab-btn" id="tabData" data-panel="data-col" aria-label="Live data feed">
+    <span class="tab-icon">⚡</span>
+    <span class="tab-label">Data</span>
+    <span class="tab-badge"></span>
+  </button>
+</nav>
 
 <!-- ── SETTINGS OVERLAY ─────────────────────────────────── -->
 <div class="overlay" id="overlay">
@@ -658,6 +792,67 @@ if (savedJob) {
   setProgress(5, "Reconnecting...");
   connectWS(savedJob);
 }
+
+// ── MOBILE TAB NAVIGATION ─────────────────────────────────────────────────────
+(function() {
+  const MOBILE_BP  = 767;
+  const tabBtns    = document.querySelectorAll(".mobile-tab-btn");
+  const leftCol    = document.querySelector(".left-col");
+  const midCol     = document.querySelector(".mid-col");
+  const dataCol    = document.querySelector(".data-col");
+  const panelMap   = { "left-col": leftCol, "mid-col": midCol, "data-col": dataCol };
+
+  function isMobile() { return window.innerWidth <= MOBILE_BP; }
+
+  function activateTab(panelClass, silent) {
+    if (!isMobile()) return;
+    // Swap panel visibility
+    Object.values(panelMap).forEach(p => { if (p) p.classList.remove("mobile-active"); });
+    if (panelMap[panelClass]) panelMap[panelClass].classList.add("mobile-active");
+    // Swap active tab button
+    tabBtns.forEach(b => {
+      b.classList.remove("active");
+      if (b.dataset.panel === panelClass) {
+        b.classList.add("active");
+        // Clear badge when user navigates to that tab
+        if (!silent) b.classList.remove("has-badge");
+      }
+    });
+  }
+
+  function badgeTab(panelClass) {
+    if (!isMobile()) return;
+    tabBtns.forEach(b => {
+      if (b.dataset.panel === panelClass && !b.classList.contains("active"))
+        b.classList.add("has-badge");
+    });
+  }
+
+  function onResize() {
+    if (!isMobile()) {
+      // Restore all panels on desktop
+      [leftCol, midCol, dataCol].forEach(p => { if (p) p.classList.remove("mobile-active"); });
+    } else {
+      // Ensure exactly one panel active on mobile
+      const anyActive = [...Object.values(panelMap)].some(p => p && p.classList.contains("mobile-active"));
+      if (!anyActive) activateTab("mid-col");
+    }
+  }
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener("click", () => activateTab(btn.dataset.panel));
+  });
+
+  window.addEventListener("resize", onResize);
+  onResize();
+
+  // Auto-switch to Research tab when analysis starts
+  form.addEventListener("submit", () => { setTimeout(() => activateTab("mid-col"), 50); }, true);
+
+  // Badge inactive tabs when new content arrives in their feeds
+  new MutationObserver(() => badgeTab("data-col")).observe(dataFeed, { childList: true });
+  new MutationObserver(() => badgeTab("mid-col")).observe(chatFeed,  { childList: true });
+})();
 </script>
 </body>
 </html>
