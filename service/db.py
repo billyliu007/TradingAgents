@@ -110,15 +110,22 @@ def init_db() -> None:
         pool.putconn(conn)
 
 
-def _analysts_key(selected_analysts: list[str]) -> str:
-    """Canonical cache key for the analyst list."""
-    return json.dumps(sorted(selected_analysts))
+def _analysts_key(selected_analysts: list[str], language: str = "en") -> str:
+    """Canonical cache key: sorted analyst list + language tag.
+
+    Language is appended so that English and Chinese analyses for the same
+    ticker/date/analysts combination are stored and retrieved independently.
+    The ``|`` separator cannot appear in analyst names or JSON, keeping the
+    key unambiguous.
+    """
+    return json.dumps(sorted(selected_analysts)) + f"|{language}"
 
 
 def get_cached_analysis(
     ticker: str,
     analysis_date: date,
     selected_analysts: list[str],
+    language: str = "en",
 ) -> dict[str, Any] | None:
     """Return a cached result dict, or None if not cached.
 
@@ -143,7 +150,7 @@ def get_cached_analysis(
                   AND  analysis_date = %s
                   AND  selected_analysts = %s
                 """,
-                (ticker.upper(), analysis_date, _analysts_key(selected_analysts)),
+                (ticker.upper(), analysis_date, _analysts_key(selected_analysts, language)),
             )
             row = cur.fetchone()
             if row is None:
@@ -214,11 +221,12 @@ def save_analysis(
     result: dict[str, Any],
     events: list[dict[str, Any]],
     pdf_path: str | None = None,
+    language: str = "en",
 ) -> bool:
     """Persist an analysis result and its event log to the DB.
 
-    If a row for (ticker, analysis_date, selected_analysts) already exists
-    it is overwritten (ON CONFLICT DO UPDATE).
+    If a row for (ticker, analysis_date, selected_analysts, language) already
+    exists it is overwritten (ON CONFLICT DO UPDATE).
 
     ``pdf_path`` should be the on-disk path of the generated PDF so the raw
     bytes can be stored alongside the result.
@@ -268,7 +276,7 @@ def save_analysis(
                 (
                     ticker.upper(),
                     analysis_date,
-                    _analysts_key(selected_analysts),
+                    _analysts_key(selected_analysts, language),
                     result.get("decision"),
                     result.get("final_trade_decision"),
                     result.get("human_readable_report"),

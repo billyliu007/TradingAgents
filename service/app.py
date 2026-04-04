@@ -578,7 +578,8 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
     # ── Cache lookup ────────────────────────────────────────────────────────
     try:
         cached = db.get_cached_analysis(
-            payload.ticker, payload.analysis_date, list(payload.selected_analysts)
+            payload.ticker, payload.analysis_date, list(payload.selected_analysts),
+            language=payload.language,
         )
     except Exception as exc:
         _log(f"[Job {job_id[:8]}] DB lookup error (continuing without cache): {exc}")
@@ -641,6 +642,7 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
                 result,
                 events_snapshot,
                 pdf_path,
+                language=payload.language,
             ):
                 _log(f"[Job {job_id[:8]}] Saved to DB cache")
             else:
