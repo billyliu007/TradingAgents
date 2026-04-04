@@ -243,6 +243,7 @@ The tab bar (`<nav class="mobile-tabs">`) has 3 tabs: Setup (ðŸ“‹), Research (ðŸ
 | `TRADINGAGENTS_RESULTS_DIR` | No | Where raw agent results are saved (default: `./results`) |
 | `TRADINGAGENTS_EXPORTS_DIR` | No | Where PDF exports are saved (default: `./exports`) |
 | `TRADINGAGENTS_SERVICE_HOST` | No | Uvicorn bind host (default: `0.0.0.0`) |
+| `DATABASE_URL` | No | PostgreSQL connection string (e.g. Neon pooler URL). When set, completed analyses are cached; duplicate requests are replayed from DB without LLM calls. |
 
 Copy `.env.example` to `.env` and fill in at least one LLM provider key.
 

@@ -25,6 +25,7 @@ from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 from service.pdf_export import export_filename, unique_path, write_analysis_pdf
+from service import db
 
 load_dotenv()
 
@@ -136,6 +137,12 @@ class AnalyzeRequest(BaseModel):
     openai_reasoning_effort: str | None = None
     anthropic_effort: str | None = None
     debug: bool = False
+    # Optional API keys — override .env configuration if provided
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+    google_api_key: str | None = None
+    xai_api_key: str | None = None
+    openrouter_api_key: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -299,6 +306,18 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
 
     if payload.backend_url:
         config["backend_url"] = payload.backend_url
+
+    # Add API key override from request if provided (overrides .env)
+    api_key_fields = {
+        "openai_api_key": payload.openai_api_key,
+        "anthropic_api_key": payload.anthropic_api_key,
+        "google_api_key": payload.google_api_key,
+        "xai_api_key": payload.xai_api_key,
+        "openrouter_api_key": payload.openrouter_api_key,
+    }
+    for key, value in api_key_fields.items():
+        if value:
+            config[key] = value
 
     def state_callback(prev_state: dict | None, curr_state: dict) -> None:
         if not job_id:
@@ -472,12 +491,91 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
     }
 
 
+def _replay_cached_job(job_id: str, payload: AnalyzeRequest, cached: dict[str, Any]) -> None:
+    """Replay a cached analysis: write PDF if needed, then push all stored events."""
+    _log(f"[Job {job_id[:8]}] Cache hit — replaying ticker={payload.ticker}")
+
+    # Restore PDF to disk if we have the bytes and the file is missing
+    pdf_filename: str | None = cached.get("pdf_filename")
+    pdf_download_url: str | None = None
+
+    if pdf_filename and cached.get("pdf_data"):
+        exports = _exports_dir()
+        exports.mkdir(parents=True, exist_ok=True)
+        pdf_path = exports / pdf_filename
+        if not pdf_path.exists():
+            try:
+                pdf_path.write_bytes(cached["pdf_data"])
+                _log(f"[Job {job_id[:8]}] Restored PDF from DB: {pdf_filename}")
+            except Exception as exc:
+                _log(f"[Job {job_id[:8]}] PDF restore failed: {exc}")
+                pdf_filename = None
+        if pdf_filename and (exports / pdf_filename).exists():
+            pdf_download_url = f"/api/exports/download/{pdf_filename}"
+
+    # Prepend a cache_hit notice so the UI can show it
+    now = datetime.now(timezone.utc).isoformat()
+    cache_notice: dict[str, Any] = {
+        "type": "cache_hit",
+        "timestamp": now,
+        "message": "Replaying cached analysis — no LLM calls needed",
+        "ticker": payload.ticker,
+    }
+
+    # Patch the stored job_complete event with fresh PDF info
+    replayed_events: list[dict[str, Any]] = []
+    for event in cached.get("events", []):
+        if event.get("type") == "job_complete":
+            replayed_events.append({
+                **event,
+                "decision": cached["decision"],
+                "pdf_filename": pdf_filename,
+                "pdf_download_url": pdf_download_url,
+            })
+        else:
+            replayed_events.append(event)
+
+    # Bulk-append to the job's event log (WebSocket handler picks them up)
+    with _jobs_lock:
+        if job_id in _jobs:
+            _jobs[job_id]["event_log"].append(cache_notice)
+            _jobs[job_id]["event_log"].extend(replayed_events)
+
+    # Mark job as done
+    with _jobs_lock:
+        if job_id in _jobs:
+            _jobs[job_id].update(
+                status="done",
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                decision=cached["decision"],
+                pdf_filename=pdf_filename,
+                pdf_download_url=pdf_download_url,
+                sections=cached.get("sections"),
+            )
+    _log(f"[Job {job_id[:8]}] Cache replay complete ticker={payload.ticker}")
+
+
 def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
-    """Background worker: runs analysis and updates job state."""
+    """Background worker: checks DB cache first, then runs analysis if needed."""
     with _jobs_lock:
         _jobs[job_id]["status"] = "running"
         cancel_event = _jobs[job_id]["cancel_event"]
     _log(f"[Job {job_id[:8]}] Starting ticker={payload.ticker}")
+
+    # ── Cache lookup ────────────────────────────────────────────────────────
+    try:
+        cached = db.get_cached_analysis(
+            payload.ticker, payload.analysis_date, list(payload.selected_analysts)
+        )
+    except Exception as exc:
+        _log(f"[Job {job_id[:8]}] DB lookup error (continuing without cache): {exc}")
+        cached = None
+
+    if cached is not None:
+        _replay_cached_job(job_id, payload, cached)
+        return
+
+    # ── Cache miss: run full analysis ───────────────────────────────────────
     try:
         result = _execute_analysis(payload, job_id=job_id, cancel_event=cancel_event)
 
@@ -497,7 +595,26 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
                 pdf_download_urls=result["pdf_download_urls"],
                 sections=result.get("sections"),
             )
+            events_snapshot = list(_jobs[job_id]["event_log"])
         _log(f"[Job {job_id[:8]}] Done ticker={payload.ticker}")
+
+        # ── Persist to DB cache ─────────────────────────────────────────────
+        try:
+            pdf_path: str | None = None
+            if result.get("pdf_filename"):
+                pdf_path = str(_exports_dir() / result["pdf_filename"])
+            db.save_analysis(
+                payload.ticker,
+                payload.analysis_date,
+                list(payload.selected_analysts),
+                result,
+                events_snapshot,
+                pdf_path,
+            )
+            _log(f"[Job {job_id[:8]}] Saved to DB cache")
+        except Exception as db_exc:
+            _log(f"[Job {job_id[:8]}] DB save failed (non-fatal): {db_exc}")
+
     except InterruptedError:
         _log(f"[Job {job_id[:8]}] Cancelled ticker={payload.ticker}")
         _emit_event(job_id, "job_cancelled", {})
@@ -523,6 +640,15 @@ app = FastAPI(
     description="HTTP wrapper for TradingAgents multi-agent analysis",
     version="0.1.0",
 )
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    try:
+        db.init_db()
+        _log("DB cache initialised")
+    except Exception as exc:
+        _log(f"DB cache init failed (caching disabled): {exc}")
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
