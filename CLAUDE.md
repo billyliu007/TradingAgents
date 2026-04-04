@@ -81,6 +81,23 @@ TradingAgentsAPIWrapper/
 4. Events are emitted via `_emit_event()` → stored in `job["event_log"]`
 5. Client connects `WebSocket /ws/job/{job_id}` → receives replayed + live events
 
+### `AnalyzeRequest` Fields
+
+| Field | Type | Default | Purpose |
+|---|---|---|---|
+| `ticker` | str | required | Stock symbol (e.g. `NVDA`) |
+| `analysis_date` | date | required | ISO date for analysis |
+| `selected_analysts` | list[str] | all four | Subset of `market`, `fundamentals`, `social`, `news` |
+| `llm_provider` | str | `openai` | `openai` \| `anthropic` \| `google` \| `xai` \| `openrouter` |
+| `deep_think_llm` | str | `gpt-5.2` | Model name for complex reasoning steps |
+| `quick_think_llm` | str | `gpt-5-mini` | Model name for faster tasks |
+| `backend_url` | str \| None | None | Override API base URL (e.g. local Ollama) |
+| `max_debate_rounds` | int | 1 | Bull/bear debate iterations |
+| `max_risk_discuss_rounds` | int | 1 | Risk team debate iterations |
+| `google_thinking_level` | str \| None | None | `high` \| `minimal` (Google only) |
+| `openai_reasoning_effort` | str \| None | None | `low` \| `medium` \| `high` (OpenAI o-series) |
+| `anthropic_effort` | str \| None | None | `low` \| `medium` \| `high` (Claude extended thinking) |
+
 ### In-Memory Job Store
 
 ```python
@@ -112,10 +129,11 @@ Job dict keys: `status`, `ticker`, `created_at`, `completed_at`, `decision`, `pd
 | `GET` | `/api/options` | Default config values for UI |
 | `GET` | `/api/logs?limit=N` | Server log buffer (max 1000 lines) |
 | `DELETE` | `/api/logs` | Clear log buffer |
-| `POST` | `/api/jobs` | Submit analysis job |
+| `POST` | `/api/jobs` | Submit analysis job (async) |
 | `GET` | `/api/jobs/{job_id}` | Poll job status |
 | `POST` | `/api/jobs/{job_id}/cancel` | Cancel running job |
 | `GET` | `/api/jobs` | List last 20 jobs |
+| `POST` | `/api/analyze` | Synchronous analysis (blocks until done; legacy) |
 | `GET` | `/api/exports` | List PDF exports |
 | `GET` | `/api/exports/download/{filename}` | Download a PDF |
 | `POST` | `/api/exports/zip` | Download selected PDFs as zip |
