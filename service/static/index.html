@@ -77,6 +77,7 @@
     /* ── ADVISOR CARDS ─────────────────────────────────────── */
     .advisor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .adv-btn {
+      position: relative;
       background: rgba(0,0,0,.3); border: 2px solid var(--border); border-radius: 8px;
       padding: 10px 6px; cursor: pointer; transition: all .2s;
       display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -87,9 +88,34 @@
     .adv-btn.selected.fundamentals { border-color: var(--green); background: rgba(43,182,125,.1); color: var(--green); }
     .adv-btn.selected.social       { border-color: var(--gold);  background: rgba(201,145,90,.1);  color: var(--gold); }
     .adv-btn.selected.news         { border-color: var(--warn);  background: rgba(224,150,42,.1);  color: var(--warn); }
+    /* Disabled (unselected) state — visually obvious */
+    .adv-btn:not(.selected) {
+      opacity: .4;
+      border-style: dashed;
+      background: rgba(0,0,0,.5) !important;
+      color: var(--txt2) !important;
+    }
+    .adv-btn:not(.selected):hover { opacity: .65; }
+    /* Corner status indicator */
+    .adv-status-dot {
+      position: absolute; top: 5px; right: 5px;
+      width: 16px; height: 16px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; line-height: 1;
+      border: 1.5px solid var(--green);
+      background: rgba(43,182,125,.18);
+      color: var(--green);
+      pointer-events: none;
+    }
+    .adv-btn:not(.selected) .adv-status-dot {
+      border-color: rgba(224,82,82,.6);
+      background: rgba(224,82,82,.12);
+      color: var(--red);
+    }
     .adv-emoji { font-size: 20px; }
     .adv-name  { font-size: 10px; font-weight: 700; white-space: nowrap; }
     .adv-role  { font-size: 9px; color: var(--txt2); white-space: nowrap; }
+    .adv-state-label { font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-top: 1px; }
 
     /* ── SUBMIT BTN ────────────────────────────────────────── */
     .btn-primary { width: 100%; padding: 10px; background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: all .2s; margin-top: 4px; }
@@ -234,6 +260,9 @@
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--blue); }
 
+    /* ── MOBILE SETUP TOGGLE (hidden on desktop) ──────────── */
+    .mobile-setup-toggle { display: none; }
+
     /* ── MOBILE TAB BAR (hidden on desktop) ───────────────── */
     .mobile-tabs { display: none; }
 
@@ -270,6 +299,65 @@
       .form-group label { font-size: 13px; }
       .section-title { font-size: 11px; }
       .status-msg { font-size: 13px; padding: 9px 12px; }
+
+      /* ── MERGED RESEARCH+SETUP TAB LAYOUT ─────────────── */
+      /* Research tab: layout becomes flex column — setup on top, chat below */
+      .layout.mob-research {
+        display: flex !important;
+        flex-direction: column;
+      }
+      .layout.mob-research .left-col {
+        display: flex !important;
+        max-height: 55vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 12px 14px 10px;
+        border-right: none !important;
+        border-bottom: 1px solid var(--border) !important;
+        flex-shrink: 0;
+        transition: max-height .3s ease, padding .25s ease, opacity .25s ease;
+      }
+      .layout.mob-research .left-col.setup-collapsed {
+        max-height: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        overflow: hidden;
+        opacity: 0;
+      }
+      .layout.mob-research .mid-col {
+        display: flex !important;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .layout.mob-research .data-col { display: none !important; }
+
+      /* Data tab: only data-col visible */
+      .layout.mob-data .left-col,
+      .layout.mob-data .mid-col { display: none !important; }
+      .layout.mob-data .data-col {
+        display: flex !important;
+        padding-bottom: 72px !important;
+      }
+
+      /* Mobile setup toggle bar (inside mid-col) */
+      .mobile-setup-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px;
+        background: rgba(79,143,255,.06);
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        flex-shrink: 0;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        min-height: 40px;
+        touch-action: manipulation;
+      }
+      .setup-toggle-label { font-size: 11px; font-weight: 700; color: var(--blue); letter-spacing: .04em; display: flex; align-items: center; gap: 5px; }
+      .setup-toggle-arrow { font-size: 11px; color: var(--txt2); transition: transform .25s; }
+      .setup-toggle-arrow.flipped { transform: rotate(180deg); }
 
       /* Advisor grid */
       .advisor-grid { gap: 8px; }
@@ -386,7 +474,12 @@
   </aside>
 
   <!-- ── MID: CHAT FEED ─────────────────────────────────── -->
-  <section class="mid-col mobile-active">
+  <section class="mid-col">
+    <!-- Mobile-only: toggle to show/hide setup form above this panel -->
+    <div class="mobile-setup-toggle" id="mobileSetupToggle">
+      <span class="setup-toggle-label">📋 Setup</span>
+      <span class="setup-toggle-arrow" id="setupToggleArrow">▲</span>
+    </div>
     <div class="progress-wrap">
       <div class="progress-header">
         <span class="progress-label" id="progressLabel">Waiting for analysis...</span>
@@ -435,16 +528,12 @@
 
 <!-- ── MOBILE TAB BAR ───────────────────────────────────── -->
 <nav class="mobile-tabs" id="mobileTabs" aria-label="Main navigation">
-  <button class="mobile-tab-btn" id="tabForm" data-panel="left-col" aria-label="Setup form">
-    <span class="tab-icon">📋</span>
-    <span class="tab-label">Setup</span>
-  </button>
-  <button class="mobile-tab-btn active" id="tabChat" data-panel="mid-col" aria-label="Research chat">
+  <button class="mobile-tab-btn active" id="tabChat" data-panel="research" aria-label="Research">
     <span class="tab-icon">💬</span>
     <span class="tab-label">Research</span>
     <span class="tab-badge"></span>
   </button>
-  <button class="mobile-tab-btn" id="tabData" data-panel="data-col" aria-label="Live data feed">
+  <button class="mobile-tab-btn" id="tabData" data-panel="data" aria-label="Live data feed">
     <span class="tab-icon">⚡</span>
     <span class="tab-label">Data</span>
     <span class="tab-badge"></span>
@@ -928,10 +1017,26 @@ function buildAdvisorButtons() {
     btn.className = `adv-btn selected ${key}`;
     btn.dataset.key = key;
     const roleText = typeof m.role === "function" ? m.role() : m.role;
-    btn.innerHTML = `<span class="adv-emoji">${m.avatar}</span><span class="adv-name">${m.name}</span><span class="adv-role">${roleText}</span>`;
+    btn.innerHTML = `
+      <span class="adv-status-dot" aria-hidden="true">✓</span>
+      <span class="adv-emoji">${m.avatar}</span>
+      <span class="adv-name">${m.name}</span>
+      <span class="adv-role">${roleText}</span>
+      <span class="adv-state-label" style="color:var(--green)">Active</span>`;
     btn.addEventListener("click", () => {
-      if (selectedAdvisors.has(key)) { selectedAdvisors.delete(key); btn.classList.remove("selected"); }
-      else                           { selectedAdvisors.add(key);    btn.classList.add("selected"); }
+      if (selectedAdvisors.has(key)) {
+        selectedAdvisors.delete(key);
+        btn.classList.remove("selected");
+        btn.querySelector(".adv-status-dot").textContent = "✕";
+        btn.querySelector(".adv-state-label").textContent = "Off";
+        btn.querySelector(".adv-state-label").style.color = "var(--red)";
+      } else {
+        selectedAdvisors.add(key);
+        btn.classList.add("selected");
+        btn.querySelector(".adv-status-dot").textContent = "✓";
+        btn.querySelector(".adv-state-label").textContent = "Active";
+        btn.querySelector(".adv-state-label").style.color = "var(--green)";
+      }
     });
     advisorGrid.appendChild(btn);
   });
@@ -1004,8 +1109,10 @@ function setStatus(txt, type="info") {
   statusMsg.className = `status-msg show ${type}`;
 }
 
-function setProgress(pct, label) {
-  progress = Math.min(100, Math.max(progress, pct));
+function setProgress(pct, label, isFinal) {
+  // Cap at 98 % while job is running — only job_complete snaps to 100
+  const cap = isFinal ? 100 : 98;
+  progress = Math.min(cap, Math.max(progress, pct));
   progressFill.style.width = progress + "%";
   progressPct.textContent  = progress + "%";
   if (label) progressLabel.textContent = label;
@@ -1188,7 +1295,7 @@ function connectWS(jid, isReconnect) {
 
     if (ev.type === "job_complete") {
       jobDone = true; wsReconnectDelay = 1000;
-      setProgress(100, t("analysis_complete"));
+      setProgress(100, t("analysis_complete"), true);
       hdrStatus.textContent = t("hdr_complete"); hdrStatus.className = "hdr-status";
       setStatus(t("complete_success"), "success");
       if (ev.decision) {
@@ -1393,63 +1500,93 @@ document.addEventListener("visibilitychange", () => {
 
 // ── MOBILE TAB NAVIGATION ─────────────────────────────────────────────────────
 (function() {
-  const MOBILE_BP  = 767;
-  const tabBtns    = document.querySelectorAll(".mobile-tab-btn");
-  const leftCol    = document.querySelector(".left-col");
-  const midCol     = document.querySelector(".mid-col");
-  const dataCol    = document.querySelector(".data-col");
-  const panelMap   = { "left-col": leftCol, "mid-col": midCol, "data-col": dataCol };
+  const MOBILE_BP = 767;
+  const layout    = document.querySelector(".layout");
+  const leftCol   = document.querySelector(".left-col");
+  const midCol    = document.querySelector(".mid-col");
+  const dataCol   = document.querySelector(".data-col");
+  const tabBtns   = document.querySelectorAll(".mobile-tab-btn");
+  const setupToggle = document.getElementById("mobileSetupToggle");
+  const setupArrow  = document.getElementById("setupToggleArrow");
+  let   activePanel = "research"; // "research" | "data"
 
   function isMobile() { return window.innerWidth <= MOBILE_BP; }
 
-  function activateTab(panelClass, silent) {
+  function applyLayout() {
+    if (!isMobile()) {
+      // Desktop: remove all mobile layout classes; columns revert to CSS grid
+      layout.classList.remove("mob-research", "mob-data");
+      [leftCol, midCol, dataCol].forEach(p => { if (p) p.classList.remove("mobile-active"); });
+      return;
+    }
+    layout.classList.remove("mob-research", "mob-data");
+    if (activePanel === "research") {
+      layout.classList.add("mob-research");
+    } else {
+      layout.classList.add("mob-data");
+    }
+  }
+
+  function activateTab(panel, silent) {
     if (!isMobile()) return;
-    // Swap panel visibility
-    Object.values(panelMap).forEach(p => { if (p) p.classList.remove("mobile-active"); });
-    if (panelMap[panelClass]) panelMap[panelClass].classList.add("mobile-active");
-    // Swap active tab button
+    activePanel = panel;
+    applyLayout();
     tabBtns.forEach(b => {
       b.classList.remove("active");
-      if (b.dataset.panel === panelClass) {
+      if (b.dataset.panel === panel) {
         b.classList.add("active");
-        // Clear badge when user navigates to that tab
         if (!silent) b.classList.remove("has-badge");
       }
     });
   }
 
-  function badgeTab(panelClass) {
+  function badgeTab(panel) {
     if (!isMobile()) return;
     tabBtns.forEach(b => {
-      if (b.dataset.panel === panelClass && !b.classList.contains("active"))
+      if (b.dataset.panel === panel && !b.classList.contains("active"))
         b.classList.add("has-badge");
     });
   }
 
-  function onResize() {
-    if (!isMobile()) {
-      // Restore all panels on desktop
-      [leftCol, midCol, dataCol].forEach(p => { if (p) p.classList.remove("mobile-active"); });
+  // Setup collapse/expand toggle
+  function setSetupCollapsed(collapsed) {
+    if (collapsed) {
+      leftCol.classList.add("setup-collapsed");
+      setupArrow.textContent = "▼";
+      setupArrow.classList.remove("flipped");
     } else {
-      // Ensure exactly one panel active on mobile
-      const anyActive = [...Object.values(panelMap)].some(p => p && p.classList.contains("mobile-active"));
-      if (!anyActive) activateTab("mid-col");
+      leftCol.classList.remove("setup-collapsed");
+      setupArrow.textContent = "▲";
+      setupArrow.classList.add("flipped");
     }
+  }
+
+  if (setupToggle) {
+    setupToggle.addEventListener("click", () => {
+      setSetupCollapsed(!leftCol.classList.contains("setup-collapsed"));
+    });
   }
 
   tabBtns.forEach(btn => {
     btn.addEventListener("click", () => activateTab(btn.dataset.panel));
   });
 
-  window.addEventListener("resize", onResize);
-  onResize();
+  window.addEventListener("resize", applyLayout);
 
-  // Auto-switch to Research tab when analysis starts
-  form.addEventListener("submit", () => { setTimeout(() => activateTab("mid-col"), 50); }, true);
+  // Start in research mode
+  applyLayout();
+
+  // Auto-switch to Research tab when analysis starts; auto-collapse setup
+  form.addEventListener("submit", () => {
+    setTimeout(() => {
+      activateTab("research");
+      if (isMobile()) setSetupCollapsed(true);
+    }, 50);
+  }, true);
 
   // Badge inactive tabs when new content arrives in their feeds
-  new MutationObserver(() => badgeTab("data-col")).observe(dataFeed, { childList: true });
-  new MutationObserver(() => badgeTab("mid-col")).observe(chatFeed,  { childList: true });
+  new MutationObserver(() => badgeTab("data")).observe(dataFeed, { childList: true });
+  new MutationObserver(() => badgeTab("research")).observe(chatFeed, { childList: true });
 })();
 </script>
 </body>
