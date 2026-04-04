@@ -17,8 +17,8 @@ load_dotenv()
 
 db_url = os.getenv("DATABASE_URL")
 if not db_url:
-    print("ERROR: DATABASE_URL is not set. Copy .env.example to .env and fill it in.")
-    sys.exit(1)
+    print("DATABASE_URL not set — skipping DB migration.")
+    sys.exit(0)
 
 try:
     import psycopg2

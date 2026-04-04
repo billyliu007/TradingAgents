@@ -275,6 +275,14 @@ pytest tests/
 
 `render.yaml` is a Render Blueprint. Push to `main` branch, then create a new Blueprint in the Render dashboard pointing to the repo. Set secret env vars (API keys) in the Render dashboard — they are marked `sync: false` in the YAML.
 
+**DB migration runs automatically on every deploy** via the `buildCommand`:
+```
+pip install . && python migrate.py
+```
+`migrate.py` uses `CREATE TABLE IF NOT EXISTS` so it is fully idempotent — safe to run on every deployment. If `DATABASE_URL` is not set, it exits cleanly without error.
+
+To enable caching, set `DATABASE_URL` in the Render dashboard (Environment → Secret vars) to your Neon pooler connection string.
+
 ---
 
 ## Key Conventions

@@ -8,7 +8,7 @@ services:
     plan: free
     region: oregon
     branch: main
-    buildCommand: pip install --upgrade pip && pip install .
+    buildCommand: pip install --upgrade pip && pip install . && python migrate.py
     startCommand: uvicorn service.app:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/options
     envVars:
@@ -25,6 +25,8 @@ services:
       - key: OPENROUTER_API_KEY
         sync: false
       - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: DATABASE_URL
         sync: false
       # Optional overrides
       - key: TRADINGAGENTS_RESULTS_DIR
