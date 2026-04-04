@@ -23,6 +23,7 @@ def create_fundamentals_analyst(llm, language: str = "en"):
             get_balance_sheet,
             get_cashflow,
             get_income_statement,
+            get_insider_transactions,
         ]
 
         system_message = get_fundamentals_analyst_prompt(language)
