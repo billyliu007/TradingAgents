@@ -33,8 +33,3 @@ services:
         value: /tmp/tradingagents-exports
       - key: TRADINGAGENTS_SERVICE_HOST
         value: "0.0.0.0"
-      # Google Drive integration (optional)
-      - key: GDRIVE_INVESTMENT_FOLDER_ID
-        sync: false
-      - key: GDRIVE_SERVICE_ACCOUNT_JSON_CONTENT
-        sync: false
