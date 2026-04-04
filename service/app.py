@@ -588,7 +588,8 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
     if cached is None:
         _log(
             f"[Job {job_id[:8]}] Cache miss — ticker={payload.ticker} "
-            f"date={payload.analysis_date} analysts={sorted(payload.selected_analysts)}"
+            f"date={payload.analysis_date} lang={payload.language} "
+            f"analysts={sorted(payload.selected_analysts)}"
         )
 
     if cached is not None:

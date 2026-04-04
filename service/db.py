@@ -1,7 +1,7 @@
 """
 PostgreSQL caching layer for TradingAgents analysis results.
 
-Cache key: (ticker, analysis_date, selected_analysts sorted).
+Cache key: (ticker, analysis_date, selected_analysts sorted, language).
 On cache hit, stored events are replayed to the job stream — no LLM calls.
 On cache miss, results are saved after the analysis completes.
 
@@ -16,16 +16,16 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import date
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# ── Optional dependency -  import once, fail gracefully ──────────────────────
+# ── Optional dependency — import once, fail gracefully ───────────────────────
 
 try:
     import psycopg2
-    import psycopg2.pool
     from psycopg2.extras import Json as PgJson
 
     _PSYCOPG2_AVAILABLE = True
@@ -33,31 +33,45 @@ except ImportError:  # pragma: no cover
     _PSYCOPG2_AVAILABLE = False
     logger.warning("psycopg2 not installed — DB caching disabled")
 
-# ── Connection pool (lazy init) ───────────────────────────────────────────────
 
-_pool: Any = None  # psycopg2.pool.ThreadedConnectionPool | None
+# ── Connection helper ─────────────────────────────────────────────────────────
 
-
-def _get_pool() -> Any:
-    global _pool
-    if _pool is not None:
-        return _pool
-    if not _PSYCOPG2_AVAILABLE:
-        return None
+def _get_db_url() -> str | None:
+    """Return the cleaned DATABASE_URL, or None if not configured."""
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
         return None
-    # Strip channel_binding=require — Neon pooler URLs include it but older
-    # psycopg2 versions don't recognise the parameter and raise on connect.
-    import re as _re
-    db_url = _re.sub(r"[?&]channel_binding=[^&]*", "", db_url)
+    # Neon pooler URLs include channel_binding=require which older psycopg2
+    # versions don't recognise — strip it before connecting.
+    # Handle both ?channel_binding=x (first param) and &channel_binding=x.
+    db_url = re.sub(r"channel_binding=[^&]*&?", "", db_url)
+    # Clean up any orphaned ? or trailing & left after stripping
+    db_url = re.sub(r"\?&", "?", db_url)
+    db_url = db_url.rstrip("?&")
+    return db_url
+
+
+def _connect() -> Any | None:
+    """Open a fresh DB connection.
+
+    A new connection is opened for every call so there is no risk of stale
+    connections being returned from a long-lived pool.  Analysis jobs run
+    infrequently (minutes apart) so the overhead is negligible.
+
+    Returns None if DB caching is not configured or psycopg2 is unavailable.
+    """
+    if not _PSYCOPG2_AVAILABLE:
+        return None
+    db_url = _get_db_url()
+    if not db_url:
+        return None
     try:
-        _pool = psycopg2.pool.ThreadedConnectionPool(1, 10, db_url)
-        logger.info("DB connection pool created")
+        conn = psycopg2.connect(db_url)
+        conn.autocommit = False
+        return conn
     except Exception as exc:
-        logger.error("Failed to create DB pool: %s", exc)
-        _pool = None
-    return _pool
+        logger.error("DB connect failed: %s", exc)
+        return None
 
 
 # ── Schema ────────────────────────────────────────────────────────────────────
@@ -93,11 +107,10 @@ CREATE TABLE IF NOT EXISTS analysis_events (
 
 def init_db() -> None:
     """Create tables if they don't exist.  Call once at app startup."""
-    pool = _get_pool()
-    if pool is None:
+    conn = _connect()
+    if conn is None:
         logger.info("DB caching not configured (DATABASE_URL missing or psycopg2 unavailable)")
         return
-    conn = pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute(_DDL)
@@ -107,7 +120,7 @@ def init_db() -> None:
         conn.rollback()
         logger.error("DB schema init failed: %s", exc)
     finally:
-        pool.putconn(conn)
+        conn.close()
 
 
 def _analysts_key(selected_analysts: list[str], language: str = "en") -> str:
@@ -134,10 +147,9 @@ def get_cached_analysis(
         sections (dict), pdf_filename (str|None), pdf_data (bytes|None),
         events (list[dict])
     """
-    pool = _get_pool()
-    if pool is None:
+    conn = _connect()
+    if conn is None:
         return None
-    conn = pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -195,7 +207,7 @@ def get_cached_analysis(
         logger.error("get_cached_analysis failed: %s", exc)
         return None
     finally:
-        pool.putconn(conn)
+        conn.close()
 
 
 class _SafeEncoder(json.JSONEncoder):
@@ -233,8 +245,8 @@ def save_analysis(
 
     Returns True if a row was committed; False if DB caching is not configured.
     """
-    pool = _get_pool()
-    if pool is None:
+    conn = _connect()
+    if conn is None:
         return False
 
     pdf_data: bytes | None = None
@@ -252,7 +264,6 @@ def save_analysis(
         if isinstance(pfs, list) and pfs:
             pdf_row_name = pfs[0]
 
-    conn = pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -306,10 +317,11 @@ def save_analysis(
 
         conn.commit()
         logger.info(
-            "Saved analysis to DB: ticker=%s date=%s analysts=%s",
+            "Saved analysis to DB: ticker=%s date=%s analysts=%s lang=%s",
             ticker,
             analysis_date,
             selected_analysts,
+            language,
         )
         return True
     except Exception as exc:
@@ -317,4 +329,4 @@ def save_analysis(
         logger.error("save_analysis failed: %s", exc)
         raise
     finally:
-        pool.putconn(conn)
+        conn.close()
