@@ -487,6 +487,8 @@ let ws = null;
 let jobId = null;
 let progress = 0;
 let selectedAdvisors = new Set(["market","fundamentals","social","news"]);
+let jobDone = false;
+let wsReconnectDelay = 1000;
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 document.getElementById("analysis_date").value = new Date().toISOString().split("T")[0];
@@ -658,8 +660,20 @@ stopBtn.addEventListener("click", async () => {
 });
 
 // ── WEBSOCKET ─────────────────────────────────────────────────────────────────
-function connectWS(jid) {
-  if (ws) ws.close();
+function connectWS(jid, isReconnect) {
+  if (ws) { ws.onclose = null; ws.onerror = null; ws.close(); }
+
+  if (isReconnect) {
+    // Clear feeds so the server's event replay starts fresh
+    chatFeed.innerHTML = "";
+    delete chatFeed.dataset.debateLabel;
+    delete chatFeed.dataset.riskLabel;
+    dataFeed.innerHTML = '<div style="color:var(--txt2);font-size:11px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:8px;">Raw data from providers will appear here...</div>';
+    dataStatus.textContent = "Reconnecting...";
+    progress = 0;
+    setProgress(5, "Reconnecting to analysis...");
+  }
+
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/ws/job/${jid}`);
 
@@ -669,6 +683,7 @@ function connectWS(jid) {
 
     if (ev.type === "error") {
       if (ev.message === "Job not found") {
+        jobDone = true;
         setStatus("Previous job not found. Submit a new analysis.", "error");
         clearSaved(); setRunningUI(false);
       }
@@ -721,6 +736,7 @@ function connectWS(jid) {
     }
 
     if (ev.type === "job_complete") {
+      jobDone = true; wsReconnectDelay = 1000;
       setProgress(100, "Analysis complete");
       hdrStatus.textContent = "Complete"; hdrStatus.className = "hdr-status";
       setStatus("✓ Research complete", "success");
@@ -742,6 +758,7 @@ function connectWS(jid) {
     }
 
     if (ev.type === "job_cancelled") {
+      jobDone = true; wsReconnectDelay = 1000;
       setProgress(progress, "Analysis stopped");
       hdrStatus.textContent = "Stopped"; hdrStatus.className = "hdr-status";
       setStatus("Analysis stopped by user.", "warn");
@@ -753,6 +770,7 @@ function connectWS(jid) {
     }
 
     if (ev.type === "job_failed") {
+      jobDone = true; wsReconnectDelay = 1000;
       setProgress(0, "Analysis failed");
       hdrStatus.textContent = "Failed"; hdrStatus.className = "hdr-status";
       setStatus(`❌ ${ev.error}`, "error");
@@ -762,7 +780,15 @@ function connectWS(jid) {
   };
 
   ws.onerror = () => {};
-  ws.onclose = () => {};
+  ws.onclose = () => {
+    if (!jobDone && jobId) {
+      // Reconnect with exponential backoff (1s → 2s → 4s → 8s → 16s max)
+      setTimeout(() => {
+        wsReconnectDelay = Math.min(wsReconnectDelay * 2, 16000);
+        connectWS(jobId, true);
+      }, wsReconnectDelay);
+    }
+  };
 }
 
 // ── FORM SUBMIT ───────────────────────────────────────────────────────────────
@@ -784,6 +810,7 @@ form.addEventListener("submit", async e => {
   };
 
   // Reset UI
+  jobDone = false; wsReconnectDelay = 1000;
   setRunningUI(true);
   chatFeed.innerHTML = ""; delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
   dataFeed.innerHTML = '<div style="color:var(--txt2);font-size:11px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:8px;">Raw data from providers will appear here...</div>';
@@ -834,6 +861,7 @@ const savedJob    = localStorage.getItem(LS_JOB);
 const savedTicker = localStorage.getItem(LS_TICKER);
 if (savedJob) {
   jobId = savedJob;
+  jobDone = false; wsReconnectDelay = 1000;
   hdrStatus.textContent = `Resuming ${savedTicker || ""}...`; hdrStatus.className = "hdr-status running";
   setStatus("Reconnecting to previous analysis...", "info");
   setRunningUI(true);
