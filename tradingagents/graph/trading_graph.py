@@ -50,6 +50,7 @@ class TradingAgentsGraph:
         config: Dict[str, Any] = None,
         callbacks: Optional[List] = None,
         progress_callback: Optional[Callable[[str], None]] = None,
+        language: str = "en",
     ):
         """Initialize the trading agents graph and components.
 
@@ -59,11 +60,13 @@ class TradingAgentsGraph:
             config: Configuration dictionary. If None, uses default config
             callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
             progress_callback: Optional callback for progress messages during execution
+            language: Language for agent prompts ('en' or 'zh')
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
         self.callbacks = callbacks or []
         self.progress_callback = progress_callback
+        self.language = language
 
         # Update the interface's config
         set_config(self.config)
@@ -122,6 +125,7 @@ class TradingAgentsGraph:
             self.invest_judge_memory,
             self.portfolio_manager_memory,
             self.conditional_logic,
+            language=self.language,
         )
 
         self.propagator = Propagator()

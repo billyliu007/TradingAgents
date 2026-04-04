@@ -1,9 +1,10 @@
 from langchain_core.messages import AIMessage
 import time
 import json
+from tradingagents.prompts import get_conservative_debator_prompt
 
 
-def create_conservative_debator(llm):
+def create_conservative_debator(llm, language: str = "en"):
     def conservative_node(state) -> dict:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")
@@ -19,7 +20,17 @@ def create_conservative_debator(llm):
 
         trader_decision = state["trader_investment_plan"]
 
-        prompt = f"""As the Conservative Risk Analyst, your primary objective is to protect assets, minimize volatility, and ensure steady, reliable growth. You prioritize stability, security, and risk mitigation, carefully assessing potential losses, economic downturns, and market volatility. When evaluating the trader's decision or plan, critically examine high-risk elements, pointing out where the decision may expose the firm to undue risk and where more cautious alternatives could secure long-term gains. Here is the trader's decision:
+        prompt_template = get_conservative_debator_prompt(language)
+        prompt = prompt_template.format(
+            trader_decision=trader_decision,
+            market_research_report=market_research_report,
+            sentiment_report=sentiment_report,
+            news_report=news_report,
+            fundamentals_report=fundamentals_report,
+            history=history,
+            current_aggressive_response=current_aggressive_response,
+            current_neutral_response=current_neutral_response,
+        )
 
 {trader_decision}
 

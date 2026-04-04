@@ -1,8 +1,9 @@
 import time
 import json
+from tradingagents.prompts import get_neutral_debator_prompt
 
 
-def create_neutral_debator(llm):
+def create_neutral_debator(llm, language: str = "en"):
     def neutral_node(state) -> dict:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")
@@ -18,7 +19,17 @@ def create_neutral_debator(llm):
 
         trader_decision = state["trader_investment_plan"]
 
-        prompt = f"""As the Neutral Risk Analyst, your role is to provide a balanced perspective, weighing both the potential benefits and risks of the trader's decision or plan. You prioritize a well-rounded approach, evaluating the upsides and downsides while factoring in broader market trends, potential economic shifts, and diversification strategies.Here is the trader's decision:
+        prompt_template = get_neutral_debator_prompt(language)
+        prompt = prompt_template.format(
+            trader_decision=trader_decision,
+            market_research_report=market_research_report,
+            sentiment_report=sentiment_report,
+            news_report=news_report,
+            fundamentals_report=fundamentals_report,
+            history=history,
+            current_aggressive_response=current_aggressive_response,
+            current_conservative_response=current_conservative_response,
+        )
 
 {trader_decision}
 
