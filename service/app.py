@@ -125,6 +125,7 @@ class AnalyzeRequest(BaseModel):
     selected_analysts: list[Literal["market", "social", "news", "fundamentals"]] = Field(
         default_factory=lambda: ANALYST_OPTIONS.copy()
     )
+    language: Literal["en", "zh"] = "en"
     llm_provider: Literal["openai", "google", "anthropic", "xai", "openrouter", "ollama"] = "openai"
     backend_url: str | None = None
     deep_think_llm: str = "gpt-5.2"
@@ -143,8 +144,8 @@ class AnalyzeResponse(BaseModel):
     human_readable_report: str
     sections: dict[str, str]
     raw_state: dict[str, Any]
-    pdf_filename: str | None = None
-    pdf_download_url: str | None = None
+    pdf_filenames: list[str] | None = None
+    pdf_download_urls: list[str] | None = None
 
 
 class JobSubmitResponse(BaseModel):
@@ -160,8 +161,8 @@ class JobStatusResponse(BaseModel):
     created_at: str
     completed_at: str | None = None
     decision: str | None = None
-    pdf_filename: str | None = None
-    pdf_download_url: str | None = None
+    pdf_filenames: list[str] | None = None
+    pdf_download_urls: list[str] | None = None
     sections: dict[str, str] | None = None
     error: str | None = None
 
@@ -356,10 +357,12 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
                 "content": _as_text(curr_state["final_trade_decision"]),
             })
 
-    graph = TradingAgentsGraph(
+    # Run analysis for requested language
+    graph_requested = TradingAgentsGraph(
         selected_analysts=payload.selected_analysts,
         debug=payload.debug,
         config=config,
+        language=payload.language,
     )
 
     callbacks = [DataFeedCallback(job_id)] if job_id else []
@@ -367,7 +370,7 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
     if job_id:
         _emit_event(job_id, "phase_update", {"phase": "data_collection", "message": "Fetching market data..."})
 
-    final_state, decision = graph.propagate(
+    final_state_requested, decision_requested = graph_requested.propagate(
         payload.ticker,
         payload.analysis_date.isoformat(),
         state_callback=state_callback,
@@ -375,45 +378,97 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
         cancel_event=cancel_event,
     )
 
+    # If language is not English, also run analysis in English for the EN PDF
+    if payload.language != "en":
+        if job_id:
+            _emit_event(job_id, "phase_update", {"phase": "translation", "message": "Generating English analysis..."})
+
+        config_en = config.copy()
+        graph_en = TradingAgentsGraph(
+            selected_analysts=payload.selected_analysts,
+            debug=payload.debug,
+            config=config_en,
+            language="en",
+        )
+
+        # Run English analysis (without state callback to avoid duplicate events)
+        final_state_en, decision_en = graph_en.propagate(
+            payload.ticker,
+            payload.analysis_date.isoformat(),
+            state_callback=None,  # Don't emit events for English analysis
+            callbacks=callbacks,
+            cancel_event=cancel_event,
+        )
+    else:
+        final_state_en = final_state_requested
+        decision_en = decision_requested
+
     if job_id:
         _emit_event(job_id, "phase_update", {"phase": "analysis_complete", "message": "Analysis complete"})
 
-    human_report, sections = _build_report(final_state)
+    # Build report from the requested language state (for display to user)
+    human_report, sections = _build_report(final_state_requested)
     _log(
         "Analyze completed "
-        f"ticker={payload.ticker} decision={_as_text(decision) or 'N/A'} "
-        f"final_trade_decision={_as_text(final_state.get('final_trade_decision')) or 'N/A'}"
+        f"ticker={payload.ticker} decision={_as_text(decision_requested) or 'N/A'} "
+        f"final_trade_decision={_as_text(final_state_requested.get('final_trade_decision')) or 'N/A'} "
+        f"language={payload.language}"
     )
 
-    pdf_filename: str | None = None
-    pdf_download_url: str | None = None
+    pdf_filenames: list[str] = []
+    pdf_download_urls: list[str] = []
+
+    # Generate PDF in requested language
     try:
-        fname = export_filename(
-            payload.ticker, payload.analysis_date, payload.selected_analysts
+        fname_requested = export_filename(
+            payload.ticker, payload.analysis_date, payload.selected_analysts, language=payload.language
         )
-        out_path = unique_path(_exports_dir(), fname)
+        out_path_requested = unique_path(_exports_dir(), fname_requested)
         write_analysis_pdf(
-            out_path,
+            out_path_requested,
             ticker=payload.ticker,
             analysis_date=payload.analysis_date,
             analysts=list(payload.selected_analysts),
-            decision=_as_text(decision),
-            human_readable_report=human_report,
+            decision=_as_text(decision_requested),
+            human_readable_report=_build_report(final_state_requested)[0],
+            language=payload.language,
         )
-        pdf_filename = out_path.name
-        pdf_download_url = f"/api/exports/download/{out_path.name}"
-        _log(f"✔ PDF saved locally: {pdf_filename}")
+        pdf_filenames.append(out_path_requested.name)
+        pdf_download_urls.append(f"/api/exports/download/{out_path_requested.name}")
+        _log(f"✔ PDF saved locally ({payload.language.upper()}): {out_path_requested.name}")
     except Exception as pdf_exc:
-        _log(f"✘ PDF export failed: {pdf_exc}")
+        _log(f"✘ PDF export failed ({payload.language.upper()}): {pdf_exc}")
+
+    # Generate PDF in English (if different from requested language)
+    if payload.language != "en":
+        try:
+            fname_en = export_filename(
+                payload.ticker, payload.analysis_date, payload.selected_analysts, language="en"
+            )
+            out_path_en = unique_path(_exports_dir(), fname_en)
+            write_analysis_pdf(
+                out_path_en,
+                ticker=payload.ticker,
+                analysis_date=payload.analysis_date,
+                analysts=list(payload.selected_analysts),
+                decision=_as_text(decision_en),
+                human_readable_report=_build_report(final_state_en)[0],
+                language="en",
+            )
+            pdf_filenames.append(out_path_en.name)
+            pdf_download_urls.append(f"/api/exports/download/{out_path_en.name}")
+            _log(f"✔ PDF saved locally (EN): {out_path_en.name}")
+        except Exception as pdf_exc:
+            _log(f"✘ PDF export failed (EN): {pdf_exc}")
 
     return {
-        "decision": _as_text(decision),
-        "final_trade_decision": _as_text(final_state.get("final_trade_decision")),
+        "decision": _as_text(decision_requested),
+        "final_trade_decision": _as_text(final_state_requested.get("final_trade_decision")),
         "human_readable_report": human_report,
         "sections": sections,
-        "raw_state": final_state,
-        "pdf_filename": pdf_filename,
-        "pdf_download_url": pdf_download_url,
+        "raw_state": final_state_requested,
+        "pdf_filenames": pdf_filenames if pdf_filenames else None,
+        "pdf_download_urls": pdf_download_urls if pdf_download_urls else None,
     }
 
 
@@ -429,8 +484,8 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
         # Emit completion event
         _emit_event(job_id, "job_complete", {
             "decision": result["decision"],
-            "pdf_filename": result["pdf_filename"],
-            "pdf_download_url": result["pdf_download_url"],
+            "pdf_filenames": result["pdf_filenames"],
+            "pdf_download_urls": result["pdf_download_urls"],
         })
 
         with _jobs_lock:
@@ -438,8 +493,8 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
                 status="done",
                 completed_at=datetime.now(timezone.utc).isoformat(),
                 decision=result["decision"],
-                pdf_filename=result["pdf_filename"],
-                pdf_download_url=result["pdf_download_url"],
+                pdf_filenames=result["pdf_filenames"],
+                pdf_download_urls=result["pdf_download_urls"],
                 sections=result.get("sections"),
             )
         _log(f"[Job {job_id[:8]}] Done ticker={payload.ticker}")
@@ -582,8 +637,8 @@ def submit_job(payload: AnalyzeRequest) -> JobSubmitResponse:
             "created_at": now,
             "completed_at": None,
             "decision": None,
-            "pdf_filename": None,
-            "pdf_download_url": None,
+            "pdf_filenames": None,
+            "pdf_download_urls": None,
             "error": None,
             "event_log": [],      # persistent — survives reconnects
             "error_notes": [],    # data-fetch errors for dialogue context

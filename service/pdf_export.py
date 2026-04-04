@@ -20,13 +20,15 @@ def export_filename(
     ticker: str,
     analysis_date: date,
     analysts: list[Literal["market", "social", "news", "fundamentals"]],
+    language: str = "en",
 ) -> str:
-    """Base filename: ASSET_asof_DATE_analyst1-analyst2.pdf (session / close date)."""
+    """Base filename: ASSET_asof_DATE_analyst1-analyst2_LANG.pdf (session / close date)."""
     sym = _safe_ticker(ticker)
     d = analysis_date.isoformat()
     parts = sorted(set(analysts))
     analyst_part = "-".join(parts) if parts else "none"
-    return f"{sym}_asof_{d}_{analyst_part}.pdf"
+    lang_suffix = language.upper()  # "EN" or "ZH"
+    return f"{sym}_asof_{d}_{analyst_part}_{lang_suffix}.pdf"
 
 
 def _register_font(pdf: FPDF) -> str:
@@ -64,6 +66,7 @@ def write_analysis_pdf(
     analysts: list[str],
     decision: str,
     human_readable_report: str,
+    language: str = "en",
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -77,26 +80,44 @@ def write_analysis_pdf(
     pdf.set_left_margin(lm)
     usable_w = pdf.w - lm - rm
 
+    # Localized strings
+    if language == "zh":
+        title = "交易代理分析报告"
+        label_ticker = "股票代码"
+        label_date = "截至会话日期（日收盘）"
+        label_analysts = "分析师"
+        label_decision = "决策"
+        label_report = "报告"
+        note = "注：雅虎财经的OHLCV数据与此会话日期对齐。"
+    else:  # English
+        title = "TradingAgents analysis report"
+        label_ticker = "Ticker"
+        label_date = "As-of session date (daily close)"
+        label_analysts = "Analysts"
+        label_decision = "Decision"
+        label_report = "Report"
+        note = "Note: OHLCV from Yahoo Finance is aligned to include this session date."
+
     pdf.set_font(family, "B", 16)
-    pdf.multi_cell(usable_w, 10, "TradingAgents analysis report")
+    pdf.multi_cell(usable_w, 10, title)
     pdf.ln(4)
 
     pdf.set_font(family, "", 10)
     meta_lines = [
-        f"Ticker: {ticker.strip().upper()}",
-        f"As-of session date (daily close): {analysis_date.isoformat()}",
-        f"Analysts: {', '.join(analysts)}",
-        f"Decision: {decision or 'N/A'}",
-        "Note: OHLCV from Yahoo Finance is aligned to include this session date.",
+        f"{label_ticker}: {ticker.strip().upper()}",
+        f"{label_date}: {analysis_date.isoformat()}",
+        f"{label_analysts}: {', '.join(analysts)}",
+        f"{label_decision}: {decision or 'N/A'}",
+        note,
     ]
     pdf.multi_cell(usable_w, 6, "\n".join(meta_lines))
     pdf.ln(6)
 
     pdf.set_font(family, "B", 12)
-    pdf.multi_cell(usable_w, 8, "Report")
+    pdf.multi_cell(usable_w, 8, label_report)
     pdf.ln(2)
     pdf.set_font(family, "", 10)
-    _write_body(pdf, family, human_readable_report or "No report content.", usable_w, 5)
+    _write_body(pdf, family, human_readable_report or ("No report content." if language == "en" else "没有报告内容。"), usable_w, 5)
 
     pdf.output(str(path))
 
