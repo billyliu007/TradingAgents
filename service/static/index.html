@@ -197,6 +197,23 @@
     .dl-btn:hover { opacity: .9; }
 
     /* ── SETTINGS PANEL ────────────────────────────────────── */
+    /* ── TEAM SHOWCASE ─────────────────────────────────────── */
+    .team-showcase { padding: 20px; overflow-y: auto; }
+    .team-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--blue); margin-top: 20px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .team-section-title:first-child { margin-top: 0; }
+    .team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .team-card {
+      background: rgba(0,0,0,.2); border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      text-align: center; transition: all .2s;
+      cursor: default;
+    }
+    .team-card:hover { border-color: var(--blue); background: rgba(79,143,255,.08); transform: translateY(-2px); }
+    .team-avatar { font-size: 28px; line-height: 1; }
+    .team-name { font-size: 11px; font-weight: 600; color: var(--txt); word-break: break-word; }
+    .team-role { font-size: 9px; color: var(--txt2); line-height: 1.3; }
+    .team-focus { font-size: 8px; color: var(--txt2); margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.1); }
+
     .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; align-items: stretch; justify-content: flex-end; }
     .overlay.show { display: flex; }
     .settings-panel { width: 300px; background: var(--bg-card); border-left: 1px solid var(--border); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; animation: slideIn .25s ease-out; }
@@ -371,7 +388,32 @@
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     </div>
     <div class="chat-feed" id="chatFeed">
-      <div class="chat-placeholder">Enter a ticker and press <strong>Start Research</strong><br/>to see the team's live discussion here.</div>
+      <!-- Team Showcase (shown initially) -->
+      <div class="team-showcase" id="teamShowcase">
+        <div style="text-align:center;margin-bottom:24px;">
+          <div style="font-size:28px;margin-bottom:10px;">🏢</div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px;">Your Research Team</div>
+          <div style="font-size:11px;color:var(--txt2);">Meet the 12 AI specialists working together to analyze stocks</div>
+        </div>
+
+        <!-- Analysts -->
+        <div class="team-section-title">📊 Data Analysts</div>
+        <div class="team-grid" id="analyistsGrid"></div>
+
+        <!-- Researchers -->
+        <div class="team-section-title">🔬 Research Team</div>
+        <div class="team-grid" id="researchersGrid"></div>
+
+        <!-- Managers -->
+        <div class="team-section-title">👔 Leadership</div>
+        <div class="team-grid" id="managersGrid"></div>
+
+        <!-- Risk Managers -->
+        <div class="team-section-title">⚠️ Risk Management</div>
+        <div class="team-grid" id="riskGrid"></div>
+      </div>
+
+      <!-- Chat Messages (shown during analysis) -->
     </div>
   </section>
 
@@ -482,6 +524,22 @@ const overlay      = document.getElementById("overlay");
 
 const LS_JOB    = "ta_job_v2";
 const LS_TICKER = "ta_ticker_v2";
+
+// ── TEAM FOCUS AREAS ──────────────────────────────────────────────────────────
+const TEAM_FOCUS = {
+  market:          "Price trends & technical signals",
+  fundamentals:    "Financial health & earnings",
+  social:          "Sentiment & social trends",
+  news:            "Breaking news impact",
+  bull:            "Positive investment case",
+  bear:            "Risk & downside case",
+  research_manager:"Synthesizes research debate",
+  trader:          "Proposes trade plan",
+  aggressive:      "Growth opportunity focus",
+  conservative:    "Capital preservation",
+  neutral:         "Balanced assessment",
+  portfolio:       "Final BUY/SELL/HOLD decision",
+};
 
 let ws = null;
 let jobId = null;
@@ -791,6 +849,33 @@ function connectWS(jid, isReconnect) {
   };
 }
 
+// ── POPULATE TEAM SHOWCASE ────────────────────────────────────────────────────
+function renderTeamCard(key) {
+  const member = TEAM[key];
+  const focus = TEAM_FOCUS[key];
+  const html = `
+    <div class="team-card">
+      <div class="team-avatar">${member.avatar}</div>
+      <div class="team-name">${member.name}</div>
+      <div class="team-role">${member.role}</div>
+      <div class="team-focus">${focus}</div>
+    </div>
+  `;
+  return html;
+}
+
+function populateTeamShowcase() {
+  const analysts = ["market", "fundamentals", "social", "news"];
+  const researchers = ["bull", "bear"];
+  const managers = ["research_manager", "trader"];
+  const risk = ["aggressive", "conservative", "neutral", "portfolio"];
+
+  document.getElementById("analyistsGrid").innerHTML = analysts.map(renderTeamCard).join("");
+  document.getElementById("researchersGrid").innerHTML = researchers.map(renderTeamCard).join("");
+  document.getElementById("managersGrid").innerHTML = managers.map(renderTeamCard).join("");
+  document.getElementById("riskGrid").innerHTML = risk.map(renderTeamCard).join("");
+}
+
 // ── FORM SUBMIT ───────────────────────────────────────────────────────────────
 form.addEventListener("submit", async e => {
   e.preventDefault();
@@ -850,11 +935,35 @@ clearBtn.addEventListener("click", () => {
   setRunningUI(false); clearBtn.style.display = "none";
   hdrStatus.textContent = "Ready"; hdrStatus.className = "hdr-status";
   progress = 0; setProgress(0, "Waiting for analysis...");
-  chatFeed.innerHTML = '<div class="chat-placeholder">Enter a ticker and press <strong>Start Research</strong><br/>to see the team\'s live discussion here.</div>';
+
+  // Restore team showcase
+  const teamHtml = `
+    <div class="team-showcase" id="teamShowcase">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:28px;margin-bottom:10px;">🏢</div>
+        <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px;">Your Research Team</div>
+        <div style="font-size:11px;color:var(--txt2);">Meet the 12 AI specialists working together to analyze stocks</div>
+      </div>
+      <div class="team-section-title">📊 Data Analysts</div>
+      <div class="team-grid" id="analyistsGrid"></div>
+      <div class="team-section-title">🔬 Research Team</div>
+      <div class="team-grid" id="researchersGrid"></div>
+      <div class="team-section-title">👔 Leadership</div>
+      <div class="team-grid" id="managersGrid"></div>
+      <div class="team-section-title">⚠️ Risk Management</div>
+      <div class="team-grid" id="riskGrid"></div>
+    </div>
+  `;
+  chatFeed.innerHTML = teamHtml;
+  populateTeamShowcase();
+
   dataFeed.innerHTML = '<div style="color:var(--txt2);font-size:11px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:8px;">Raw data from providers will appear here...</div>';
   statusMsg.className = "status-msg";
   delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
 });
+
+// ── INITIALIZE TEAM SHOWCASE ─────────────────────────────────────────────────
+populateTeamShowcase();
 
 // ── RESTORE SAVED JOB ─────────────────────────────────────────────────────────
 const savedJob    = localStorage.getItem(LS_JOB);
@@ -867,6 +976,10 @@ if (savedJob) {
   setRunningUI(true);
   setProgress(5, "Reconnecting...");
   connectWS(savedJob);
+} else {
+  // No saved job, ensure team showcase is visible
+  const showcase = document.getElementById("teamShowcase");
+  if (showcase) showcase.style.display = "block";
 }
 
 // ── RECONNECT ON PAGE VISIBILITY (handles mobile screen-off / app-switch) ─────
