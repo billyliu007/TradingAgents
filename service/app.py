@@ -503,9 +503,9 @@ def _replay_cached_job(job_id: str, payload: AnalyzeRequest, cached: dict[str, A
     # Restore PDF to disk if we have the bytes and the file is missing
     pdf_filename: str | None = cached.get("pdf_filename")
     pdf_download_url: str | None = None
+    exports = _exports_dir()
 
     if pdf_filename and cached.get("pdf_data"):
-        exports = _exports_dir()
         exports.mkdir(parents=True, exist_ok=True)
         pdf_path = exports / pdf_filename
         if not pdf_path.exists():
@@ -515,8 +515,12 @@ def _replay_cached_job(job_id: str, payload: AnalyzeRequest, cached: dict[str, A
             except Exception as exc:
                 _log(f"[Job {job_id[:8]}] PDF restore failed: {exc}")
                 pdf_filename = None
-        if pdf_filename and (exports / pdf_filename).exists():
-            pdf_download_url = f"/api/exports/download/{pdf_filename}"
+
+    # Set download URL if PDF file is available on disk (regardless of whether
+    # pdf_data bytes were stored — old cache entries may have NULL pdf_data but
+    # the file can still be present from the original analysis run).
+    if pdf_filename and (exports / pdf_filename).exists():
+        pdf_download_url = f"/api/exports/download/{pdf_filename}"
 
     # Prepend a cache_hit notice so the UI can show it
     now = datetime.now(timezone.utc).isoformat()
@@ -546,7 +550,9 @@ def _replay_cached_job(job_id: str, payload: AnalyzeRequest, cached: dict[str, A
             _jobs[job_id]["event_log"].append(cache_notice)
             _jobs[job_id]["event_log"].extend(replayed_events)
 
-    # Mark job as done
+    # Mark job as done — set both singular and plural PDF keys so that
+    # JobStatusResponse (which uses plural) and the WS job_complete event
+    # (which uses singular) both work correctly for cache hits.
     with _jobs_lock:
         if job_id in _jobs:
             _jobs[job_id].update(
@@ -555,6 +561,8 @@ def _replay_cached_job(job_id: str, payload: AnalyzeRequest, cached: dict[str, A
                 decision=cached["decision"],
                 pdf_filename=pdf_filename,
                 pdf_download_url=pdf_download_url,
+                pdf_filenames=[pdf_filename] if pdf_filename else None,
+                pdf_download_urls=[pdf_download_url] if pdf_download_url else None,
                 sections=cached.get("sections"),
             )
     _log(f"[Job {job_id[:8]}] Cache replay complete ticker={payload.ticker}")
@@ -576,9 +584,21 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
         _log(f"[Job {job_id[:8]}] DB lookup error (continuing without cache): {exc}")
         cached = None
 
+    if cached is None:
+        _log(
+            f"[Job {job_id[:8]}] Cache miss — ticker={payload.ticker} "
+            f"date={payload.analysis_date} analysts={sorted(payload.selected_analysts)}"
+        )
+
     if cached is not None:
-        _replay_cached_job(job_id, payload, cached)
-        return
+        try:
+            _replay_cached_job(job_id, payload, cached)
+        except Exception as replay_exc:
+            _log(f"[Job {job_id[:8]}] Cache replay failed ({replay_exc}); falling back to fresh analysis")
+            _emit_event(job_id, "cache_replay_error", {"error": str(replay_exc)})
+            # Fall through to run a fresh analysis rather than leaving job stuck
+        else:
+            return
 
     # ── Cache miss: run full analysis ───────────────────────────────────────
     try:
