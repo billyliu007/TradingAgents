@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- If you open this file from Live Server / another port, set API base (no trailing slash), e.g. http://127.0.0.1:8000 -->
+  <meta name="tradingagents-api-base" content="" />
   <title>TradingAgents Research Platform</title>
   <style>
     :root {
@@ -512,6 +514,27 @@
 </div>
 
 <script>
+// ── API base (same-origin when empty; set meta tradingagents-api-base for cross-origin UI) ──
+const _metaApiBase = document.querySelector('meta[name="tradingagents-api-base"]')?.getAttribute("content");
+const API_BASE = (_metaApiBase && String(_metaApiBase).trim()) ? String(_metaApiBase).trim().replace(/\/$/, "") : "";
+
+function apiUrl(path) {
+  if (!path.startsWith("/")) path = "/" + path;
+  return API_BASE ? API_BASE + path : path;
+}
+
+function wsUrlForJob(jid) {
+  if (API_BASE) {
+    try {
+      const u = new URL(API_BASE);
+      const wsProto = u.protocol === "https:" ? "wss" : "ws";
+      return `${wsProto}://${u.host}/ws/job/${encodeURIComponent(jid)}`;
+    } catch (_) { /* fall through */ }
+  }
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${location.host}/ws/job/${encodeURIComponent(jid)}`;
+}
+
 // ── TRANSLATIONS ──────────────────────────────────────────────────────────────
 const TRANSLATIONS = {
   en: {
@@ -576,6 +599,7 @@ const TRANSLATIONS = {
 
     // Error & Validation
     "select_advisor": "Select at least one advisor.",
+    "error_generic": "Error: ",
     "error_prefix": "Error: ",
     "data_fetch_failed": "Data fetch failed for",
     "analysis_stopped": "Analysis stopped by user.",
@@ -605,6 +629,7 @@ const TRANSLATIONS = {
     "data_receiving": "Receiving...",
     "data_stopped": "Stopped",
     "data_placeholder": "Raw data from providers will appear here...",
+    "data_raw_placeholder": "Raw data from providers will appear here...",
 
     // Team Showcase
     "team_title": "Your Research Team",
@@ -687,6 +712,7 @@ const TRANSLATIONS = {
 
     // Error & Validation
     "select_advisor": "请选择至少一个顾问。",
+    "error_generic": "错误：",
     "error_prefix": "错误：",
     "data_fetch_failed": "数据获取失败",
     "analysis_stopped": "分析已被用户停止。",
@@ -716,6 +742,7 @@ const TRANSLATIONS = {
     "data_receiving": "接收中...",
     "data_stopped": "已停止",
     "data_placeholder": "来自数据提供商的原始数据将显示在这里...",
+    "data_raw_placeholder": "来自数据提供商的原始数据将显示在这里...",
 
     // Team Showcase
     "team_title": "您的研究团队",
@@ -1069,7 +1096,7 @@ stopBtn.addEventListener("click", async () => {
   stopBtn.disabled = true;
   stopBtn.textContent = t("stopping");
   try {
-    await fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
+    await fetch(apiUrl(`/api/jobs/${jobId}/cancel`), { method: "POST" });
   } catch(e) { /* server will emit job_cancelled via WS anyway */ }
 });
 
@@ -1088,8 +1115,7 @@ function connectWS(jid, isReconnect) {
     setProgress(5, t("reconnecting"));
   }
 
-  const proto = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${proto}://${location.host}/ws/job/${jid}`);
+  ws = new WebSocket(wsUrlForJob(jid));
 
   ws.onmessage = e => {
     const ev = JSON.parse(e.data);
@@ -1161,15 +1187,21 @@ function connectWS(jid, isReconnect) {
         addSectionLabel(t("final_recommendation"));
         addChatMsg("portfolio", ev.decision);
       }
-      if (ev.pdf_filename) {
+      const pdfNames = ev.pdf_filename
+        ? [ev.pdf_filename]
+        : (Array.isArray(ev.pdf_filenames) ? ev.pdf_filenames.filter(Boolean) : []);
+      pdfNames.forEach((name, i) => {
         const btn = document.createElement("a");
         btn.className = "dl-btn";
-        btn.textContent = t("download_pdf");
+        btn.textContent = pdfNames.length > 1 ? `${t("download_pdf")} (${i + 1})` : t("download_pdf");
         btn.href = "#";
-        btn.addEventListener("click", e => { e.preventDefault(); window.open(`/api/exports/download/${ev.pdf_filename}`, "_blank"); });
+        btn.addEventListener("click", e => {
+          e.preventDefault();
+          window.open(apiUrl(`/api/exports/download/${encodeURIComponent(name)}`), "_blank");
+        });
         chatFeed.appendChild(btn);
-        chatFeed.scrollTop = chatFeed.scrollHeight;
-      }
+      });
+      if (pdfNames.length) chatFeed.scrollTop = chatFeed.scrollHeight;
       setRunningUI(false); clearSaved();
       return;
     }
@@ -1268,7 +1300,7 @@ form.addEventListener("submit", async e => {
   stopBtn.disabled = false; stopBtn.textContent = t("btn_stop");
 
   try {
-    const r = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const r = await fetch(apiUrl("/api/jobs"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!r.ok) {
       const b = await r.json();
       setStatus(t("error_generic") + (typeof b.detail === "string" ? b.detail : JSON.stringify(b.detail)), "error");

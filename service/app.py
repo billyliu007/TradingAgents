@@ -15,6 +15,7 @@ from typing import Any, Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -24,7 +25,12 @@ import json
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
-from service.pdf_export import export_filename, unique_path, write_analysis_pdf
+from service.pdf_export import (
+    export_filename,
+    unique_path,
+    write_analysis_pdf,
+    write_bilingual_analysis_pdf,
+)
 from service import db
 
 load_dotenv()
@@ -437,55 +443,54 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
     pdf_filenames: list[str] = []
     pdf_download_urls: list[str] = []
 
-    # Generate PDF in requested language
     try:
-        fname_requested = export_filename(
-            payload.ticker, payload.analysis_date, payload.selected_analysts, language=payload.language
-        )
-        out_path_requested = unique_path(_exports_dir(), fname_requested)
-        write_analysis_pdf(
-            out_path_requested,
-            ticker=payload.ticker,
-            analysis_date=payload.analysis_date,
-            analysts=list(payload.selected_analysts),
-            decision=_as_text(decision_requested),
-            human_readable_report=_build_report(final_state_requested)[0],
-            language=payload.language,
-        )
-        pdf_filenames.append(out_path_requested.name)
-        pdf_download_urls.append(f"/api/exports/download/{out_path_requested.name}")
-        _log(f"✔ PDF saved locally ({payload.language.upper()}): {out_path_requested.name}")
-    except Exception as pdf_exc:
-        _log(f"✘ PDF export failed ({payload.language.upper()}): {pdf_exc}")
-
-    # Generate PDF in English (if different from requested language)
-    if payload.language != "en":
-        try:
-            fname_en = export_filename(
+        if payload.language == "en":
+            fname = export_filename(
                 payload.ticker, payload.analysis_date, payload.selected_analysts, language="en"
             )
-            out_path_en = unique_path(_exports_dir(), fname_en)
+            out_path = unique_path(_exports_dir(), fname)
             write_analysis_pdf(
-                out_path_en,
+                out_path,
                 ticker=payload.ticker,
                 analysis_date=payload.analysis_date,
                 analysts=list(payload.selected_analysts),
-                decision=_as_text(decision_en),
-                human_readable_report=_build_report(final_state_en)[0],
+                decision=_as_text(decision_requested),
+                human_readable_report=_build_report(final_state_requested)[0],
                 language="en",
             )
-            pdf_filenames.append(out_path_en.name)
-            pdf_download_urls.append(f"/api/exports/download/{out_path_en.name}")
-            _log(f"✔ PDF saved locally (EN): {out_path_en.name}")
-        except Exception as pdf_exc:
-            _log(f"✘ PDF export failed (EN): {pdf_exc}")
+            _log(f"✔ PDF saved locally (EN): {out_path.name}")
+        else:
+            # Single PDF: English first, Chinese second (same file)
+            fname = export_filename(
+                payload.ticker, payload.analysis_date, payload.selected_analysts, language="en_zh"
+            )
+            out_path = unique_path(_exports_dir(), fname)
+            human_en = _build_report(final_state_en)[0]
+            human_zh = _build_report(final_state_requested)[0]
+            write_bilingual_analysis_pdf(
+                out_path,
+                ticker=payload.ticker,
+                analysis_date=payload.analysis_date,
+                analysts=list(payload.selected_analysts),
+                decision_en=_as_text(decision_en),
+                report_en=human_en,
+                decision_zh=_as_text(decision_requested),
+                report_zh=human_zh,
+            )
+            _log(f"✔ PDF saved locally (EN+ZH): {out_path.name}")
+        pdf_filenames.append(out_path.name)
+        pdf_download_urls.append(f"/api/exports/download/{out_path.name}")
+    except Exception as pdf_exc:
+        _log(f"✘ PDF export failed: {pdf_exc}")
 
+    primary_pdf = pdf_filenames[0] if pdf_filenames else None
     return {
         "decision": _as_text(decision_requested),
         "final_trade_decision": _as_text(final_state_requested.get("final_trade_decision")),
         "human_readable_report": human_report,
         "sections": sections,
         "raw_state": final_state_requested,
+        "pdf_filename": primary_pdf,
         "pdf_filenames": pdf_filenames if pdf_filenames else None,
         "pdf_download_urls": pdf_download_urls if pdf_download_urls else None,
     }
@@ -579,9 +584,12 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
     try:
         result = _execute_analysis(payload, job_id=job_id, cancel_event=cancel_event)
 
-        # Emit completion event
+        # Emit completion event (include pdf_filename — UI listens for singular key)
+        _urls = result.get("pdf_download_urls") or []
         _emit_event(job_id, "job_complete", {
             "decision": result["decision"],
+            "pdf_filename": result.get("pdf_filename"),
+            "pdf_download_url": _urls[0] if _urls else None,
             "pdf_filenames": result["pdf_filenames"],
             "pdf_download_urls": result["pdf_download_urls"],
         })
@@ -601,17 +609,25 @@ def _run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
         # ── Persist to DB cache ─────────────────────────────────────────────
         try:
             pdf_path: str | None = None
-            if result.get("pdf_filename"):
-                pdf_path = str(_exports_dir() / result["pdf_filename"])
-            db.save_analysis(
+            pdf_name = result.get("pdf_filename")
+            if not pdf_name and result.get("pdf_filenames"):
+                pdf_name = result["pdf_filenames"][0]
+            if pdf_name:
+                pdf_path = str(_exports_dir() / pdf_name)
+            if db.save_analysis(
                 payload.ticker,
                 payload.analysis_date,
                 list(payload.selected_analysts),
                 result,
                 events_snapshot,
                 pdf_path,
-            )
-            _log(f"[Job {job_id[:8]}] Saved to DB cache")
+            ):
+                _log(f"[Job {job_id[:8]}] Saved to DB cache")
+            else:
+                _log(
+                    f"[Job {job_id[:8]}] DB cache not used — set DATABASE_URL "
+                    "and ensure psycopg2 is installed (pip install psycopg2-binary)"
+                )
         except Exception as db_exc:
             _log(f"[Job {job_id[:8]}] DB save failed (non-fatal): {db_exc}")
 
@@ -639,6 +655,18 @@ app = FastAPI(
     title="TradingAgents API",
     description="HTTP wrapper for TradingAgents multi-agent analysis",
     version="0.1.0",
+)
+
+_cors_raw = os.getenv("TRADINGAGENTS_CORS_ORIGINS", "*").strip()
+if _cors_raw == "*":
+    _cors_origins: list[str] = ["*"]
+else:
+    _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()] or ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

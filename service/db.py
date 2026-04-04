@@ -8,7 +8,7 @@ On cache miss, results are saved after the analysis completes.
 Requires the DATABASE_URL environment variable to point at a PostgreSQL
 connection string (e.g. a Neon pooler URL).  If DATABASE_URL is not set
 the module degrades gracefully: get_cached_analysis() always returns None
-and save_analysis() is a no-op.
+and save_analysis() returns False without writing.
 """
 
 from __future__ import annotations
@@ -210,7 +210,7 @@ def save_analysis(
     result: dict[str, Any],
     events: list[dict[str, Any]],
     pdf_path: str | None = None,
-) -> None:
+) -> bool:
     """Persist an analysis result and its event log to the DB.
 
     If a row for (ticker, analysis_date, selected_analysts) already exists
@@ -218,10 +218,12 @@ def save_analysis(
 
     ``pdf_path`` should be the on-disk path of the generated PDF so the raw
     bytes can be stored alongside the result.
+
+    Returns True if a row was committed; False if DB caching is not configured.
     """
     pool = _get_pool()
     if pool is None:
-        return
+        return False
 
     pdf_data: bytes | None = None
     if pdf_path:
@@ -231,6 +233,12 @@ def save_analysis(
             pdf_data = Path(pdf_path).read_bytes()
         except Exception as exc:
             logger.warning("Could not read PDF for DB storage: %s", exc)
+
+    pdf_row_name = result.get("pdf_filename")
+    if not pdf_row_name:
+        pfs = result.get("pdf_filenames")
+        if isinstance(pfs, list) and pfs:
+            pdf_row_name = pfs[0]
 
     conn = pool.getconn()
     try:
@@ -261,7 +269,7 @@ def save_analysis(
                     result.get("final_trade_decision"),
                     result.get("human_readable_report"),
                     _to_pg_json(result.get("sections") or {}),
-                    result.get("pdf_filename"),
+                    pdf_row_name,
                     psycopg2.Binary(pdf_data) if pdf_data else None,
                 ),
             )
@@ -291,6 +299,7 @@ def save_analysis(
             analysis_date,
             selected_analysts,
         )
+        return True
     except Exception as exc:
         conn.rollback()
         logger.error("save_analysis failed: %s", exc)

@@ -22,12 +22,15 @@ def export_filename(
     analysts: list[Literal["market", "social", "news", "fundamentals"]],
     language: str = "en",
 ) -> str:
-    """Base filename: ASSET_asof_DATE_analyst1-analyst2_LANG.pdf (session / close date)."""
+    """Base filename: ASSET_asof_DATE_analyst1-analyst2_LANG.pdf (session / close date).
+
+    ``language`` is typically ``en``, ``zh``, or ``en_zh`` (bilingual PDF).
+    """
     sym = _safe_ticker(ticker)
     d = analysis_date.isoformat()
     parts = sorted(set(analysts))
     analyst_part = "-".join(parts) if parts else "none"
-    lang_suffix = language.upper()  # "EN" or "ZH"
+    lang_suffix = language.upper()
     return f"{sym}_asof_{d}_{analyst_part}_{lang_suffix}.pdf"
 
 
@@ -40,6 +43,17 @@ def _register_font(pdf: FPDF) -> str:
         pdf.add_font("DejaVu", "B", str(bold if bold.is_file() else reg))
         return "DejaVu"
     return "Helvetica"
+
+
+def _require_dejavu(pdf: FPDF) -> str:
+    """DejaVu is required for Chinese and bilingual PDFs (Helvetica shows garbage)."""
+    family = _register_font(pdf)
+    if family != "DejaVu":
+        raise RuntimeError(
+            "Chinese PDF export needs DejaVu fonts. Add DejaVuSans.ttf and "
+            "DejaVuSans-Bold.ttf under service/fonts/ (see service/fonts/README.txt)."
+        )
+    return family
 
 
 def _write_body(pdf: FPDF, family: str, text: str, usable_w: float, line_h: float) -> None:
@@ -72,7 +86,10 @@ def write_analysis_pdf(
 
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=18)
-    family = _register_font(pdf)
+    if language == "zh":
+        family = _require_dejavu(pdf)
+    else:
+        family = _register_font(pdf)
     pdf.add_page()
 
     lm = rm = 18
@@ -118,6 +135,83 @@ def write_analysis_pdf(
     pdf.ln(2)
     pdf.set_font(family, "", 10)
     _write_body(pdf, family, human_readable_report or ("No report content." if language == "en" else "没有报告内容。"), usable_w, 5)
+
+    pdf.output(str(path))
+
+
+def write_bilingual_analysis_pdf(
+    path: Path,
+    *,
+    ticker: str,
+    analysis_date: date,
+    analysts: list[str],
+    decision_en: str,
+    report_en: str,
+    decision_zh: str,
+    report_zh: str,
+) -> None:
+    """One PDF: English report first, then Chinese on a new page (same ticker/date)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=18)
+    family = _require_dejavu(pdf)
+    pdf.add_page()
+
+    lm = rm = 18
+    pdf.set_margins(lm, 18, rm)
+    pdf.set_left_margin(lm)
+    usable_w = pdf.w - lm - rm
+    sym = ticker.strip().upper()
+    analyst_line = ", ".join(analysts)
+
+    pdf.set_font(family, "B", 15)
+    pdf.multi_cell(usable_w, 8, "TradingAgents — Bilingual analysis report")
+    pdf.set_font(family, "", 10)
+    pdf.multi_cell(usable_w, 6, "English section first, followed by 中文报告")
+    pdf.ln(5)
+
+    # ── English (front) ─────────────────────────────────────────────────────
+    pdf.set_font(family, "B", 13)
+    pdf.multi_cell(usable_w, 8, "English")
+    pdf.ln(2)
+    pdf.set_font(family, "", 10)
+    en_meta = [
+        f"Ticker: {sym}",
+        f"As-of session date (daily close): {analysis_date.isoformat()}",
+        f"Analysts: {analyst_line}",
+        f"Decision: {decision_en or 'N/A'}",
+        "Note: OHLCV from Yahoo Finance is aligned to include this session date.",
+    ]
+    pdf.multi_cell(usable_w, 6, "\n".join(en_meta))
+    pdf.ln(4)
+    pdf.set_font(family, "B", 12)
+    pdf.multi_cell(usable_w, 8, "Report")
+    pdf.ln(2)
+    pdf.set_font(family, "", 10)
+    _write_body(pdf, family, report_en or "No report content.", usable_w, 5)
+
+    pdf.add_page()
+
+    # ── Chinese (after English) ─────────────────────────────────────────────
+    pdf.set_font(family, "B", 13)
+    pdf.multi_cell(usable_w, 8, "中文")
+    pdf.ln(2)
+    pdf.set_font(family, "", 10)
+    zh_meta = [
+        f"股票代码: {sym}",
+        f"截至会话日期（日收盘）: {analysis_date.isoformat()}",
+        f"分析师: {analyst_line}",
+        f"决策: {decision_zh or 'N/A'}",
+        "注：雅虎财经的 OHLCV 数据与此会话日期对齐。",
+    ]
+    pdf.multi_cell(usable_w, 6, "\n".join(zh_meta))
+    pdf.ln(4)
+    pdf.set_font(family, "B", 12)
+    pdf.multi_cell(usable_w, 8, "报告")
+    pdf.ln(2)
+    pdf.set_font(family, "", 10)
+    _write_body(pdf, family, report_zh or "没有报告内容。", usable_w, 5)
 
     pdf.output(str(path))
 
