@@ -16,6 +16,12 @@ DEFAULT_CONFIG = {
     "google_thinking_level": None,      # "high", "minimal", etc.
     "openai_reasoning_effort": None,    # "medium", "high", "low"
     "anthropic_effort": None,           # "high", "medium", "low"
+    # API keys (optional, override .env if provided)
+    "openai_api_key": None,
+    "anthropic_api_key": None,
+    "google_api_key": None,
+    "xai_api_key": None,
+    "openrouter_api_key": None,
     # Debate and discussion settings
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,

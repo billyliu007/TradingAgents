@@ -477,6 +477,30 @@
       <div class="s-section-title">Backend URL (optional)</div>
       <input id="backend_url" placeholder="https://api.openai.com/v1" />
     </div>
+    <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
+      <div class="s-section-title">API Keys (optional)</div>
+      <div style="font-size: 10px; color: var(--txt2); margin-bottom: 8px; font-style: italic;">Leave empty to use .env configuration</div>
+      <div class="form-group">
+        <label>OpenAI</label>
+        <input id="openai_api_key" type="password" placeholder="sk-..." />
+      </div>
+      <div class="form-group">
+        <label>Anthropic</label>
+        <input id="anthropic_api_key" type="password" placeholder="sk-ant-..." />
+      </div>
+      <div class="form-group">
+        <label>Google</label>
+        <input id="google_api_key" type="password" placeholder="AIza..." />
+      </div>
+      <div class="form-group">
+        <label>xAI (Grok)</label>
+        <input id="xai_api_key" type="password" placeholder="xai-..." />
+      </div>
+      <div class="form-group">
+        <label>OpenRouter</label>
+        <input id="openrouter_api_key" type="password" placeholder="sk-or-..." />
+      </div>
+    </div>
   </div>
 </div>
 
@@ -892,6 +916,12 @@ form.addEventListener("submit", async e => {
     max_debate_rounds:       Number(document.getElementById("max_debate_rounds").value),
     max_risk_discuss_rounds: Number(document.getElementById("max_risk_discuss_rounds").value),
     selected_analysts:       analysts,
+    // Optional API keys (override .env if provided)
+    openai_api_key:          document.getElementById("openai_api_key").value.trim() || null,
+    anthropic_api_key:       document.getElementById("anthropic_api_key").value.trim() || null,
+    google_api_key:          document.getElementById("google_api_key").value.trim() || null,
+    xai_api_key:             document.getElementById("xai_api_key").value.trim() || null,
+    openrouter_api_key:      document.getElementById("openrouter_api_key").value.trim() || null,
   };
 
   // Reset UI
