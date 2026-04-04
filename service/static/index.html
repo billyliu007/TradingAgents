@@ -408,12 +408,20 @@
     <button class="settings-close" id="closeSettings">✕</button>
     <div>
       <div class="s-section-title">LLM Provider</div>
-      <select id="llm_provider"><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="google">Google</option></select>
+      <select id="llm_provider">
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+        <option value="google">Google</option>
+        <option value="xai">xAI (Grok)</option>
+        <option value="openrouter">OpenRouter</option>
+      </select>
     </div>
     <div>
       <div class="s-section-title">Models</div>
-      <input id="quick_think_llm" value="gpt-4o-mini" placeholder="Quick model" style="margin-bottom:6px;" />
-      <input id="deep_think_llm"  value="gpt-4o"      placeholder="Deep model" />
+      <div style="font-size:10px;color:var(--txt2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">Quick — fast tasks</div>
+      <select id="quick_think_llm" style="margin-bottom:8px;"></select>
+      <div style="font-size:10px;color:var(--txt2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">Deep — complex reasoning</div>
+      <select id="deep_think_llm"></select>
     </div>
     <div>
       <div class="s-section-title">Debate Rounds</div>
@@ -497,6 +505,46 @@ ADVISOR_CHOICES.forEach(key => {
   });
   advisorGrid.appendChild(btn);
 });
+
+// ── MODEL LISTS PER PROVIDER ─────────────────────────────────────────────────
+const PROVIDER_MODELS = {
+  openai: {
+    quick: ["gpt-4.1-mini","gpt-4o-mini","gpt-5-mini","o4-mini","o3-mini"],
+    deep:  ["gpt-4.1","gpt-4o","gpt-5.2","gpt-5","o3","o1"],
+  },
+  anthropic: {
+    quick: ["claude-haiku-4-5-20251001","claude-3-5-haiku-20241022"],
+    deep:  ["claude-sonnet-4-6","claude-opus-4-6","claude-3-7-sonnet-20250219","claude-3-5-sonnet-20241022"],
+  },
+  google: {
+    quick: ["gemini-2.5-flash","gemini-2.0-flash","gemini-1.5-flash"],
+    deep:  ["gemini-2.5-pro","gemini-2.0-pro-exp","gemini-1.5-pro"],
+  },
+  xai: {
+    quick: ["grok-3-mini","grok-2-mini"],
+    deep:  ["grok-3","grok-3-fast","grok-2"],
+  },
+  openrouter: {
+    quick: ["openai/gpt-4o-mini","anthropic/claude-haiku-4-5","google/gemini-flash-1.5","meta-llama/llama-3.3-70b-instruct"],
+    deep:  ["openai/gpt-4o","openai/gpt-4.1","anthropic/claude-sonnet-4-6","google/gemini-pro-1.5","meta-llama/llama-3.3-70b-instruct"],
+  },
+};
+
+function _populateModelSelects(provider) {
+  const m = PROVIDER_MODELS[provider] || PROVIDER_MODELS.openai;
+  const qSel = document.getElementById("quick_think_llm");
+  const dSel = document.getElementById("deep_think_llm");
+  const prevQ = qSel.value, prevD = dSel.value;
+  qSel.innerHTML = m.quick.map(v => `<option value="${v}">${v}</option>`).join("");
+  dSel.innerHTML = m.deep.map(v  => `<option value="${v}">${v}</option>`).join("");
+  // Preserve selection if the model still exists in new list
+  if (m.quick.includes(prevQ)) qSel.value = prevQ;
+  if (m.deep.includes(prevD))  dSel.value = prevD;
+}
+
+const llmProviderSel = document.getElementById("llm_provider");
+_populateModelSelects(llmProviderSel.value);
+llmProviderSel.addEventListener("change", () => _populateModelSelects(llmProviderSel.value));
 
 // ── SETTINGS ─────────────────────────────────────────────────────────────────
 document.getElementById("settingsBtn").addEventListener("click", () => overlay.classList.add("show"));
