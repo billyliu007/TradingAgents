@@ -869,6 +869,13 @@ if (savedJob) {
   connectWS(savedJob);
 }
 
+// ── RECONNECT ON PAGE VISIBILITY (handles mobile screen-off / app-switch) ─────
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && jobId && !jobDone) {
+    if (!ws || ws.readyState >= WebSocket.CLOSING) connectWS(jobId, true);
+  }
+});
+
 // ── MOBILE TAB NAVIGATION ─────────────────────────────────────────────────────
 (function() {
   const MOBILE_BP  = 767;
