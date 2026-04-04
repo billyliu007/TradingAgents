@@ -277,6 +277,9 @@
 
     /* ── MOBILE SETUP TOGGLE (hidden on desktop) ──────────── */
     .mobile-setup-toggle { display: none; }
+    /* ── MOBILE SETUP DRAWER (hidden on desktop) ──────────── */
+    .mob-setup-drawer { display: none; }
+    .mob-setup-backdrop { display: none; }
 
     /* ── MOBILE TAB BAR (hidden on desktop) ───────────────── */
     .mobile-tabs { display: none; }
@@ -297,17 +300,13 @@
         width: 100%;
         border: none !important;
       }
-      .left-col.mobile-active,
       .mid-col.mobile-active,
       .data-col.mobile-active { display: flex !important; }
 
-      /* Scrollable side panels */
-      .left-col { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 14px 72px; }
-      .data-col  { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px 72px; }
-
-      /* Chat panel — inner scroll stays in chat-feed */
+      /* Chat panel fills the screen */
       .mid-col  { overflow: hidden; }
       .chat-feed { padding-bottom: 72px; }
+      .data-col  { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px 72px; }
 
       /* Larger touch targets for form elements */
       input, select { font-size: 16px !important; padding: 11px 12px; min-height: 44px; }
@@ -315,64 +314,61 @@
       .section-title { font-size: 11px; }
       .status-msg { font-size: 13px; padding: 9px 12px; }
 
-      /* ── MERGED RESEARCH+SETUP TAB LAYOUT ─────────────── */
-      /* Research tab: layout becomes flex column — setup on top, chat below */
-      .layout.mob-research {
-        display: flex !important;
-        flex-direction: column;
-      }
-      .layout.mob-research .left-col {
-        display: flex !important;
-        max-height: 55vh;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding: 12px 14px 10px;
-        border-right: none !important;
-        border-bottom: 1px solid var(--border) !important;
-        flex-shrink: 0;
-        transition: max-height .3s ease, padding .25s ease, opacity .25s ease;
-      }
-      .layout.mob-research .left-col.setup-collapsed {
-        max-height: 0 !important;
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        overflow: hidden;
-        opacity: 0;
-      }
-      .layout.mob-research .mid-col {
-        display: flex !important;
-        flex: 1;
-        min-height: 0;
-        overflow: hidden;
-      }
-      .layout.mob-research .data-col { display: none !important; }
-
-      /* Data tab: only data-col visible */
-      .layout.mob-data .left-col,
-      .layout.mob-data .mid-col { display: none !important; }
-      .layout.mob-data .data-col {
-        display: flex !important;
-        padding-bottom: 72px !important;
-      }
-
-      /* Mobile setup toggle bar (inside mid-col) */
+      /* ── SETUP HEADER BAR (inside Research tab) ─────────── */
       .mobile-setup-toggle {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 8px 14px;
-        background: rgba(79,143,255,.06);
+        padding: 9px 14px;
+        background: var(--bg-card);
         border-bottom: 1px solid var(--border);
-        cursor: pointer;
         flex-shrink: 0;
-        user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        min-height: 40px;
-        touch-action: manipulation;
+        min-height: 44px;
       }
-      .setup-toggle-label { font-size: 11px; font-weight: 700; color: var(--blue); letter-spacing: .04em; display: flex; align-items: center; gap: 5px; }
-      .setup-toggle-arrow { font-size: 11px; color: var(--txt2); transition: transform .25s; }
-      .setup-toggle-arrow.flipped { transform: rotate(180deg); }
+      .setup-toggle-label { font-size: 12px; font-weight: 600; color: var(--txt); display: flex; align-items: center; gap: 6px; }
+      .setup-toggle-label .stl-ticker { color: var(--blue); font-weight: 800; }
+      .setup-toggle-label .stl-analysts { font-size: 10px; color: var(--txt2); }
+      .setup-edit-btn {
+        font-size: 11px; font-weight: 700; color: var(--blue);
+        background: rgba(79,143,255,.12); border: 1px solid rgba(79,143,255,.35);
+        border-radius: 20px; padding: 5px 12px; cursor: pointer;
+        -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+        white-space: nowrap;
+      }
+
+      /* ── SETUP DRAWER (slides in from left, full-height overlay) */
+      .mob-setup-backdrop {
+        display: block;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.55);
+        z-index: 80;
+        opacity: 0; pointer-events: none;
+        transition: opacity .25s ease;
+      }
+      .mob-setup-backdrop.show { opacity: 1; pointer-events: auto; }
+
+      .mob-setup-drawer {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        width: 88vw; max-width: 360px;
+        background: var(--bg-card);
+        border-right: 1px solid var(--border);
+        z-index: 81;
+        transform: translateX(-100%);
+        transition: transform .28s ease;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 14px 16px 80px;
+      }
+      .mob-setup-drawer.show { transform: translateX(0); }
+      .mob-drawer-close {
+        align-self: flex-end;
+        background: none; border: none; color: var(--txt2);
+        font-size: 22px; cursor: pointer; padding: 0 0 10px 0;
+        -webkit-tap-highlight-color: transparent;
+      }
 
       /* Advisor grid */
       .advisor-grid { gap: 8px; }
@@ -462,6 +458,10 @@
   <button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
 </header>
 
+<!-- ── MOBILE SETUP DRAWER ──────────────────────────────── -->
+<div class="mob-setup-backdrop" id="mobSetupBackdrop"></div>
+<div class="mob-setup-drawer" id="mobSetupDrawer"></div>
+
 <div class="layout">
   <!-- ── LEFT: FORM ─────────────────────────────────────── -->
   <aside class="left-col">
@@ -489,11 +489,14 @@
   </aside>
 
   <!-- ── MID: CHAT FEED ─────────────────────────────────── -->
-  <section class="mid-col">
-    <!-- Mobile-only: toggle to show/hide setup form above this panel -->
+  <section class="mid-col mobile-active">
+    <!-- Mobile-only: compact setup summary bar with Edit button -->
     <div class="mobile-setup-toggle" id="mobileSetupToggle">
-      <span class="setup-toggle-label">📋 Setup</span>
-      <span class="setup-toggle-arrow" id="setupToggleArrow">▲</span>
+      <span class="setup-toggle-label">
+        <span class="stl-ticker" id="stlTicker">NVDA</span>
+        <span class="stl-analysts" id="stlAnalysts">· 4 analysts</span>
+      </span>
+      <button class="setup-edit-btn" id="setupEditBtn" type="button">✏ Edit Setup</button>
     </div>
     <div class="progress-wrap">
       <div class="progress-header">
@@ -1549,36 +1552,17 @@ document.addEventListener("visibilitychange", () => {
 // ── MOBILE TAB NAVIGATION ─────────────────────────────────────────────────────
 (function() {
   const MOBILE_BP = 767;
-  const layout    = document.querySelector(".layout");
-  const leftCol   = document.querySelector(".left-col");
+  const tabBtns   = document.querySelectorAll(".mobile-tab-btn");
   const midCol    = document.querySelector(".mid-col");
   const dataCol   = document.querySelector(".data-col");
-  const tabBtns   = document.querySelectorAll(".mobile-tab-btn");
-  const setupToggle = document.getElementById("mobileSetupToggle");
-  const setupArrow  = document.getElementById("setupToggleArrow");
-  let   activePanel = "research"; // "research" | "data"
+  const panelMap  = { "research": midCol, "data": dataCol };
 
   function isMobile() { return window.innerWidth <= MOBILE_BP; }
 
-  function applyLayout() {
-    if (!isMobile()) {
-      // Desktop: remove all mobile layout classes; columns revert to CSS grid
-      layout.classList.remove("mob-research", "mob-data");
-      [leftCol, midCol, dataCol].forEach(p => { if (p) p.classList.remove("mobile-active"); });
-      return;
-    }
-    layout.classList.remove("mob-research", "mob-data");
-    if (activePanel === "research") {
-      layout.classList.add("mob-research");
-    } else {
-      layout.classList.add("mob-data");
-    }
-  }
-
   function activateTab(panel, silent) {
     if (!isMobile()) return;
-    activePanel = panel;
-    applyLayout();
+    Object.values(panelMap).forEach(p => { if (p) p.classList.remove("mobile-active"); });
+    if (panelMap[panel]) panelMap[panel].classList.add("mobile-active");
     tabBtns.forEach(b => {
       b.classList.remove("active");
       if (b.dataset.panel === panel) {
@@ -1596,45 +1580,83 @@ document.addEventListener("visibilitychange", () => {
     });
   }
 
-  // Setup collapse/expand toggle
-  function setSetupCollapsed(collapsed) {
-    if (collapsed) {
-      leftCol.classList.add("setup-collapsed");
-      setupArrow.textContent = "▼";
-      setupArrow.classList.remove("flipped");
+  function onResize() {
+    if (!isMobile()) {
+      [midCol, dataCol].forEach(p => { if (p) p.classList.remove("mobile-active"); });
     } else {
-      leftCol.classList.remove("setup-collapsed");
-      setupArrow.textContent = "▲";
-      setupArrow.classList.add("flipped");
+      const anyActive = [...Object.values(panelMap)].some(p => p && p.classList.contains("mobile-active"));
+      if (!anyActive) activateTab("research");
     }
   }
 
-  if (setupToggle) {
-    setupToggle.addEventListener("click", () => {
-      setSetupCollapsed(!leftCol.classList.contains("setup-collapsed"));
-    });
-  }
+  tabBtns.forEach(btn => btn.addEventListener("click", () => activateTab(btn.dataset.panel)));
+  window.addEventListener("resize", onResize);
+  onResize();
 
-  tabBtns.forEach(btn => {
-    btn.addEventListener("click", () => activateTab(btn.dataset.panel));
-  });
+  // Auto-switch to Research when analysis starts
+  form.addEventListener("submit", () => { setTimeout(() => activateTab("research"), 50); }, true);
 
-  window.addEventListener("resize", applyLayout);
-
-  // Start in research mode
-  applyLayout();
-
-  // Auto-switch to Research tab when analysis starts; auto-collapse setup
-  form.addEventListener("submit", () => {
-    setTimeout(() => {
-      activateTab("research");
-      if (isMobile()) setSetupCollapsed(true);
-    }, 50);
-  }, true);
-
-  // Badge inactive tabs when new content arrives in their feeds
+  // Badge inactive tabs when new content arrives
   new MutationObserver(() => badgeTab("data")).observe(dataFeed, { childList: true });
   new MutationObserver(() => badgeTab("research")).observe(chatFeed, { childList: true });
+})();
+
+// ── MOBILE SETUP DRAWER ───────────────────────────────────────────────────────
+(function() {
+  const MOBILE_BP   = 767;
+  const drawer      = document.getElementById("mobSetupDrawer");
+  const backdrop    = document.getElementById("mobSetupBackdrop");
+  const editBtn     = document.getElementById("setupEditBtn");
+  const leftCol     = document.querySelector(".left-col");
+  const stlTicker   = document.getElementById("stlTicker");
+  const stlAnalysts = document.getElementById("stlAnalysts");
+
+  function isMobile() { return window.innerWidth <= MOBILE_BP; }
+
+  function updateSummary() {
+    const ticker = document.getElementById("ticker").value.trim().toUpperCase() || "—";
+    const count  = selectedAdvisors.size;
+    stlTicker.textContent   = ticker;
+    stlAnalysts.textContent = `· ${count} analyst${count !== 1 ? "s" : ""}`;
+  }
+
+  function openDrawer() {
+    // Clone the left-col form content into the drawer
+    drawer.innerHTML = "";
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "mob-drawer-close";
+    closeBtn.textContent = "✕";
+    closeBtn.addEventListener("click", closeDrawer);
+    drawer.appendChild(closeBtn);
+    // Move the actual left-col children into the drawer (live DOM refs preserved)
+    Array.from(leftCol.children).forEach(child => drawer.appendChild(child));
+    drawer.classList.add("show");
+    backdrop.classList.add("show");
+  }
+
+  function closeDrawer() {
+    drawer.classList.remove("show");
+    backdrop.classList.remove("show");
+    // Move children back to left-col
+    Array.from(drawer.children).forEach(child => {
+      if (!child.classList.contains("mob-drawer-close")) leftCol.appendChild(child);
+    });
+    updateSummary();
+  }
+
+  if (editBtn)   editBtn.addEventListener("click", () => { if (isMobile()) openDrawer(); });
+  if (backdrop)  backdrop.addEventListener("click", closeDrawer);
+
+  // Auto-close drawer when analysis starts
+  form.addEventListener("submit", () => {
+    if (drawer.classList.contains("show")) closeDrawer();
+    setTimeout(updateSummary, 100);
+  }, true);
+
+  // Keep summary up to date when ticker changes
+  const tickerInput = document.getElementById("ticker");
+  if (tickerInput) tickerInput.addEventListener("input", updateSummary);
+  updateSummary();
 })();
 </script>
 </body>
