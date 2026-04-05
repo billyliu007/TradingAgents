@@ -1,4 +1,7 @@
-from tradingagents.agents.utils.agent_utils import build_instrument_context
+from tradingagents.agents.utils.agent_utils import (
+    build_instrument_context,
+    sanitize_agent_output_text,
+)
 from tradingagents.prompts import get_portfolio_manager_prompt
 
 
@@ -31,9 +34,13 @@ def create_portfolio_manager(llm, memory, language: str = "en"):
         )
 
         response = llm.invoke(prompt)
+        raw = response.content
+        if not isinstance(raw, str):
+            raw = str(raw or "")
+        content = sanitize_agent_output_text(raw)
 
         new_risk_debate_state = {
-            "judge_decision": response.content,
+            "judge_decision": content,
             "history": risk_debate_state["history"],
             "aggressive_history": risk_debate_state["aggressive_history"],
             "conservative_history": risk_debate_state["conservative_history"],
@@ -47,7 +54,7 @@ def create_portfolio_manager(llm, memory, language: str = "en"):
 
         return {
             "risk_debate_state": new_risk_debate_state,
-            "final_trade_decision": response.content,
+            "final_trade_decision": content,
         }
 
     return portfolio_manager_node

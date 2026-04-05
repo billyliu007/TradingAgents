@@ -1,4 +1,5 @@
 import inspect
+import re
 from typing import Any, Sequence
 
 from langchain_core.messages import HumanMessage, RemoveMessage
@@ -43,6 +44,15 @@ def build_instrument_context(ticker: str) -> str:
         "Use this exact ticker in every tool call, report, and recommendation, "
         "preserving any exchange suffix (e.g. `.TO`, `.L`, `.HK`, `.T`)."
     )
+
+
+def sanitize_agent_output_text(text: str) -> str:
+    """Drop synthetic ``<tool>...</tool>`` blocks some models emit in plain-text mode."""
+    if not text or not isinstance(text, str):
+        return text if isinstance(text, str) else ""
+    out = re.sub(r"<tool\b[^>]*>[\s\S]*?</tool\s*>", "", text, flags=re.IGNORECASE)
+    out = re.sub(r"\n{3,}", "\n\n", out)
+    return out.strip()
 
 def create_msg_delete():
     def delete_messages(state):

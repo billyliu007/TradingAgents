@@ -46,10 +46,25 @@
       border-bottom: 1px solid var(--border);
     }
     .logo { flex-shrink: 0; font-size: 16px; font-weight: 700; background: linear-gradient(90deg, var(--blue), var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .hdr-tools { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
-    .hdr-lang-wrap { display: flex; align-items: center; gap: 6px; }
-    .hdr-lang-wrap label { font-size: 10px; font-weight: 700; color: var(--txt2); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
-    .hdr-lang-select { width: auto; min-width: 110px; max-width: 140px; padding: 6px 8px; font-size: 13px; }
+    .hdr-tools {
+      display: flex; align-items: center; gap: 8px; margin-left: auto;
+      flex: 1; min-width: 0; flex-wrap: wrap; justify-content: flex-end;
+    }
+    .hdr-lang-wrap {
+      display: flex; align-items: center; gap: 4px;
+      flex: 0 0 auto; margin-left: 4px;
+    }
+    .hdr-lang-wrap label {
+      font-size: 9px; font-weight: 700; color: var(--txt2); text-transform: uppercase;
+      letter-spacing: .04em; white-space: nowrap;
+    }
+    .hdr-lang-select {
+      width: auto; min-width: 76px; max-width: 100px;
+      padding: 5px 6px; font-size: 12px;
+      background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--txt); outline: none;
+    }
+    .hdr-lang-select:focus { border-color: var(--blue); }
     .admin-link {
       font-size: 11px; font-weight: 700; color: var(--txt2); text-decoration: none;
       padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; white-space: nowrap;
@@ -200,8 +215,9 @@
     }
     .ticker-input:focus { border-color: var(--blue); }
     .ticker-input::placeholder { color: var(--txt2); font-size: 13px; font-weight: 400; letter-spacing: normal; opacity: .7; }
-    .ticker-row .btn-primary { flex-shrink: 0; margin-top: 0; padding: 8px 14px; font-size: 11px; }
-    .ticker-row .btn-stop, .ticker-row .btn-clear { width: auto; margin-top: 0; flex-shrink: 0; padding: 7px 10px; font-size: 11px; }
+    .ticker-row .btn-primary,
+    .ticker-row .btn-stop.ticker-action-btn { flex-shrink: 0; margin-top: 0; padding: 8px 14px; font-size: 11px; min-width: 100px; }
+    .ticker-row .btn-clear { width: auto; margin-top: 0; flex-shrink: 0; padding: 7px 10px; font-size: 11px; }
 
     /* ── TICKER AUTOCOMPLETE ───────────────────────────────── */
     .ticker-wrap { position: relative; flex: 1; min-width: 80px; max-width: 260px; }
@@ -307,8 +323,9 @@
     .btn-primary { padding: 10px 16px; background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,143,255,.3); }
     .btn-primary:disabled { opacity: .55; cursor: wait; }
-    .btn-stop  { padding: 9px 12px; background: rgba(224,82,82,.12); border: 1px solid var(--red); border-radius: 6px; color: var(--red); font-size: 12px; font-weight: 700; cursor: pointer; display: none; transition: all .2s; white-space: nowrap; }
-    .btn-stop:hover { background: rgba(224,82,82,.22); }
+    .btn-stop  { padding: 9px 12px; background: rgba(224,82,82,.12); border: 1px solid var(--red); border-radius: 6px; color: var(--red); font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
+    .btn-stop:hover:not(:disabled) { background: rgba(224,82,82,.22); }
+    .btn-stop:disabled { opacity: .55; cursor: wait; }
     .btn-clear { padding: 8px 10px; background: rgba(79,143,255,.08); border: 1px solid var(--border); border-radius: 6px; color: var(--txt2); font-size: 13px; cursor: pointer; display: none; }
     .status-msg { font-size: 11px; margin-top: 6px; padding: 7px 10px; border-radius: 5px; display: none; }
     .status-msg.show { display: block; }
@@ -586,9 +603,13 @@
       .ticker-bar { padding: 10px 12px; }
       .ticker-wrap { max-width: none; }
       .ticker-input { font-size: 20px !important; min-height: 44px; max-width: none; }
-      .ticker-row .btn-primary { padding: 10px 12px; font-size: 11px; min-height: 44px; }
-      .ticker-row .btn-stop    { padding: 10px 8px;  font-size: 11px; min-height: 44px; }
+      .ticker-row .btn-primary,
+      .ticker-row .btn-stop.ticker-action-btn { padding: 10px 12px; font-size: 11px; min-height: 44px; min-width: 96px; }
       .ticker-row .btn-clear   { padding: 10px 8px;  font-size: 11px; min-height: 44px; }
+      .hdr-lang-wrap { margin-left: 2px; gap: 2px; }
+      .hdr-lang-wrap label { display: none; }
+      .hdr-lang-select { min-width: 64px; max-width: 78px; padding: 6px 4px; font-size: 11px; }
+      header { padding: 10px 12px; gap: 8px; }
 
       /* Analyst toggle cards on mobile */
       .analyst-toggle { min-height: 90px; }
@@ -666,15 +687,15 @@
 <header>
   <div class="logo">🔭 AlphaLens</div>
   <div class="hdr-tools">
+    <div class="hdr-status" id="hdrStatus">Ready</div>
+    <a class="admin-link" id="adminLink" href="/admin">Admin</a>
     <div class="hdr-lang-wrap">
       <label for="language_select" id="hdrLangLabel">Language</label>
       <select id="language_select" class="hdr-lang-select" aria-label="Language">
-        <option value="en">English</option>
+        <option value="en">EN</option>
         <option value="zh">中文</option>
       </select>
     </div>
-    <div class="hdr-status" id="hdrStatus">Ready</div>
-    <a class="admin-link" id="adminLink" href="/admin">Admin</a>
   </div>
 </header>
 
@@ -689,8 +710,7 @@
             <input id="ticker" class="ticker-input" value="" required autocomplete="off" spellcheck="false" placeholder="e.g. AAPL, NVDA, TSLA…" />
             <div class="ticker-suggestions" id="tickerSuggestions"></div>
           </div>
-          <button class="btn-primary" id="submitBtn" type="submit">▶ Research</button>
-          <button class="btn-stop"  id="stopBtn"  type="button">⏹ Stop</button>
+          <button class="btn-primary ticker-action-btn" id="actionBtn" type="submit">▶ Research</button>
           <button class="btn-clear" id="clearBtn" type="button">🗑</button>
         </div>
         <div class="status-msg" id="statusMsg"></div>
@@ -1089,9 +1109,12 @@ function updateLanguage(lang) {
 function _el(id) { return document.getElementById(id); }
 
 function updateUIText() {
-  // Buttons
-  submitBtn.textContent = t("btn_start");
-  stopBtn.textContent   = t("btn_stop");
+  // Main action: Analyze vs Stop (or "Stopping…" while cancel is in flight)
+  if (actionBtn.disabled && analysisRunning) {
+    actionBtn.textContent = t("stopping");
+  } else {
+    actionBtn.textContent = analysisRunning ? t("btn_stop") : t("btn_start");
+  }
   clearBtn.textContent  = "🗑";
 
   // Progress
@@ -1163,8 +1186,7 @@ const ADVISOR_CHOICES = ["market","fundamentals","social","news"];
 
 // ── DOM REFS ─────────────────────────────────────────────────────────────────
 const form              = document.getElementById("analyzeForm");
-const submitBtn         = document.getElementById("submitBtn");
-const stopBtn           = document.getElementById("stopBtn");
+const actionBtn         = document.getElementById("actionBtn");
 const clearBtn          = document.getElementById("clearBtn");
 const statusMsg         = document.getElementById("statusMsg");
 const hdrStatus         = document.getElementById("hdrStatus");
@@ -1231,6 +1253,7 @@ let selectedAdvisors = new Set(["market","fundamentals","social","news"]);
 let jobDone = false;
 let wsReconnectDelay = TIMING.WS_INITIAL_DELAY;
 let _analystsCompleted = 0; // counts data-analyst completions within the current job
+let analysisRunning = false;
 
 // ── PROGRESS MILESTONES ───────────────────────────────────────────────────────
 // Data analysts (market/fundamentals/social/news) fill 10→46% evenly based on
@@ -1278,9 +1301,21 @@ function setProgress(pct, label, isFinal) {
 function advanceProgress(by, label) { setProgress(progress + by, label); }
 
 function setRunningUI(running) {
-  submitBtn.disabled = running;
-  stopBtn.style.display  = running ? "block" : "none";
-  clearBtn.style.display = running ? "none"  : "block";
+  analysisRunning = running;
+  actionBtn.disabled = false;
+  actionBtn.type = running ? "button" : "submit";
+  actionBtn.classList.remove("btn-primary", "btn-stop");
+  if (running) {
+    actionBtn.classList.add("btn-stop");
+  } else {
+    actionBtn.classList.add("btn-primary");
+  }
+  if (running) {
+    actionBtn.textContent = t("btn_stop");
+  } else {
+    actionBtn.textContent = t("btn_start");
+  }
+  clearBtn.style.display = running ? "none" : "block";
 }
 
 // ── CHAT HELPERS ──────────────────────────────────────────────────────────────
@@ -1671,14 +1706,16 @@ function addDataError(event) {
   dataFeed.insertBefore(makeDataEntry(labelHtml, previewHtml, { borderColor: "var(--red)" }), dataFeed.firstChild);
 }
 
-// ── STOP ANALYSIS ─────────────────────────────────────────────────────────────
-stopBtn.addEventListener("click", async () => {
+// ── STOP: same control as Analyze; idle uses type=submit so Enter in ticker still works
+actionBtn.addEventListener("click", async (e) => {
+  if (!analysisRunning) return;
+  e.preventDefault();
   if (!jobId) return;
-  stopBtn.disabled = true;
-  stopBtn.textContent = t("stopping");
+  actionBtn.disabled = true;
+  actionBtn.textContent = t("stopping");
   try {
     await fetch(apiUrl(`/api/jobs/${jobId}/cancel`), { method: "POST" });
-  } catch(e) { /* server will emit job_cancelled via WS anyway */ }
+  } catch(err) { /* server will emit job_cancelled via WS anyway */ }
 });
 
 // ── WEBSOCKET ─────────────────────────────────────────────────────────────────
@@ -1805,7 +1842,7 @@ function connectWS(jid, isReconnect) {
       setStatus(t("analysis_stopped"), "warn");
       addSystemMsg("⏹", t("stopped_partial"), "var(--txt2)");
       dataStatus.textContent = t("data_stopped");
-      stopBtn.disabled = false; stopBtn.textContent = t("btn_stop");
+      actionBtn.disabled = false;
       setRunningUI(false); clearSaved();
       return;
     }
@@ -1907,7 +1944,6 @@ form.addEventListener("submit", async e => {
   progress = 0; setProgress(5, t("submitting_request"));
   hdrStatus.textContent = `${t("hdr_researching")} ${payload.ticker}...`; hdrStatus.className = "hdr-status running";
   setStatus(t("submitting"), "info");
-  stopBtn.disabled = false; stopBtn.textContent = t("btn_stop");
 
   try {
     const r = await fetch(apiUrl("/api/jobs"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });

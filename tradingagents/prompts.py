@@ -475,6 +475,8 @@ def get_portfolio_manager_prompt(language: str = "en") -> str:
 
 {instrument_context}
 
+**写作约束**:仅输出给人阅读的分析与结论（可用 Markdown）。禁止输出 ``<tool>...</tool>``、函数调用 JSON、或虚构的数据拉取步骤；所需市场信息已体现在上方辩论与报告中。不要提及或对比「快速/深度」模型名称或任何底层 LLM 型号。
+
 ---
 
 **评级量表**（精确使用其中之一）:
@@ -507,6 +509,8 @@ def get_portfolio_manager_prompt(language: str = "en") -> str:
             """As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
 
 {instrument_context}
+
+**Output rules:** Write plain prose or markdown for human readers only. Do not emit `<tool>...</tool>` blocks, function-call JSON, or pretend to fetch data—all relevant research is already in the debate history below. Do not mention quick vs deep models or any underlying LLM product names.
 
 ---
 
