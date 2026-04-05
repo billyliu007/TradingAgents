@@ -84,6 +84,7 @@
       text-transform: uppercase; outline: none; transition: border-color .2s;
     }
     .ticker-input:focus { border-color: var(--blue); }
+    .ticker-input::placeholder { color: var(--txt2); font-size: 13px; font-weight: 400; letter-spacing: normal; opacity: .7; }
     .ticker-row .btn-primary { flex-shrink: 0; margin-top: 0; padding: 8px 14px; font-size: 11px; }
     .ticker-row .btn-stop, .ticker-row .btn-clear { width: auto; margin-top: 0; flex-shrink: 0; padding: 7px 10px; font-size: 11px; }
 
@@ -479,7 +480,7 @@
       <form id="analyzeForm">
         <div class="ticker-row">
           <div class="ticker-wrap">
-            <input id="ticker" class="ticker-input" value="NVDA" required autocomplete="off" spellcheck="false" placeholder="NVDA" />
+            <input id="ticker" class="ticker-input" value="" required autocomplete="off" spellcheck="false" placeholder="e.g. AAPL, NVDA, TSLA…" />
             <div class="ticker-suggestions" id="tickerSuggestions"></div>
           </div>
           <button class="btn-primary" id="submitBtn" type="submit">▶ Research</button>
