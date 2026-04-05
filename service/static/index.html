@@ -1308,6 +1308,10 @@ document.getElementById("dataStatus").textContent = t("data_waiting");
 updateUIText();   // apply language to all labels immediately on load
 
 // ── MODEL LISTS PER PROVIDER ─────────────────────────────────────────────────
+const _KIMI_MODELS = {
+  quick: ["kimi-k2.5","moonshot-v1-8k","moonshot-v1-128k"],
+  deep:  ["kimi-k2.5","moonshot-v1-128k","moonshot-v1-8k"],
+};
 const PROVIDER_MODELS = {
   openai: {
     quick: ["gpt-4.1-mini","gpt-4o-mini","gpt-5-mini","o4-mini","o3-mini"],
@@ -1325,14 +1329,8 @@ const PROVIDER_MODELS = {
     quick: ["grok-3-mini","grok-2-mini"],
     deep:  ["grok-3","grok-3-fast","grok-2"],
   },
-  kimi: {
-    quick: ["kimi-k2.5","moonshot-v1-8k","moonshot-v1-128k"],
-    deep:  ["kimi-k2.5","moonshot-v1-128k","moonshot-v1-8k"],
-  },
-  kimi_cn: {
-    quick: ["kimi-k2.5","moonshot-v1-8k","moonshot-v1-128k"],
-    deep:  ["kimi-k2.5","moonshot-v1-128k","moonshot-v1-8k"],
-  },
+  kimi:    _KIMI_MODELS,
+  kimi_cn: _KIMI_MODELS,
   openrouter: {
     quick: ["openai/gpt-4o-mini","anthropic/claude-haiku-4-5","google/gemini-flash-1.5","meta-llama/llama-3.3-70b-instruct"],
     deep:  ["openai/gpt-4o","openai/gpt-4.1","anthropic/claude-sonnet-4-6","google/gemini-pro-1.5","meta-llama/llama-3.3-70b-instruct"],

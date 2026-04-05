@@ -73,7 +73,7 @@ class OpenAIClient(BaseLLMClient):
         # Provider-specific base URL and auth (optional backend_url overrides default)
         if self.provider in _PROVIDER_CONFIG:
             default_url, api_key_env = _PROVIDER_CONFIG[self.provider]
-            if self.provider == "kimi":
+            if self.provider in ("kimi", "kimi_cn"):
                 env_base = os.environ.get("MOONSHOT_API_BASE", "").strip().rstrip("/")
                 if env_base:
                     default_url = env_base
