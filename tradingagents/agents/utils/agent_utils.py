@@ -1,3 +1,6 @@
+import inspect
+from typing import Any, Sequence
+
 from langchain_core.messages import HumanMessage, RemoveMessage
 
 # Import tools from separate utility files
@@ -19,6 +22,18 @@ from tradingagents.agents.utils.news_data_tools import (
     get_global_news,
     get_sentiment_news,
 )
+
+
+def bind_llm_tools(llm: Any, tools: Sequence, **kwargs: Any) -> Any:
+    """Bind tools for agent chains.
+
+    Uses ``tool_choice="auto"`` when the model's ``bind_tools`` supports it,
+    so OpenAI-compatible APIs (incl. Kimi) avoid unsupported ``required`` modes.
+    Other providers only receive kwargs they accept.
+    """
+    if "tool_choice" in inspect.signature(llm.bind_tools).parameters:
+        kwargs.setdefault("tool_choice", "auto")
+    return llm.bind_tools(tools, **kwargs)
 
 
 def build_instrument_context(ticker: str) -> str:

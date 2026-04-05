@@ -162,6 +162,11 @@ def select_shallow_thinking_agent(provider) -> str:
             ("Grok 4 Fast (Non-Reasoning) - Speed optimized", "grok-4-fast-non-reasoning"),
             ("Grok 4.1 Fast (Reasoning) - High-performance, 2M ctx", "grok-4-1-fast-reasoning"),
         ],
+        "kimi": [
+            ("Kimi K2.5 - Default (widest access)", "kimi-k2.5"),
+            ("Moonshot v1 8K - Legacy stable", "moonshot-v1-8k"),
+            ("Moonshot v1 128K - Long context", "moonshot-v1-128k"),
+        ],
         "openrouter": [
             ("NVIDIA Nemotron 3 Nano 30B (free)", "nvidia/nemotron-3-nano-30b-a3b:free"),
             ("Z.AI GLM 4.5 Air (free)", "z-ai/glm-4.5-air:free"),
@@ -172,6 +177,7 @@ def select_shallow_thinking_agent(provider) -> str:
             ("GLM-4.7-Flash:latest (30B, local)", "glm-4.7-flash:latest"),
         ],
     }
+    SHALLOW_AGENT_OPTIONS["kimi_cn"] = SHALLOW_AGENT_OPTIONS["kimi"]
 
     choice = questionary.select(
         "Select Your [Quick-Thinking LLM Engine]:",
@@ -229,6 +235,11 @@ def select_deep_thinking_agent(provider) -> str:
             ("Grok 4 Fast (Reasoning) - High-performance", "grok-4-fast-reasoning"),
             ("Grok 4.1 Fast (Non-Reasoning) - Speed optimized, 2M ctx", "grok-4-1-fast-non-reasoning"),
         ],
+        "kimi": [
+            ("Kimi K2.5 - Default (widest access)", "kimi-k2.5"),
+            ("Moonshot v1 128K - Long context", "moonshot-v1-128k"),
+            ("Moonshot v1 8K - Legacy stable", "moonshot-v1-8k"),
+        ],
         "openrouter": [
             ("Z.AI GLM 4.5 Air (free)", "z-ai/glm-4.5-air:free"),
             ("NVIDIA Nemotron 3 Nano 30B (free)", "nvidia/nemotron-3-nano-30b-a3b:free"),
@@ -239,6 +250,7 @@ def select_deep_thinking_agent(provider) -> str:
             ("Qwen3:latest (8B, local)", "qwen3:latest"),
         ],
     }
+    DEEP_AGENT_OPTIONS["kimi_cn"] = DEEP_AGENT_OPTIONS["kimi"]
 
     choice = questionary.select(
         "Select Your [Deep-Thinking LLM Engine]:",
@@ -262,23 +274,24 @@ def select_deep_thinking_agent(provider) -> str:
 
     return choice
 
-def select_llm_provider() -> tuple[str, str]:
-    """Select the OpenAI api url using interactive selection."""
-    # Define OpenAI api options with their corresponding endpoints
+def select_llm_provider() -> tuple[str, str, str]:
+    """Select LLM provider; returns (display_name, provider_id, backend_url)."""
     BASE_URLS = [
-        ("OpenAI", "https://api.openai.com/v1"),
-        ("Google", "https://generativelanguage.googleapis.com/v1"),
-        ("Anthropic", "https://api.anthropic.com/"),
-        ("xAI", "https://api.x.ai/v1"),
-        ("Openrouter", "https://openrouter.ai/api/v1"),
-        ("Ollama", "http://localhost:11434/v1"),
+        ("OpenAI", "openai", "https://api.openai.com/v1"),
+        ("Google", "google", "https://generativelanguage.googleapis.com/v1"),
+        ("Anthropic", "anthropic", "https://api.anthropic.com/"),
+        ("xAI", "xai", "https://api.x.ai/v1"),
+        ("Kimi (International)", "kimi", "https://api.moonshot.ai/v1"),
+        ("Kimi (China)", "kimi_cn", "https://api.moonshot.cn/v1"),
+        ("Openrouter", "openrouter", "https://openrouter.ai/api/v1"),
+        ("Ollama", "ollama", "http://localhost:11434/v1"),
     ]
-    
+
     choice = questionary.select(
         "Select your LLM Provider:",
         choices=[
-            questionary.Choice(display, value=(display, value))
-            for display, value in BASE_URLS
+            questionary.Choice(display, value=(display, provider_id, url))
+            for display, provider_id, url in BASE_URLS
         ],
         instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
         style=questionary.Style(
@@ -294,10 +307,10 @@ def select_llm_provider() -> tuple[str, str]:
         console.print("\n[red]no OpenAI backend selected. Exiting...[/red]")
         exit(1)
     
-    display_name, url = choice
+    display_name, provider_id, url = choice
     print(f"You selected: {display_name}\tURL: {url}")
 
-    return display_name, url
+    return display_name, provider_id, url
 
 
 def ask_openai_reasoning_effort() -> str:

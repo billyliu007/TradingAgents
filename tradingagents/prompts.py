@@ -3,12 +3,18 @@ Bilingual prompt library for all trading agents.
 Supports English ('en') and Chinese ('zh') languages.
 """
 
+# Strengthens Simplified Chinese replies when UI language is zh (models often mix EN/ZH).
+_ZH_OUTPUT_PREFIX = (
+    "【输出语言】请用简体中文撰写本回复中的分析与结论；仅在必要时保留英文专有名词、指标缩写、代码、数据字段名或公司官方英文名，避免整段英文论述。\n\n"
+)
+
 
 def get_analyst_system_message(language: str = "en") -> str:
     """Base system message for all analyst-type agents."""
     if language == "zh":
         return (
-            "您是一个有帮助的AI助手，与其他助手协作。"
+            _ZH_OUTPUT_PREFIX
+            + "您是一个有帮助的AI助手，与其他助手协作。"
             "请使用提供的工具来推进问题解答。"
             "如果您无法完全回答，没关系；另一位具有不同工具的助手将在您停下的地方继续。"
             "执行您能执行的内容来取得进展。"
@@ -34,7 +40,8 @@ def get_market_analyst_prompt(language: str = "en") -> str:
     """Prompt for market analyst agent."""
     if language == "zh":
         return (
-            """您是一个交易助手，负责分析金融市场。您的任务是从以下列表中为给定的市场条件或交易策略选择**最相关的指标**。
+            _ZH_OUTPUT_PREFIX
+            + """您是一个交易助手，负责分析金融市场。您的任务是从以下列表中为给定的市场条件或交易策略选择**最相关的指标**。
 目标是选择最多**8个指标**，这些指标提供互补的见解而没有冗余。类别和各类别的指标如下:
 
 移动平均线:
@@ -97,7 +104,8 @@ def get_fundamentals_analyst_prompt(language: str = "en") -> str:
     """Prompt for fundamentals analyst agent."""
     if language == "zh":
         return (
-            "您是一位研究人员，负责分析过去一周关于一家公司的基本面信息。"
+            _ZH_OUTPUT_PREFIX
+            + "您是一位研究人员，负责分析过去一周关于一家公司的基本面信息。"
             "请编写一份关于公司基本面信息的综合报告，包括财务文件、公司概况、基本公司财务和公司财务历史，以获得对公司基本面信息的全面了解，为交易员提供信息。"
             "请确保包含尽可能多的细节。提供具体、可行的见解，包括支持证据，帮助交易员做出明智的决策。"
             + "请确保在报告末尾附加一个Markdown表格来组织报告中的关键点，组织清晰易读。"
@@ -115,7 +123,8 @@ def get_news_analyst_prompt(language: str = "en") -> str:
     """Prompt for news analyst agent."""
     if language == "zh":
         return (
-            "您是一位新闻研究人员，负责分析过去一周的最新新闻和趋势。"
+            _ZH_OUTPUT_PREFIX
+            + "您是一位新闻研究人员，负责分析过去一周的最新新闻和趋势。"
             "请编写一份关于与交易和宏观经济相关的世界当前状态的综合报告。"
             "使用可用的工具:get_news(query, start_date, end_date)用于特定公司或有针对性的新闻搜索，以及get_global_news(curr_date, look_back_days, limit)用于更广泛的宏观经济新闻。"
             "提供具体、可行的见解，包括支持证据，帮助交易员做出明智的决策。"
@@ -132,7 +141,8 @@ def get_social_media_analyst_prompt(language: str = "en") -> str:
     """Prompt for social media analyst agent."""
     if language == "zh":
         return (
-            "您是一位社交媒体和特定公司新闻研究人员/分析师，负责分析特定公司过去一周的社交媒体帖子、最近公司新闻和公众情绪。"
+            _ZH_OUTPUT_PREFIX
+            + "您是一位社交媒体和特定公司新闻研究人员/分析师，负责分析特定公司过去一周的社交媒体帖子、最近公司新闻和公众情绪。"
             "您将获得一家公司的名称，您的目标是编写一份综合长报告，详细说明您的分析、见解以及对该公司当前状态的交易员和投资者的影响，"
             "通过查看社交媒体和人们对该公司的看法、分析人们对该公司每日感受的情绪数据，以及查看最近的公司新闻。"
             "使用get_news(query, start_date, end_date)工具搜索特定公司的新闻和社交媒体讨论。"
@@ -150,7 +160,8 @@ def get_bull_researcher_prompt(language: str = "en") -> str:
     """Prompt for bull researcher agent."""
     if language == "zh":
         return (
-            """您是一位看涨分析师，主张投资该股票。您的任务是建立一个强大、以证据为基础的案例，强调增长潜力、竞争优势和积极的市场指标。
+            _ZH_OUTPUT_PREFIX
+            + """您是一位看涨分析师，主张投资该股票。您的任务是建立一个强大、以证据为基础的案例，强调增长潜力、竞争优势和积极的市场指标。
 利用所提供的研究和数据有效地应对关切并反驳看空论点。
 
 关键关注点:
@@ -199,7 +210,8 @@ def get_bear_researcher_prompt(language: str = "en") -> str:
     """Prompt for bear researcher agent."""
     if language == "zh":
         return (
-            """您是一位看空分析师，主张反对投资该股票。您的目标是呈现一个思虑周密的论点，强调风险、挑战和负面指标。
+            _ZH_OUTPUT_PREFIX
+            + """您是一位看空分析师，主张反对投资该股票。您的目标是呈现一个思虑周密的论点，强调风险、挑战和负面指标。
 利用所提供的研究和数据有效地突出潜在的缺点并反驳看涨论点。
 
 关键关注点:
@@ -252,7 +264,8 @@ def get_research_manager_prompt(language: str = "en") -> str:
     """Prompt for research manager agent."""
     if language == "zh":
         return (
-            """作为投资组合经理和辩论协调员，您的任务是批判性地评估这一轮辩论并做出明确的决定:与看空分析师保持一致、与看涨分析师保持一致，或仅在有强有力的理由支持时才选择持有。
+            _ZH_OUTPUT_PREFIX
+            + """作为投资组合经理和辩论协调员，您的任务是批判性地评估这一轮辩论并做出明确的决定:与看空分析师保持一致、与看涨分析师保持一致，或仅在有强有力的理由支持时才选择持有。
 
 简明扼要地总结两方的关键点，重点关注最令人信服的证据或推理。您的建议——买入、卖出或持有——必须清晰可行。避免仅因为双方都有有效观点而默认持有；以辩论的最强论点为基础坚定地采取立场。
 
@@ -300,7 +313,8 @@ def get_trader_prompt(language: str = "en") -> str:
     """Prompt for trader agent."""
     if language == "zh":
         return (
-            """您是一位交易代理，分析市场数据以做出投资决策。根据您的分析，提供具体的买入、卖出或持有建议。
+            _ZH_OUTPUT_PREFIX
+            + """您是一位交易代理，分析市场数据以做出投资决策。根据您的分析，提供具体的买入、卖出或持有建议。
 始终以"最终交易建议:**买入/持有/卖出**"结尾以确认您的建议。应用过去决策的教训来加强您的分析。以下是您交易过的类似情况和吸取的教训的反思:
 {past_memory_str}"""
         )
@@ -314,7 +328,8 @@ def get_aggressive_debator_prompt(language: str = "en") -> str:
     """Prompt for aggressive risk debator agent."""
     if language == "zh":
         return (
-            """作为激进风险分析师，您的角色是积极倡导高回报、高风险机会，强调大胆策略和竞争优势。
+            _ZH_OUTPUT_PREFIX
+            + """作为激进风险分析师，您的角色是积极倡导高回报、高风险机会，强调大胆策略和竞争优势。
 在评估交易员的决策或计划时，重点关注潜在上升空间、增长潜力和创新优势——即使这些伴随更高的风险。
 使用所提供的市场数据和情绪分析来加强您的论点并挑战相反的观点。
 具体来说，直接回应保守派和中立派分析师提出的每一点，用数据驱动的反驳和有说服力的推理进行反击。
@@ -362,7 +377,8 @@ def get_conservative_debator_prompt(language: str = "en") -> str:
     """Prompt for conservative risk debator agent."""
     if language == "zh":
         return (
-            """作为保守风险分析师，您的首要目标是保护资产、最小化波动率和确保稳定、可靠的增长。
+            _ZH_OUTPUT_PREFIX
+            + """作为保守风险分析师，您的首要目标是保护资产、最小化波动率和确保稳定、可靠的增长。
 您优先考虑稳定性、安全性和风险缓解，仔细评估潜在损失、经济衰退和市场波动。
 在评估交易员的决策或计划时，批判性地检查高风险因素，指出决策可能使公司面临过度风险的地方，以及更谨慎的替代方案如何能够确保长期收益。
 交易员的决策如下:
@@ -408,7 +424,8 @@ def get_neutral_debator_prompt(language: str = "en") -> str:
     """Prompt for neutral risk debator agent."""
     if language == "zh":
         return (
-            """作为中立风险分析师，您的角色是提供平衡的观点，权衡交易员决策或计划的潜在好处和风险。
+            _ZH_OUTPUT_PREFIX
+            + """作为中立风险分析师，您的角色是提供平衡的观点，权衡交易员决策或计划的潜在好处和风险。
 您优先考虑全面的方法，评估利弊，同时考虑更广泛的市场趋势、潜在的经济变化和多元化策略。
 交易员的决策如下:
 
@@ -453,7 +470,8 @@ def get_portfolio_manager_prompt(language: str = "en") -> str:
     """Prompt for portfolio manager agent."""
     if language == "zh":
         return (
-            """作为投资组合经理，综合风险分析师的辩论并提供最终交易决策。
+            _ZH_OUTPUT_PREFIX
+            + """作为投资组合经理，综合风险分析师的辩论并提供最终交易决策。
 
 {instrument_context}
 

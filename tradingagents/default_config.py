@@ -7,10 +7,10 @@ DEFAULT_CONFIG = {
         os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
         "dataflows/data_cache",
     ),
-    # LLM settings
-    "llm_provider": "openai",
-    "deep_think_llm": "gpt-5.2",
-    "quick_think_llm": "gpt-5-mini",
+    # LLM settings (default Kimi China — use MOONSHOT_API_KEY + MOONSHOT_API_BASE in .env)
+    "llm_provider": "kimi_cn",
+    "deep_think_llm": "kimi-k2.5",
+    "quick_think_llm": "kimi-k2.5",
     "backend_url": "https://api.openai.com/v1",
     # Language settings
     "language": "en",  # "en" for English, "zh" for Chinese
@@ -24,6 +24,7 @@ DEFAULT_CONFIG = {
     "google_api_key": None,
     "xai_api_key": None,
     "openrouter_api_key": None,
+    "moonshot_api_key": None,
     # Debate and discussion settings
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,

@@ -66,6 +66,112 @@
     .mid-col   { display: flex; flex-direction: column; overflow: hidden; position: relative; }
     .data-col  { border-left: 1px solid var(--border); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 
+    /* Desktop (wide): live data column starts folded — narrow rail, expand on demand */
+    @media (min-width: 1201px) {
+      .layout {
+        grid-template-columns: 1fr 44px;
+        transition: grid-template-columns 0.22s ease;
+      }
+      .layout.layout-data-expanded {
+        grid-template-columns: 1fr min(300px, 32vw);
+      }
+      .layout .data-col {
+        padding: 0;
+        overflow: hidden;
+        gap: 0;
+      }
+      .layout.layout-data-expanded .data-col {
+        padding: 14px;
+        gap: 10px;
+        overflow-y: auto;
+      }
+      .layout:not(.layout-data-expanded) .data-panel-toggle {
+        flex: 1;
+        justify-content: center;
+      }
+      .data-panel-toggle {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
+        width: 100%;
+        min-height: 100px;
+        padding: 14px 6px;
+        margin: 0;
+        border: none;
+        border-left: 1px solid var(--border);
+        background: var(--bg-card);
+        color: var(--txt2);
+        cursor: pointer;
+        font-size: 11px;
+        line-height: 1.2;
+        border-radius: 0;
+        flex-shrink: 0;
+        touch-action: manipulation;
+      }
+      .data-panel-toggle:hover {
+        background: var(--bg-hover);
+        color: var(--blue);
+      }
+      .data-panel-toggle .data-panel-toggle__expand { font-size: 17px; line-height: 1; }
+      .data-panel-toggle .data-panel-toggle__chev {
+        font-size: 13px;
+        font-weight: 800;
+        opacity: 0.85;
+      }
+      .data-panel-toggle .data-panel-toggle__label {
+        display: none;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-size: 9px;
+        color: var(--txt2);
+        text-align: center;
+      }
+      .layout.layout-data-expanded .data-panel-toggle {
+        flex: 0 0 auto;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        min-height: 0;
+        padding: 10px 10px;
+        gap: 10px;
+        border-left: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .layout.layout-data-expanded .data-panel-toggle .data-panel-toggle__expand { display: none; }
+      .layout.layout-data-expanded .data-panel-toggle .data-panel-toggle__chev { transform: rotate(180deg); }
+      .layout.layout-data-expanded .data-panel-toggle .data-panel-toggle__label { display: inline; max-width: 200px; }
+
+      .data-col-inner {
+        display: none;
+        flex: 1;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .layout.layout-data-expanded .data-col-inner {
+        display: flex;
+      }
+      .layout.layout-data-expanded .data-col-inner #dataFeed {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+      }
+    }
+    @media (max-width: 1200px) {
+      .data-panel-toggle { display: none !important; }
+      .data-col-inner {
+        display: flex !important;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        gap: 10px;
+      }
+    }
+
     /* ── TICKER BAR ────────────────────────────────────────── */
     .ticker-bar {
       flex-shrink: 0;
@@ -284,9 +390,87 @@
     .data-tag.news         { background: rgba(224,150,42,.15);  color: var(--warn); }
     .data-tag.social       { background: rgba(201,145,90,.15);  color: var(--gold); }
     .data-preview {
-      color: var(--txt2); font-family: "SF Mono","Fira Code",monospace; font-size: 10px;
-      white-space: pre-wrap; word-break: break-all; max-height: 100px; overflow-y: auto;
-      border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; line-height: 1.4;
+      color: var(--txt2);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 11px;
+      line-height: 1.55;
+      word-break: break-word;
+      max-height: min(52vh, 420px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-top: 1px solid var(--border);
+      margin-top: 6px;
+      padding-top: 8px;
+    }
+    .data-preview .data-meta {
+      list-style: none; margin: 0 0 10px; padding: 0;
+      font-size: 10px; color: var(--txt2);
+    }
+    .data-preview .data-meta li {
+      padding: 4px 0 4px 22px; position: relative;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .data-preview .data-meta li::before {
+      content: "›"; position: absolute; left: 6px; color: var(--blue); font-weight: 800;
+    }
+    .data-preview .data-h3 {
+      font-size: 11px; font-weight: 700; color: var(--blue);
+      margin: 10px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border);
+    }
+    .data-preview .data-h3:first-child { margin-top: 0; }
+    .data-preview-table-wrap {
+      overflow-x: auto; margin: 6px 0 10px;
+      border-radius: 6px; border: 1px solid var(--border);
+      background: rgba(0,0,0,.22);
+    }
+    .data-preview-grid {
+      width: 100%; border-collapse: collapse;
+      font-family: ui-monospace, "SF Mono", "Fira Code", monospace;
+      font-size: 9.5px;
+    }
+    .data-preview-grid th, .data-preview-grid td {
+      padding: 5px 8px; text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      vertical-align: top;
+    }
+    .data-preview-grid th {
+      background: rgba(79,143,255,.12); color: var(--txt);
+      font-weight: 700; white-space: nowrap;
+    }
+    .data-preview-grid tbody tr:nth-child(even) { background: rgba(0,0,0,.14); }
+    .data-preview-grid tbody tr:last-child td { border-bottom: none; }
+    .data-preview .data-kv-block {
+      margin: 6px 0 10px; font-size: 10px;
+      border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    }
+    .data-preview .data-kv-row {
+      display: grid; grid-template-columns: minmax(88px, 34%) 1fr; gap: 8px;
+      padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.06);
+      align-items: start;
+    }
+    .data-preview .data-kv-row:last-child { border-bottom: none; }
+    .data-preview .data-kv-k { color: var(--txt2); font-weight: 600; }
+    .data-preview .data-kv-v { color: var(--txt); word-break: break-word; }
+    .data-preview .data-para {
+      margin: 0 0 10px; white-space: pre-wrap; color: var(--txt2);
+      font-size: 10.5px; line-height: 1.5;
+    }
+    .data-preview .data-pre-json {
+      margin: 0; padding: 8px 10px;
+      background: rgba(0,0,0,.35); border-radius: 6px;
+      font-family: ui-monospace, "SF Mono", monospace;
+      font-size: 9.5px;
+      white-space: pre-wrap; word-break: break-word;
+      color: var(--txt2); line-height: 1.45;
+    }
+    .data-preview .data-trunc-note {
+      padding: 6px 8px; font-size: 9px; color: var(--warn);
+      font-style: italic; background: rgba(224,150,42,.08);
+      border-top: 1px solid var(--border);
+    }
+    .data-feed-placeholder {
+      color: var(--txt2); font-size: 11px; padding: 14px; text-align: center;
+      border: 1px dashed var(--border); border-radius: 8px;
     }
     .data-entry.collapsed .data-preview { display: none; }
     .data-entry.collapsed { padding-bottom: 8px; }
@@ -472,7 +656,7 @@
   <button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
 </header>
 
-<div class="layout">
+<div class="layout" id="layoutRoot">
   <!-- ── MID: TICKER BAR + CHAT FEED ──────────────────────── -->
   <section class="mid-col mobile-active">
     <!-- Ticker bar — always visible at top of research panel -->
@@ -529,11 +713,18 @@
     </div>
   </section>
 
-  <!-- ── RIGHT: DATA FEED ───────────────────────────────── -->
+  <!-- ── RIGHT: DATA FEED (desktop: folded by default — use toggle to expand) ─ -->
   <aside class="data-col">
-    <div class="data-col-title">⚡ Live Data Feed <span id="dataStatus" style="font-size:9px;font-weight:500;color:var(--txt2);margin-left:auto;">Waiting...</span></div>
-    <div id="dataFeed" style="display:flex;flex-direction:column;gap:8px;">
-      <div style="color:var(--txt2);font-size:11px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:8px;">Raw data from providers will appear here...</div>
+    <button type="button" class="data-panel-toggle" id="dataPanelToggle" aria-expanded="false" aria-controls="dataColInner">
+      <span class="data-panel-toggle__expand" aria-hidden="true">⚡</span>
+      <span class="data-panel-toggle__chev" aria-hidden="true">⟨</span>
+      <span class="data-panel-toggle__label" id="dataPanelToggleLabel"></span>
+    </button>
+    <div class="data-col-inner" id="dataColInner">
+      <div class="data-col-title">⚡ Live Data Feed <span id="dataStatus" style="font-size:9px;font-weight:500;color:var(--txt2);margin-left:auto;">Waiting...</span></div>
+      <div id="dataFeed" style="display:flex;flex-direction:column;gap:8px;">
+        <div class="data-feed-placeholder">Raw data from providers will appear here...</div>
+      </div>
     </div>
   </aside>
 </div>
@@ -557,8 +748,9 @@
   <div class="settings-panel">
     <button class="settings-close" id="closeSettings">✕</button>
     <div>
-      <div class="s-section-title">LLM Provider</div>
+      <div class="s-section-title" id="setTitleLlm">LLM Provider</div>
       <select id="llm_provider">
+        <option value="kimi_cn" selected>Kimi</option>
         <option value="openai">OpenAI</option>
         <option value="anthropic">Anthropic</option>
         <option value="google">Google</option>
@@ -567,33 +759,47 @@
       </select>
     </div>
     <div>
-      <div class="s-section-title">Models</div>
-      <div style="font-size:10px;color:var(--txt2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">Quick — fast tasks</div>
+      <div class="s-section-title" id="setTitleModels">Models</div>
+      <div id="lblQuickModels" style="font-size:10px;color:var(--txt2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">Quick — fast tasks</div>
       <select id="quick_think_llm" style="margin-bottom:8px;"></select>
-      <div style="font-size:10px;color:var(--txt2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">Deep — complex reasoning</div>
+      <div id="lblDeepModels" style="font-size:10px;color:var(--txt2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">Deep — complex reasoning</div>
       <select id="deep_think_llm"></select>
+      <div id="kimi_model_custom_wrap" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+        <details style="font-size:12px;color:var(--txt2);">
+          <summary id="kimiAdvSummary" style="cursor:pointer;color:var(--blue);font-weight:600;">Custom models (optional)</summary>
+          <p id="kimiAdvHelp" style="font-size:11px;margin:8px 0 10px;line-height:1.45;color:var(--txt2);">Usually leave this closed. Only use if the dropdown fails and support gave you a model name.</p>
+          <div class="form-group">
+            <label id="kimiLblQuick">Replace quick model</label>
+            <input id="kimi_quick_model_custom" type="text" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label id="kimiLblDeep">Replace deep model</label>
+            <input id="kimi_deep_model_custom" type="text" autocomplete="off" />
+          </div>
+        </details>
+      </div>
     </div>
     <div>
-      <div class="s-section-title">Debate Rounds</div>
+      <div class="s-section-title" id="setTitleDebate">Debate Rounds</div>
       <input id="max_debate_rounds" type="number" min="1" max="5" value="1" />
     </div>
     <div>
-      <div class="s-section-title">Risk Rounds</div>
+      <div class="s-section-title" id="setTitleRisk">Risk Rounds</div>
       <input id="max_risk_discuss_rounds" type="number" min="1" max="5" value="1" />
     </div>
     <div>
-      <div class="s-section-title">Backend URL (optional)</div>
-      <input id="backend_url" placeholder="https://api.openai.com/v1" />
+      <div class="s-section-title" id="setTitleBackend">Backend URL (optional)</div>
+      <input id="backend_url" placeholder="" />
     </div>
     <div>
-      <div class="s-section-title">Language</div>
+      <div class="s-section-title" id="setTitleLang">Language</div>
       <select id="language_select">
         <option value="en">English</option>
         <option value="zh">中文 (Chinese)</option>
       </select>
     </div>
     <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
-      <div class="s-section-title">API Keys (optional)</div>
+      <div class="s-section-title" id="setTitleApiKeys">API Keys (optional)</div>
       <div style="font-size: 10px; color: var(--txt2); margin-bottom: 8px; font-style: italic;">Leave empty to use .env configuration</div>
       <div class="form-group">
         <label>OpenAI</label>
@@ -614,6 +820,10 @@
       <div class="form-group">
         <label>OpenRouter</label>
         <input id="openrouter_api_key" type="password" placeholder="sk-or-..." />
+      </div>
+      <div class="form-group">
+        <label id="lblMoonshotKey">Kimi API key</label>
+        <input id="moonshot_api_key" type="password" placeholder="" />
       </div>
     </div>
   </div>
@@ -735,11 +945,14 @@ const TRANSLATIONS = {
 
     // Data Feed
     "live_data_feed": "⚡ Live Data Feed",
+    "data_panel_expand": "Show live data",
+    "data_panel_collapse": "Hide panel",
     "data_waiting": "Waiting...",
     "data_receiving": "Receiving...",
     "data_stopped": "Stopped",
     "data_placeholder": "Raw data from providers will appear here...",
     "data_raw_placeholder": "Raw data from providers will appear here...",
+    "data_rows_truncated": "{n} more rows not shown",
 
     // Team Showcase
     "team_title": "Your Research Team",
@@ -761,6 +974,16 @@ const TRANSLATIONS = {
     "risk_rounds": "Risk Rounds",
     "backend_url": "Backend URL (optional)",
     "language": "Language",
+    "api_keys_section": "API keys (optional)",
+    "kimi_adv_summary": "Custom models (optional)",
+    "kimi_adv_help": "Usually leave this closed. Only use if the dropdown fails and support gave you a model name.",
+    "kimi_lbl_quick": "Replace quick model",
+    "kimi_lbl_deep": "Replace deep model",
+    "kimi_ph_quick": "Leave empty to use the menu above",
+    "kimi_ph_deep": "Leave empty to use the menu above",
+    "moonshot_key_lbl": "Kimi API key",
+    "moonshot_key_ph": "From platform.moonshot.cn",
+    "backend_url_ph": "Usually leave empty. Advanced: custom API address.",
   },
 
   zh: {
@@ -855,11 +1078,14 @@ const TRANSLATIONS = {
 
     // Data Feed
     "live_data_feed": "⚡ 实时数据源",
+    "data_panel_expand": "显示实时数据",
+    "data_panel_collapse": "收起面板",
     "data_waiting": "等待中...",
     "data_receiving": "接收中...",
     "data_stopped": "已停止",
     "data_placeholder": "来自数据提供商的原始数据将显示在这里...",
     "data_raw_placeholder": "来自数据提供商的原始数据将显示在这里...",
+    "data_rows_truncated": "还有 {n} 行未显示",
 
     // Team Showcase
     "team_title": "您的研究团队",
@@ -881,6 +1107,16 @@ const TRANSLATIONS = {
     "risk_rounds": "风险轮数",
     "backend_url": "后端URL（可选）",
     "language": "语言",
+    "api_keys_section": "API 密钥（可选）",
+    "kimi_adv_summary": "自定义模型（可选）",
+    "kimi_adv_help": "一般无需展开。仅当上方的模型无法使用时，再按客服提供的名称填写。",
+    "kimi_lbl_quick": "替换「快速」模型",
+    "kimi_lbl_deep": "替换「深度」模型",
+    "kimi_ph_quick": "留空则使用上方下拉框",
+    "kimi_ph_deep": "留空则使用上方下拉框",
+    "moonshot_key_lbl": "Kimi API 密钥",
+    "moonshot_key_ph": "来自 platform.moonshot.cn",
+    "backend_url_ph": "通常留空。高阶用户可填写自定义接口地址。",
   },
 };
 
@@ -888,6 +1124,17 @@ let currentLanguage = localStorage.getItem("ta_language_v2") || (navigator.langu
 
 function t(key) {
   return TRANSLATIONS[currentLanguage]?.[key] || TRANSLATIONS.en[key] || key;
+}
+
+function syncDataPanelToggleUi() {
+  const lr = document.getElementById("layoutRoot");
+  const btn = document.getElementById("dataPanelToggle");
+  const lbl = document.getElementById("dataPanelToggleLabel");
+  if (!lr || !btn) return;
+  const open = lr.classList.contains("layout-data-expanded");
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+  btn.title = open ? t("data_panel_collapse") : t("data_panel_expand");
+  if (lbl) lbl.textContent = open ? t("data_panel_collapse") : t("data_panel_expand");
 }
 
 function updateLanguage(lang) {
@@ -932,21 +1179,35 @@ function updateUIText() {
     if (span) dataColTitle.appendChild(span);
   }
 
-  // Settings panel
-  const st = document.querySelectorAll(".s-section-title");
-  if (st[0]) st[0].textContent = t("llm_provider");
-  if (st[1]) st[1].textContent = t("models");
-  if (st[2]) st[2].textContent = t("debate_rounds");
-  if (st[3]) st[3].textContent = t("risk_rounds");
-  if (st[4]) st[4].textContent = t("backend_url");
-  if (st[5]) st[5].textContent = t("language");
-
-  const ml = document.querySelectorAll('div[style*="text-transform:uppercase"]');
-  if (ml[0]) ml[0].textContent = t("quick_models");
-  if (ml[1]) ml[1].textContent = t("deep_models");
+  // Settings panel (IDs — avoids clashes with nested Kimi <details>)
+  const _set = (id, key) => { const el = _el(id); if (el) el.textContent = t(key); };
+  _set("setTitleLlm", "llm_provider");
+  _set("setTitleModels", "models");
+  _set("setTitleDebate", "debate_rounds");
+  _set("setTitleRisk", "risk_rounds");
+  _set("setTitleBackend", "backend_url");
+  _set("setTitleLang", "language");
+  _set("setTitleApiKeys", "api_keys_section");
+  _set("kimiAdvSummary", "kimi_adv_summary");
+  _set("kimiAdvHelp", "kimi_adv_help");
+  _set("kimiLblQuick", "kimi_lbl_quick");
+  _set("kimiLblDeep", "kimi_lbl_deep");
+  _set("lblMoonshotKey", "moonshot_key_lbl");
+  _set("lblQuickModels", "quick_models");
+  _set("lblDeepModels", "deep_models");
+  const bu = _el("backend_url");
+  if (bu) bu.placeholder = t("backend_url_ph");
+  const mk = _el("moonshot_api_key");
+  if (mk) mk.placeholder = t("moonshot_key_ph");
+  const kq = _el("kimi_quick_model_custom");
+  const kd = _el("kimi_deep_model_custom");
+  if (kq) kq.placeholder = t("kimi_ph_quick");
+  if (kd) kd.placeholder = t("kimi_ph_deep");
 
   // Rebuild team cards with translated role/focus text
   populateTeamShowcase();
+
+  syncDataPanelToggleUi();
 }
 
 // ── RANDOM NAME GENERATOR ────────────────────────────────────────────────────
@@ -992,6 +1253,15 @@ const progressPct  = document.getElementById("progressPct");
 const progressLabel= document.getElementById("progressLabel");
 const progressWrap = document.getElementById("progressWrap");
 const overlay      = document.getElementById("overlay");
+const layoutRoot   = document.getElementById("layoutRoot");
+const dataPanelToggle = document.getElementById("dataPanelToggle");
+
+if (layoutRoot && dataPanelToggle) {
+  dataPanelToggle.addEventListener("click", () => {
+    layoutRoot.classList.toggle("layout-data-expanded");
+    syncDataPanelToggleUi();
+  });
+}
 
 const LS_JOB    = "ta_job_v2";
 const LS_TICKER = "ta_ticker_v2";
@@ -1055,6 +1325,14 @@ const PROVIDER_MODELS = {
     quick: ["grok-3-mini","grok-2-mini"],
     deep:  ["grok-3","grok-3-fast","grok-2"],
   },
+  kimi: {
+    quick: ["kimi-k2.5","moonshot-v1-8k","moonshot-v1-128k"],
+    deep:  ["kimi-k2.5","moonshot-v1-128k","moonshot-v1-8k"],
+  },
+  kimi_cn: {
+    quick: ["kimi-k2.5","moonshot-v1-8k","moonshot-v1-128k"],
+    deep:  ["kimi-k2.5","moonshot-v1-128k","moonshot-v1-8k"],
+  },
   openrouter: {
     quick: ["openai/gpt-4o-mini","anthropic/claude-haiku-4-5","google/gemini-flash-1.5","meta-llama/llama-3.3-70b-instruct"],
     deep:  ["openai/gpt-4o","openai/gpt-4.1","anthropic/claude-sonnet-4-6","google/gemini-pro-1.5","meta-llama/llama-3.3-70b-instruct"],
@@ -1074,8 +1352,16 @@ function _populateModelSelects(provider) {
 }
 
 const llmProviderSel = document.getElementById("llm_provider");
+function _syncKimiCustomVisibility() {
+  const wrap = document.getElementById("kimi_model_custom_wrap");
+  if (wrap) wrap.style.display = (llmProviderSel.value === "kimi" || llmProviderSel.value === "kimi_cn") ? "block" : "none";
+}
 _populateModelSelects(llmProviderSel.value);
-llmProviderSel.addEventListener("change", () => _populateModelSelects(llmProviderSel.value));
+_syncKimiCustomVisibility();
+llmProviderSel.addEventListener("change", () => {
+  _populateModelSelects(llmProviderSel.value);
+  _syncKimiCustomVisibility();
+});
 
 // ── SETTINGS ─────────────────────────────────────────────────────────────────
 document.getElementById("settingsBtn").addEventListener("click", () => overlay.classList.add("show"));
@@ -1186,6 +1472,175 @@ function escHtml(s) {
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
+function splitDelimitedRow(line, delim) {
+  if (delim === "\t") return line.split("\t").map(c => c.trim());
+  const out = [];
+  let cur = "";
+  let inQ = false;
+  for (let k = 0; k < line.length; k++) {
+    const ch = line[k];
+    if (ch === '"') { inQ = !inQ; continue; }
+    if (ch === "," && !inQ) { out.push(cur.trim()); cur = ""; continue; }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function rowColumnInfo(line) {
+  const tabs = (line.match(/\t/g) || []).length;
+  const commas = (line.match(/,/g) || []).length;
+  if (tabs >= 1 && tabs >= commas) return { delim: "\t", cols: tabs + 1 };
+  if (commas >= 1) return { delim: ",", cols: commas + 1 };
+  return null;
+}
+
+function renderPreviewTable(rows) {
+  const maxR = 85;
+  const use = rows.slice(0, maxR);
+  const head = use[0].map(c => escHtml(c));
+  const body = use.slice(1).map(row =>
+    `<tr>${row.map(c => `<td>${escHtml(c)}</td>`).join("")}</tr>`
+  ).join("");
+  let foot = "";
+  if (rows.length > maxR) {
+    const note = t("data_rows_truncated").replace("{n}", String(rows.length - maxR));
+    foot = `<div class="data-trunc-note">${escHtml(note)}</div>`;
+  }
+  return `<div class="data-preview-table-wrap"><table class="data-preview-grid"><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>${foot}</div>`;
+}
+
+/** Turn raw provider strings into readable HTML (safe: escaped text, our tags only). */
+function formatDataFeedPreview(raw) {
+  const s = String(raw || "").replace(/\r\n/g, "\n");
+  if (!s.trim()) return "";
+  const trimmed = s.trim();
+  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+    return `<pre class="data-pre-json">${escHtml(trimmed)}</pre>`;
+  }
+
+  const lines = s.split("\n");
+  const out = [];
+  let i = 0;
+
+  function skipEmpty() {
+    while (i < lines.length && !lines[i].trim()) i++;
+  }
+
+  while (i < lines.length) {
+    skipEmpty();
+    if (i >= lines.length) break;
+    const trim = lines[i].trim();
+    if (!trim) { i++; continue; }
+
+    if (trim.startsWith("# ")) {
+      const meta = [];
+      while (i < lines.length && lines[i].trim().startsWith("# ")) {
+        meta.push(escHtml(lines[i].trim().replace(/^#\s*/, "")));
+        i++;
+      }
+      out.push(`<ul class="data-meta">${meta.map(m => `<li>${m}</li>`).join("")}</ul>`);
+      continue;
+    }
+
+    if (trim.startsWith("## ")) {
+      out.push(`<div class="data-h3">${escHtml(trim.slice(3).trim())}</div>`);
+      i++;
+      continue;
+    }
+
+    const rci = rowColumnInfo(trim);
+    if (rci && rci.cols >= 2) {
+      const cells0 = splitDelimitedRow(trim, rci.delim);
+      if (cells0.length >= 2 && cells0.length === rci.cols) {
+        const rows = [];
+        let j = i;
+        while (j < lines.length) {
+          const L = lines[j].trim();
+          if (!L) break;
+          const cells = splitDelimitedRow(L, rci.delim);
+          if (cells.length !== cells0.length) break;
+          rows.push(cells);
+          j++;
+        }
+        if (rows.length >= 2) {
+          out.push(renderPreviewTable(rows));
+          i = j;
+          continue;
+        }
+      }
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}:/.test(trim)) {
+      const kvs = [];
+      while (i < lines.length) {
+        const L = lines[i].trim();
+        if (!/^\d{4}-\d{2}-\d{2}:/.test(L)) break;
+        const m = L.match(/^(\d{4}-\d{2}-\d{2}):\s*(.*)$/);
+        if (m) kvs.push(`<div class="data-kv-row"><span class="data-kv-k">${escHtml(m[1])}</span><span class="data-kv-v">${escHtml(m[2])}</span></div>`);
+        i++;
+      }
+      if (kvs.length) {
+        out.push(`<div class="data-kv-block">${kvs.join("")}</div>`);
+        continue;
+      }
+    }
+
+    if (/^[^:\n]{2,60}:\s+\S/.test(trim) && trim.split(",").length < 4) {
+      let j = i;
+      const acc = [];
+      while (j < lines.length) {
+        const L = lines[j].trim();
+        if (!/^[^:\n]{2,60}:\s+\S/.test(L) || L.split(",").length >= 6) break;
+        const ix = L.indexOf(":");
+        const k = L.slice(0, ix).trim();
+        const v = L.slice(ix + 1).trim();
+        if (k.length < 2 || k.length > 60 || !v) break;
+        acc.push({ k, v });
+        j++;
+      }
+      if (acc.length >= 2) {
+        const html = acc.map(({ k, v }) =>
+          `<div class="data-kv-row"><span class="data-kv-k">${escHtml(k)}</span><span class="data-kv-v">${escHtml(v)}</span></div>`
+        ).join("");
+        out.push(`<div class="data-kv-block">${html}</div>`);
+        i = j;
+        continue;
+      }
+    }
+
+    const para = [];
+    while (i < lines.length && lines[i].trim()) {
+      const tr = lines[i].trim();
+      if (tr.startsWith("# ") || tr.startsWith("## ")) break;
+      if (/^\d{4}-\d{2}-\d{2}:/.test(tr)) break;
+      if (/^[^:\n]{2,60}:\s+\S/.test(tr) && tr.split(",").length < 4) {
+        let j2 = i;
+        let cnt = 0;
+        while (j2 < lines.length && /^[^:\n]{2,60}:\s+\S/.test(lines[j2].trim())) { cnt++; j2++; }
+        if (cnt >= 2) break;
+      }
+      const ri = rowColumnInfo(tr);
+      if (ri && ri.cols >= 2) {
+        const c0 = splitDelimitedRow(tr, ri.delim);
+        if (c0.length >= 2 && lines[i + 1] && splitDelimitedRow(lines[i + 1].trim(), ri.delim).length === c0.length)
+          break;
+      }
+      para.push(lines[i]);
+      i++;
+    }
+    if (para.length) {
+      out.push(`<p class="data-para">${escHtml(para.join("\n"))}</p>`);
+      continue;
+    }
+
+    out.push(`<p class="data-para">${escHtml(lines[i])}</p>`);
+    i++;
+  }
+
+  return out.length ? out.join("") : `<pre class="data-pre-json">${escHtml(s)}</pre>`;
+}
+
 // ── TICKER AUTOCOMPLETE ───────────────────────────────────────────────────────
 (function() {
   const tickerInput = document.getElementById("ticker");
@@ -1292,8 +1747,8 @@ function escHtml(s) {
 
 // ── DATA FEED ─────────────────────────────────────────────────────────────────
 function clearDataPlaceholder() {
-  const ph = dataFeed.querySelector("div[style]");
-  if (ph && ph.textContent.includes("appear here")) { dataFeed.innerHTML = ""; dataStatus.textContent = t("data_receiving"); }
+  const ph = dataFeed.querySelector(".data-feed-placeholder");
+  if (ph) { dataFeed.innerHTML = ""; dataStatus.textContent = t("data_receiving"); }
 }
 
 function makeDataEntry(labelHtml, previewHtml, extraStyle) {
@@ -1309,8 +1764,8 @@ function makeDataEntry(labelHtml, previewHtml, extraStyle) {
 
 function addDataEntry(event) {
   clearDataPlaceholder();
-  const labelHtml = `${escHtml(event.label)}<span class="data-tag ${event.analyst}">${event.analyst}</span>`;
-  dataFeed.insertBefore(makeDataEntry(labelHtml, escHtml(event.preview)), dataFeed.firstChild);
+  const labelHtml = `${escHtml(event.label)}<span class="data-tag ${event.analyst}">${escHtml(event.analyst)}</span>`;
+  dataFeed.insertBefore(makeDataEntry(labelHtml, formatDataFeedPreview(event.preview)), dataFeed.firstChild);
 }
 
 function addDataError(event) {
@@ -1339,7 +1794,7 @@ function connectWS(jid, isReconnect) {
     chatFeed.innerHTML = "";
     delete chatFeed.dataset.debateLabel;
     delete chatFeed.dataset.riskLabel;
-    dataFeed.innerHTML = `<div style="color:var(--txt2);font-size:11px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:8px;">${t("data_placeholder")}</div>`;
+    dataFeed.innerHTML = `<div class="data-feed-placeholder">${t("data_placeholder")}</div>`;
     dataStatus.textContent = t("data_waiting");
     progress = 0;
     setProgress(5, t("reconnecting"));
@@ -1527,13 +1982,23 @@ form.addEventListener("submit", async e => {
   const analysts = [...selectedAdvisors];
   if (!analysts.length) { setStatus(t("select_advisor"), "error"); return; }
 
+  const prov = document.getElementById("llm_provider").value;
+  let quickModel = document.getElementById("quick_think_llm").value.trim();
+  let deepModel = document.getElementById("deep_think_llm").value.trim();
+  if (prov === "kimi" || prov === "kimi_cn") {
+    const oq = (document.getElementById("kimi_quick_model_custom") || {}).value;
+    const od = (document.getElementById("kimi_deep_model_custom") || {}).value;
+    if (oq && String(oq).trim()) quickModel = String(oq).trim();
+    if (od && String(od).trim()) deepModel = String(od).trim();
+  }
+
   const payload = {
     ticker:                  document.getElementById("ticker").value.trim().toUpperCase(),
     analysis_date:           new Date().toISOString().split("T")[0],
-    llm_provider:            document.getElementById("llm_provider").value,
+    llm_provider:            prov,
     backend_url:             document.getElementById("backend_url").value.trim() || null,
-    quick_think_llm:         document.getElementById("quick_think_llm").value.trim(),
-    deep_think_llm:          document.getElementById("deep_think_llm").value.trim(),
+    quick_think_llm:         quickModel,
+    deep_think_llm:          deepModel,
     max_debate_rounds:       Number(document.getElementById("max_debate_rounds").value),
     max_risk_discuss_rounds: Number(document.getElementById("max_risk_discuss_rounds").value),
     selected_analysts:       analysts,
@@ -1545,7 +2010,7 @@ form.addEventListener("submit", async e => {
   setRunningUI(true);
   chatFeed.innerHTML = ""; delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
   newMsgsPill.classList.remove("show"); _unreadMsgs = 0;
-  dataFeed.innerHTML = `<div style="color:var(--txt2);font-size:11px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:8px;">${t("data_raw_placeholder")}</div>`;
+  dataFeed.innerHTML = `<div class="data-feed-placeholder">${t("data_raw_placeholder")}</div>`;
   dataStatus.textContent = t("data_waiting");
   progress = 0; setProgress(5, t("submitting_request"));
   hdrStatus.textContent = `${t("hdr_researching")} ${payload.ticker}...`; hdrStatus.className = "hdr-status running";
@@ -1609,7 +2074,7 @@ clearBtn.addEventListener("click", () => {
   chatFeed.innerHTML = teamHtml;
   populateTeamShowcase();
 
-  dataFeed.innerHTML = `<div style="color:var(--txt2);font-size:11px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:8px;">${t("data_raw_placeholder")}</div>`;
+  dataFeed.innerHTML = `<div class="data-feed-placeholder">${t("data_raw_placeholder")}</div>`;
   statusMsg.className = "status-msg";
   delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
 });

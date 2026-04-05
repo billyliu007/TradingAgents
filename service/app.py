@@ -133,10 +133,12 @@ class AnalyzeRequest(BaseModel):
         default_factory=lambda: ANALYST_OPTIONS.copy()
     )
     language: Literal["en", "zh"] = "en"
-    llm_provider: Literal["openai", "google", "anthropic", "xai", "openrouter", "ollama"] = "openai"
+    llm_provider: Literal[
+        "openai", "google", "anthropic", "xai", "kimi", "kimi_cn", "openrouter", "ollama"
+    ] = "kimi_cn"
     backend_url: str | None = None
-    deep_think_llm: str = "gpt-5.2"
-    quick_think_llm: str = "gpt-5-mini"
+    deep_think_llm: str = "kimi-k2.5"
+    quick_think_llm: str = "kimi-k2.5"
     max_debate_rounds: int = Field(default=1, ge=1, le=5)
     max_risk_discuss_rounds: int = Field(default=1, ge=1, le=5)
     google_thinking_level: str | None = None
@@ -149,6 +151,7 @@ class AnalyzeRequest(BaseModel):
     google_api_key: str | None = None
     xai_api_key: str | None = None
     openrouter_api_key: str | None = None
+    moonshot_api_key: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -188,6 +191,31 @@ def _as_text(value: Any) -> str:
     return str(value).strip()
 
 
+def _format_tool_output_for_feed(output: Any, max_len: int = 4500) -> str:
+    """Normalize tool return values for the UI data feed (pretty JSON, sane truncation)."""
+    if output is None:
+        return ""
+    s: str
+    if isinstance(output, str):
+        s = output.strip()
+        if len(s) >= 2 and s[0] in "{[" and s[-1] in "}]":
+            try:
+                s = json.dumps(json.loads(s), indent=2, ensure_ascii=False)
+            except (json.JSONDecodeError, ValueError):
+                pass
+    else:
+        try:
+            if isinstance(output, (dict, list)):
+                s = json.dumps(output, indent=2, default=str, ensure_ascii=False)
+            else:
+                s = str(output).strip()
+        except Exception:
+            s = str(output).strip()
+    if len(s) > max_len:
+        s = s[: max_len - 40].rstrip() + "\n\n… (truncated)"
+    return s
+
+
 _TOOL_LABELS: dict[str, tuple[str, str]] = {
     "get_stock_data":           ("market",       "📈 Stock Price & Volume"),
     "get_indicators":           ("market",       "📊 Technical Indicators"),
@@ -218,7 +246,7 @@ class DataFeedCallback(BaseCallbackHandler):
         name = self._pending.pop(str(run_id), "")
         if not name:
             return
-        content = str(output)[:1200] if output else ""
+        content = _format_tool_output_for_feed(output)
         if not content:
             return
         analyst_key, label = _TOOL_LABELS.get(name, ("market", f"🔧 {name}"))
@@ -321,6 +349,7 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
         "google_api_key": payload.google_api_key,
         "xai_api_key": payload.xai_api_key,
         "openrouter_api_key": payload.openrouter_api_key,
+        "moonshot_api_key": payload.moonshot_api_key,
     }
     for key, value in api_key_fields.items():
         if value:

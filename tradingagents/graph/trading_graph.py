@@ -231,6 +231,12 @@ class TradingAgentsGraph:
             if api_key:
                 kwargs["api_key"] = api_key
 
+        elif provider in ("kimi", "kimi_cn"):
+            # Kimi (Moonshot) uses 'api_key' via OpenAI-compatible client
+            api_key = self.config.get("moonshot_api_key")
+            if api_key:
+                kwargs["api_key"] = api_key
+
         elif provider == "ollama":
             # Ollama typically doesn't need an API key, but support it if provided
             api_key = self.config.get("openai_api_key")

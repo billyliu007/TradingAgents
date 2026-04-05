@@ -2,6 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import time
 import json
 from tradingagents.agents.utils.agent_utils import (
+    bind_llm_tools,
     build_instrument_context,
     get_global_news,
     get_news,
@@ -37,7 +38,7 @@ def create_news_analyst(llm, language: str = "en"):
         prompt = prompt.partial(current_date=current_date)
         prompt = prompt.partial(instrument_context=instrument_context)
 
-        chain = prompt | llm.bind_tools(tools)
+        chain = prompt | bind_llm_tools(llm, tools)
         result = chain.invoke(state["messages"])
 
         report = ""
