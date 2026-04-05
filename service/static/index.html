@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- If you open this file from Live Server / another port, set API base (no trailing slash), e.g. http://127.0.0.1:8000 -->
   <meta name="tradingagents-api-base" content="" />
-  <title>TradingAgents Research Platform</title>
+  <title>AlphaLens — AI Stock Research</title>
   <style>
     :root {
       --bg:        #080d16;
@@ -189,7 +189,7 @@
     @media (max-width: 767px) { .new-msgs-pill { bottom: 70px; } }
 
     /* ── SUBMIT BTN ────────────────────────────────────────── */
-    .btn-primary { padding: 10px 16px; background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: all .2s; white-space: nowrap; }
+    .btn-primary { padding: 10px 16px; background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,143,255,.3); }
     .btn-primary:disabled { opacity: .55; cursor: wait; }
     .btn-stop  { padding: 9px 12px; background: rgba(224,82,82,.12); border: 1px solid var(--red); border-radius: 6px; color: var(--red); font-size: 12px; font-weight: 700; cursor: pointer; display: none; transition: all .2s; white-space: nowrap; }
@@ -467,7 +467,7 @@
 <body>
 
 <header>
-  <div class="logo">💼 TradingAgents Research</div>
+  <div class="logo">🔭 AlphaLens</div>
   <div class="hdr-status" id="hdrStatus">Ready</div>
   <button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
 </header>
@@ -503,25 +503,25 @@
       <div class="team-showcase" id="teamShowcase">
         <div style="text-align:center;margin-bottom:24px;">
           <div style="font-size:28px;margin-bottom:10px;">🏢</div>
-          <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px;">Your Research Team</div>
-          <div style="font-size:11px;color:var(--txt2);">Meet the 12 AI specialists working together to analyze stocks</div>
+          <div id="teamShowcaseTitle" style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px;">Your Research Team</div>
+          <div id="teamShowcaseSubtitle" style="font-size:11px;color:var(--txt2);">Meet the 12 AI specialists working together to analyze stocks</div>
         </div>
 
         <!-- Analysts (clickable toggles) -->
-        <div class="team-section-title">📊 Data Analysts</div>
+        <div class="team-section-title" id="secAnalysts">📊 Data Analysts</div>
         <div class="analyst-hint" id="teamAnalystHint">Tap a card to include or exclude from your analysis</div>
         <div class="team-grid" id="analyistsGrid"></div>
 
         <!-- Researchers -->
-        <div class="team-section-title">🔬 Research Team</div>
+        <div class="team-section-title" id="secResearchers">🔬 Research Team</div>
         <div class="team-grid" id="researchersGrid"></div>
 
         <!-- Managers -->
-        <div class="team-section-title">👔 Leadership</div>
+        <div class="team-section-title" id="secLeadership">👔 Leadership</div>
         <div class="team-grid" id="managersGrid"></div>
 
         <!-- Risk Managers -->
-        <div class="team-section-title">⚠️ Risk Management</div>
+        <div class="team-section-title" id="secRisk">⚠️ Risk Management</div>
         <div class="team-grid" id="riskGrid"></div>
       </div>
 
@@ -542,12 +542,12 @@
 <nav class="mobile-tabs" id="mobileTabs" aria-label="Main navigation">
   <button class="mobile-tab-btn active" id="tabChat" data-panel="research" aria-label="Research">
     <span class="tab-icon">💬</span>
-    <span class="tab-label">Research</span>
+    <span class="tab-label" id="tabChatLabel">Research</span>
     <span class="tab-badge"></span>
   </button>
   <button class="mobile-tab-btn" id="tabData" data-panel="data" aria-label="Live data feed">
     <span class="tab-icon">⚡</span>
-    <span class="tab-label">Data</span>
+    <span class="tab-label" id="tabDataLabel">Data</span>
     <span class="tab-badge"></span>
   </button>
 </nav>
@@ -659,9 +659,11 @@ const TRANSLATIONS = {
     "ticker": "Ticker",
     "analysis_date": "Analysis Date",
     "your_research_team": "Your Research Team",
-    "btn_start": "▶ Start Research",
-    "btn_stop": "⏹ Stop Analysis",
-    "btn_clear": "🗑 Clear & Reset",
+    "btn_start": "▶ Analyze",
+    "btn_stop": "⏹ Stop",
+    "btn_clear": "🗑 Clear",
+    "tab_research": "Research",
+    "tab_data": "Data",
 
     // Advisors
     "market_analyst": "Market Analyst",
@@ -777,9 +779,11 @@ const TRANSLATIONS = {
     "ticker": "股票代码",
     "analysis_date": "分析日期",
     "your_research_team": "您的研究团队",
-    "btn_start": "▶ 开始研究",
-    "btn_stop": "⏹ 停止分析",
-    "btn_clear": "🗑 清空并重置",
+    "btn_start": "▶ 分析",
+    "btn_stop": "⏹ 停止",
+    "btn_clear": "🗑 清空",
+    "tab_research": "研究",
+    "tab_data": "数据",
 
     // Advisors
     "market_analyst": "市场分析师",
@@ -892,14 +896,35 @@ function updateLanguage(lang) {
   updateUIText();
 }
 
+function _el(id) { return document.getElementById(id); }
+
 function updateUIText() {
+  // Buttons
   submitBtn.textContent = t("btn_start");
-  stopBtn.textContent = t("btn_stop");
-  clearBtn.textContent = "🗑";
+  stopBtn.textContent   = t("btn_stop");
+  clearBtn.textContent  = "🗑";
 
-  progressLabel.textContent = t("waiting_analysis");
+  // Progress
+  if (progress === 0) progressLabel.textContent = t("waiting_analysis");
 
-  // Update data feed title
+  // Tab labels
+  const tcl = _el("tabChatLabel"); if (tcl) tcl.textContent = t("tab_research");
+  const tdl = _el("tabDataLabel"); if (tdl) tdl.textContent = t("tab_data");
+
+  // Team showcase header (by ID — reliable)
+  const tst = _el("teamShowcaseTitle");    if (tst) tst.textContent = t("team_title");
+  const tss = _el("teamShowcaseSubtitle"); if (tss) tss.textContent = t("team_subtitle");
+
+  // Section titles (by ID — reliable)
+  const sa = _el("secAnalysts");    if (sa) sa.textContent = t("team_analysts");
+  const sr = _el("secResearchers"); if (sr) sr.textContent = t("team_researchers");
+  const sl = _el("secLeadership");  if (sl) sl.textContent = t("team_leadership");
+  const sk = _el("secRisk");        if (sk) sk.textContent = t("team_risk");
+
+  // Analyst toggle hint
+  const ah = _el("teamAnalystHint"); if (ah) ah.textContent = t("analyst_toggle_hint");
+
+  // Data feed title
   const dataColTitle = document.querySelector(".data-col-title");
   if (dataColTitle) {
     const span = dataColTitle.querySelector("span");
@@ -907,43 +932,20 @@ function updateUIText() {
     if (span) dataColTitle.appendChild(span);
   }
 
-  // Update settings panel
-  const settingsTitles = document.querySelectorAll(".s-section-title");
-  if (settingsTitles[0]) settingsTitles[0].textContent = t("llm_provider");
-  if (settingsTitles[1]) settingsTitles[1].textContent = t("models");
+  // Settings panel
+  const st = document.querySelectorAll(".s-section-title");
+  if (st[0]) st[0].textContent = t("llm_provider");
+  if (st[1]) st[1].textContent = t("models");
+  if (st[2]) st[2].textContent = t("debate_rounds");
+  if (st[3]) st[3].textContent = t("risk_rounds");
+  if (st[4]) st[4].textContent = t("backend_url");
+  if (st[5]) st[5].textContent = t("language");
 
-  const modelLabels = document.querySelectorAll('div[style*="text-transform:uppercase"]');
-  if (modelLabels[0]) modelLabels[0].textContent = t("quick_models");
-  if (modelLabels[1]) modelLabels[1].textContent = t("deep_models");
+  const ml = document.querySelectorAll('div[style*="text-transform:uppercase"]');
+  if (ml[0]) ml[0].textContent = t("quick_models");
+  if (ml[1]) ml[1].textContent = t("deep_models");
 
-  if (settingsTitles[2]) settingsTitles[2].textContent = t("debate_rounds");
-  if (settingsTitles[3]) settingsTitles[3].textContent = t("risk_rounds");
-  if (settingsTitles[4]) settingsTitles[4].textContent = t("backend_url");
-  if (settingsTitles[5]) settingsTitles[5].textContent = t("language");
-
-  // Update team showcase
-  const showcase = document.getElementById("teamShowcase");
-  if (showcase) {
-    const titleDiv = showcase.querySelector('div[style*="font-weight:700;color:var(--txt)"]');
-    if (titleDiv) titleDiv.textContent = t("team_title");
-    const subtitleDiv = Array.from(showcase.querySelectorAll('div')).find(d =>
-      d.textContent.includes("12") && d.style.color === "var(--txt2)"
-    );
-    if (subtitleDiv) subtitleDiv.textContent = t("team_subtitle");
-  }
-
-  // Update team section titles
-  const teamSectionTitles = document.querySelectorAll(".team-section-title");
-  if (teamSectionTitles[0]) teamSectionTitles[0].textContent = t("team_analysts");
-  if (teamSectionTitles[1]) teamSectionTitles[1].textContent = t("team_researchers");
-  if (teamSectionTitles[2]) teamSectionTitles[2].textContent = t("team_leadership");
-  if (teamSectionTitles[3]) teamSectionTitles[3].textContent = t("team_risk");
-
-  // Update analyst hint
-  const analystHint = document.getElementById("teamAnalystHint");
-  if (analystHint) analystHint.textContent = t("analyst_toggle_hint");
-
-  // Re-populate team showcase with translated content
+  // Rebuild team cards with translated role/focus text
   populateTeamShowcase();
 }
 
@@ -1031,10 +1033,9 @@ if (langSelect) {
 }
 
 // ── INITIALIZE UI TEXT ────────────────────────────────────────────────────────
-// Set initial header status and progress label to translated text
 document.getElementById("hdrStatus").textContent = t("hdr_ready");
-document.getElementById("progressLabel").textContent = t("waiting_analysis");
 document.getElementById("dataStatus").textContent = t("data_waiting");
+updateUIText();   // apply language to all labels immediately on load
 
 // ── MODEL LISTS PER PROVIDER ─────────────────────────────────────────────────
 const PROVIDER_MODELS = {
@@ -1591,17 +1592,17 @@ clearBtn.addEventListener("click", () => {
     <div class="team-showcase" id="teamShowcase">
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:28px;margin-bottom:10px;">🏢</div>
-        <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px;">${t("team_title")}</div>
-        <div style="font-size:11px;color:var(--txt2);">${t("team_subtitle")}</div>
+        <div id="teamShowcaseTitle" style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px;">${t("team_title")}</div>
+        <div id="teamShowcaseSubtitle" style="font-size:11px;color:var(--txt2);">${t("team_subtitle")}</div>
       </div>
-      <div class="team-section-title">${t("team_analysts")}</div>
+      <div class="team-section-title" id="secAnalysts">${t("team_analysts")}</div>
       <div class="analyst-hint" id="teamAnalystHint">${t("analyst_toggle_hint")}</div>
       <div class="team-grid" id="analyistsGrid"></div>
-      <div class="team-section-title">${t("team_researchers")}</div>
+      <div class="team-section-title" id="secResearchers">${t("team_researchers")}</div>
       <div class="team-grid" id="researchersGrid"></div>
-      <div class="team-section-title">${t("team_leadership")}</div>
+      <div class="team-section-title" id="secLeadership">${t("team_leadership")}</div>
       <div class="team-grid" id="managersGrid"></div>
-      <div class="team-section-title">${t("team_risk")}</div>
+      <div class="team-section-title" id="secRisk">${t("team_risk")}</div>
       <div class="team-grid" id="riskGrid"></div>
     </div>
   `;
