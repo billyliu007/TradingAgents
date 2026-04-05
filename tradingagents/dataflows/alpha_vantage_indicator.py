@@ -57,6 +57,13 @@ def get_indicator(
         "vwma": "VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses."
     }
 
+    # Normalise common LLM variant names to canonical keys
+    _ALIASES = {
+        "macd_signal": "macds", "macd_hist": "macdh", "macd_histogram": "macdh",
+        "ema_10": "close_10_ema", "sma_50": "close_50_sma", "sma_200": "close_200_sma",
+    }
+    indicator = _ALIASES.get(indicator, indicator)
+
     if indicator not in supported_indicators:
         raise ValueError(
             f"Indicator {indicator} is not supported. Please choose from: {list(supported_indicators.keys())}"

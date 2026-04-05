@@ -131,6 +131,13 @@ def get_stock_stats_indicators_window(
         ),
     }
 
+    # Normalise common LLM variant names to canonical keys
+    _ALIASES = {
+        "macd_signal": "macds", "macd_hist": "macdh", "macd_histogram": "macdh",
+        "ema_10": "close_10_ema", "sma_50": "close_50_sma", "sma_200": "close_200_sma",
+    }
+    indicator = _ALIASES.get(indicator, indicator)
+
     if indicator not in best_ind_params:
         raise ValueError(
             f"Indicator {indicator} is not supported. Please choose from: {list(best_ind_params.keys())}"
