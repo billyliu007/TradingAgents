@@ -1990,6 +1990,7 @@ form.addEventListener("submit", async e => {
     if (od && String(od).trim()) deepModel = String(od).trim();
   }
 
+  function _keyVal(id) { const el = document.getElementById(id); return el && el.value.trim() || null; }
   const payload = {
     ticker:                  document.getElementById("ticker").value.trim().toUpperCase(),
     analysis_date:           new Date().toISOString().split("T")[0],
@@ -2001,6 +2002,12 @@ form.addEventListener("submit", async e => {
     max_risk_discuss_rounds: Number(document.getElementById("max_risk_discuss_rounds").value),
     selected_analysts:       analysts,
     language:                currentLanguage,
+    openai_api_key:          _keyVal("openai_api_key"),
+    anthropic_api_key:       _keyVal("anthropic_api_key"),
+    google_api_key:          _keyVal("google_api_key"),
+    xai_api_key:             _keyVal("xai_api_key"),
+    openrouter_api_key:      _keyVal("openrouter_api_key"),
+    moonshot_api_key:        _keyVal("moonshot_api_key"),
   };
 
   // Reset UI
