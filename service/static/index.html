@@ -1329,6 +1329,18 @@ let progress = 0;
 let selectedAdvisors = new Set(["market","fundamentals","social","news"]);
 let jobDone = false;
 let wsReconnectDelay = TIMING.WS_INITIAL_DELAY;
+let _analystsCompleted = 0; // counts data-analyst completions within the current job
+
+// ── PROGRESS MILESTONES ───────────────────────────────────────────────────────
+// Data analysts (market/fundamentals/social/news) fill 10→46% evenly based on
+// how many are selected. Subsequent pipeline agents get fixed absolute targets.
+const _DATA_ANALYSTS = new Set(["market", "fundamentals", "social", "news"]);
+const _AGENT_MILESTONE = { research_manager: 62, trader: 72, portfolio: 92 };
+
+function _analystProgressPct() {
+  const n = selectedAdvisors.size || 4;
+  return Math.round(10 + (_analystsCompleted / n) * 36); // 10–46 %
+}
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 
@@ -1831,6 +1843,7 @@ function connectWS(jid, isReconnect) {
 
   if (isReconnect) {
     // Clear feeds so the server's event replay starts fresh
+    _analystsCompleted = 0;
     chatFeed.innerHTML = "";
     delete chatFeed.dataset.debateLabel;
     delete chatFeed.dataset.riskLabel;
@@ -1856,7 +1869,9 @@ function connectWS(jid, isReconnect) {
 
     if (ev.type === "data_fetched") {
       addDataEntry(ev);
-      advanceProgress(2, t("fetching_data"));
+      // Tiny pulse — just enough to show activity without consuming milestone budget.
+      // Capped so data fetches can never push past the analyst phase ceiling (46 %).
+      if (progress < 46) advanceProgress(0.5, t("fetching_data"));
       return;
     }
 
@@ -1877,9 +1892,15 @@ function connectWS(jid, isReconnect) {
         trader: t("trader_complete"),
         portfolio: t("portfolio_complete"),
       };
-      // Use translated label; fall back to server title only if no translation exists
+      const label = roleLabels[ev.analyst] || ev.title || "Analysis progressing...";
       addChatMsg(ev.analyst, ev.content, roleLabels[ev.analyst] || ev.title);
-      advanceProgress(12, roleLabels[ev.analyst] || ev.title || "Analysis progressing...");
+      // Milestone-based: data analysts fill 10→46% evenly; later agents hit fixed targets.
+      if (_DATA_ANALYSTS.has(ev.analyst)) {
+        _analystsCompleted++;
+        setProgress(_analystProgressPct(), label);
+      } else {
+        setProgress(_AGENT_MILESTONE[ev.analyst] ?? progress, label);
+      }
       return;
     }
 
@@ -1889,7 +1910,8 @@ function connectWS(jid, isReconnect) {
         chatFeed.dataset.debateLabel = "1";
       }
       addChatMsg(ev.role, ev.content);
-      advanceProgress(3, t("research_debating"));
+      // Nudge toward the research_manager milestone (62%) without overshooting it.
+      if (progress < 60) advanceProgress(1.5, t("research_debating"));
       return;
     }
 
@@ -1899,7 +1921,8 @@ function connectWS(jid, isReconnect) {
         chatFeed.dataset.riskLabel = "1";
       }
       addChatMsg(ev.role, ev.content);
-      advanceProgress(3, t("risk_reviewing"));
+      // Nudge toward the portfolio milestone (92%) without overshooting it.
+      if (progress < 88) advanceProgress(1.5, t("risk_reviewing"));
       return;
     }
 
@@ -2054,6 +2077,7 @@ form.addEventListener("submit", async e => {
 
   // Reset UI
   jobDone = false; wsReconnectDelay = TIMING.WS_INITIAL_DELAY;
+  _analystsCompleted = 0;
   setRunningUI(true);
   chatFeed.innerHTML = ""; delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
   newMsgsPill.classList.remove("show"); _unreadMsgs = 0;
