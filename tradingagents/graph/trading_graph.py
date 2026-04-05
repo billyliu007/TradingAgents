@@ -9,6 +9,11 @@ from typing import Dict, Any, Tuple, List, Optional, Callable
 from langgraph.prebuilt import ToolNode
 
 from tradingagents.llm_clients import create_llm_client
+from tradingagents.llm_clients.prompt_audit import (
+    PromptAuditCallback,
+    default_audit_file_path,
+    prompt_audit_enabled,
+)
 
 from tradingagents.agents import *
 from tradingagents.default_config import DEFAULT_CONFIG
@@ -65,7 +70,7 @@ class TradingAgentsGraph:
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
-        self.callbacks = callbacks or []
+        self.callbacks = list(callbacks or [])
         self.progress_callback = progress_callback
         self.language = language
 
@@ -77,6 +82,11 @@ class TradingAgentsGraph:
             os.path.join(self.config["project_dir"], "dataflows/data_cache"),
             exist_ok=True,
         )
+
+        if prompt_audit_enabled():
+            self.callbacks.append(
+                PromptAuditCallback(default_audit_file_path(self.config))
+            )
 
         # Initialize LLMs with provider-specific thinking configuration
         llm_kwargs = self._get_provider_kwargs()
