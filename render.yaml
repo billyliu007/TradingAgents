@@ -1,5 +1,11 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
 # After push: https://dashboard.render.com/blueprint/new?repo=<your-repo-https-url>
+#
+# DATABASE_URL (Postgres, e.g. Neon): required for analysis caching and for
+# global LLM/API settings stored via /admin (app_settings table). migrate.py
+# runs on every build and is idempotent.
+#
+# Provider keys can live in the Dashboard and/or in DB after saving /admin.
 
 services:
   - type: web
@@ -13,7 +19,8 @@ services:
     healthCheckPath: /api/options
     envVars:
       # Python version: see runtime.txt in repo root (Render-native).
-      # At least one provider key is required at runtime (set in Dashboard; never commit secrets).
+      # At least one working LLM credential is required at runtime unless all
+      # providers used are configured in /admin with DATABASE_URL set.
       - key: OPENAI_API_KEY
         sync: false
       - key: GOOGLE_API_KEY
@@ -31,6 +38,13 @@ services:
       - key: ALPHA_VANTAGE_API_KEY
         sync: false
       - key: DATABASE_URL
+        sync: false
+      # /admin — set TRADINGAGENTS_ADMIN_PASSWORD in the Dashboard to enable.
+      - key: TRADINGAGENTS_ADMIN_USER
+        sync: false
+      - key: TRADINGAGENTS_ADMIN_PASSWORD
+        sync: false
+      - key: TRADINGAGENTS_ADMIN_SESSION_SECRET
         sync: false
       # Optional overrides
       - key: TRADINGAGENTS_RESULTS_DIR
