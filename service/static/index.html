@@ -488,6 +488,17 @@
     /* ── SETTINGS PANEL ────────────────────────────────────── */
     /* ── TEAM SHOWCASE ─────────────────────────────────────── */
     .team-showcase { padding: 20px; overflow-y: auto; }
+    .team-showcase-header   { text-align: center; margin-bottom: 24px; }
+    .team-showcase-icon     { font-size: 28px; margin-bottom: 10px; }
+    .team-showcase-title    { font-size: 14px; font-weight: 700; color: var(--txt); margin-bottom: 6px; }
+    .team-showcase-subtitle { font-size: 11px; color: var(--txt2); }
+
+    /* ── SYSTEM MESSAGES ───────────────────────────────────── */
+    .system-msg {
+      font-size: 11px; padding: 6px 10px; border-radius: 6px; opacity: .85;
+      color: var(--system-msg-color, var(--txt2));
+      border: 1px solid var(--system-msg-color, var(--border));
+    }
     .team-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--blue); margin-top: 20px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
     .team-section-title:first-child { margin-top: 0; }
     .team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
@@ -685,10 +696,10 @@
     <div class="chat-feed" id="chatFeed">
       <!-- Team Showcase (shown initially) -->
       <div class="team-showcase" id="teamShowcase">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="font-size:28px;margin-bottom:10px;">🏢</div>
-          <div id="teamShowcaseTitle" style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px;">Your Research Team</div>
-          <div id="teamShowcaseSubtitle" style="font-size:11px;color:var(--txt2);">Meet the 12 AI specialists working together to analyze stocks</div>
+        <div class="team-showcase-header">
+          <div class="team-showcase-icon">🏢</div>
+          <div id="teamShowcaseTitle" class="team-showcase-title">Your Research Team</div>
+          <div id="teamShowcaseSubtitle" class="team-showcase-subtitle">Meet the 12 AI specialists working together to analyze stocks</div>
         </div>
 
         <!-- Analysts (clickable toggles) -->
@@ -1239,22 +1250,34 @@ let TEAM = createTeam();
 const ADVISOR_CHOICES = ["market","fundamentals","social","news"];
 
 // ── DOM REFS ─────────────────────────────────────────────────────────────────
-const form         = document.getElementById("analyzeForm");
-const submitBtn    = document.getElementById("submitBtn");
-const stopBtn      = document.getElementById("stopBtn");
-const clearBtn     = document.getElementById("clearBtn");
-const statusMsg    = document.getElementById("statusMsg");
-const hdrStatus    = document.getElementById("hdrStatus");
-const chatFeed     = document.getElementById("chatFeed");
-const dataFeed     = document.getElementById("dataFeed");
-const dataStatus   = document.getElementById("dataStatus");
-const progressFill = document.getElementById("progressFill");
-const progressPct  = document.getElementById("progressPct");
-const progressLabel= document.getElementById("progressLabel");
-const progressWrap = document.getElementById("progressWrap");
-const overlay      = document.getElementById("overlay");
-const layoutRoot   = document.getElementById("layoutRoot");
-const dataPanelToggle = document.getElementById("dataPanelToggle");
+const form              = document.getElementById("analyzeForm");
+const submitBtn         = document.getElementById("submitBtn");
+const stopBtn           = document.getElementById("stopBtn");
+const clearBtn          = document.getElementById("clearBtn");
+const statusMsg         = document.getElementById("statusMsg");
+const hdrStatus         = document.getElementById("hdrStatus");
+const chatFeed          = document.getElementById("chatFeed");
+const dataFeed          = document.getElementById("dataFeed");
+const dataStatus        = document.getElementById("dataStatus");
+const progressFill      = document.getElementById("progressFill");
+const progressPct       = document.getElementById("progressPct");
+const progressLabel     = document.getElementById("progressLabel");
+const progressWrap      = document.getElementById("progressWrap");
+const overlay           = document.getElementById("overlay");
+const layoutRoot        = document.getElementById("layoutRoot");
+const dataPanelToggle   = document.getElementById("dataPanelToggle");
+// Form field refs (avoid repeated getElementById in hot paths)
+const tickerEl          = document.getElementById("ticker");
+const backendUrlEl      = document.getElementById("backend_url");
+const maxDebateEl       = document.getElementById("max_debate_rounds");
+const maxRiskEl         = document.getElementById("max_risk_discuss_rounds");
+const quickThinkEl      = document.getElementById("quick_think_llm");
+const deepThinkEl       = document.getElementById("deep_think_llm");
+const kimiQuickCustomEl = document.getElementById("kimi_quick_model_custom");
+const kimiDeepCustomEl  = document.getElementById("kimi_deep_model_custom");
+
+// Reads a password/text input value; returns null when empty (safe to pass to API)
+function _keyVal(id) { const el = document.getElementById(id); return el && el.value.trim() || null; }
 
 if (layoutRoot && dataPanelToggle) {
   dataPanelToggle.addEventListener("click", () => {
@@ -1284,12 +1307,28 @@ function getTeamFocus() {
   };
 }
 
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const TIMING = {
+  TICKER_DEBOUNCE:  180,   // ms debounce on ticker input
+  TICKER_BLUR_HIDE: 160,   // ms delay before hiding suggestions on blur
+  WS_INITIAL_DELAY: 1000,  // ms initial WebSocket reconnect delay
+  WS_MAX_DELAY:    16000,  // ms maximum WebSocket reconnect backoff
+  TAB_SWITCH:          50, // ms before switching mobile tab on submit
+};
+
+const DATA_PREVIEW = {
+  MAX_TABLE_ROWS: 85,
+  KV_RE:          /^[^:\n]{2,60}:\s+\S/,
+  KV_ENTRY_COMMA: 4,  // line with >= this many commas is not a KV entry
+  KV_BREAK_COMMA: 6,  // abort KV block if line has >= this many commas
+};
+
 let ws = null;
 let jobId = null;
 let progress = 0;
 let selectedAdvisors = new Set(["market","fundamentals","social","news"]);
 let jobDone = false;
-let wsReconnectDelay = 1000;
+let wsReconnectDelay = TIMING.WS_INITIAL_DELAY;
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 
@@ -1339,20 +1378,18 @@ const PROVIDER_MODELS = {
 
 function _populateModelSelects(provider) {
   const m = PROVIDER_MODELS[provider] || PROVIDER_MODELS.openai;
-  const qSel = document.getElementById("quick_think_llm");
-  const dSel = document.getElementById("deep_think_llm");
-  const prevQ = qSel.value, prevD = dSel.value;
-  qSel.innerHTML = m.quick.map(v => `<option value="${v}">${v}</option>`).join("");
-  dSel.innerHTML = m.deep.map(v  => `<option value="${v}">${v}</option>`).join("");
-  // Preserve selection if the model still exists in new list
-  if (m.quick.includes(prevQ)) qSel.value = prevQ;
-  if (m.deep.includes(prevD))  dSel.value = prevD;
+  const prevQ = quickThinkEl.value, prevD = deepThinkEl.value;
+  quickThinkEl.innerHTML = m.quick.map(v => `<option value="${v}">${v}</option>`).join("");
+  deepThinkEl.innerHTML  = m.deep.map(v  => `<option value="${v}">${v}</option>`).join("");
+  // Preserve selection if the model still exists in the new list
+  if (m.quick.includes(prevQ)) quickThinkEl.value = prevQ;
+  if (m.deep.includes(prevD))  deepThinkEl.value  = prevD;
 }
 
 const llmProviderSel = document.getElementById("llm_provider");
+const _kimiCustomWrap = document.getElementById("kimi_model_custom_wrap");
 function _syncKimiCustomVisibility() {
-  const wrap = document.getElementById("kimi_model_custom_wrap");
-  if (wrap) wrap.style.display = (llmProviderSel.value === "kimi" || llmProviderSel.value === "kimi_cn") ? "block" : "none";
+  if (_kimiCustomWrap) _kimiCustomWrap.style.display = (llmProviderSel.value === "kimi" || llmProviderSel.value === "kimi_cn") ? "block" : "none";
 }
 _populateModelSelects(llmProviderSel.value);
 _syncKimiCustomVisibility();
@@ -1396,10 +1433,12 @@ function setRunningUI(running) {
 const newMsgsPill = document.getElementById("newMsgsPill");
 let _unreadMsgs = 0;
 
+function _distFromBottom(el) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight;
+}
+
 function scrollIfNearBottom() {
-  const threshold = 180;
-  const distFromBottom = chatFeed.scrollHeight - chatFeed.scrollTop - chatFeed.clientHeight;
-  if (distFromBottom <= threshold) {
+  if (_distFromBottom(chatFeed) <= 180) {
     chatFeed.scrollTop = chatFeed.scrollHeight;
   } else {
     _unreadMsgs++;
@@ -1415,8 +1454,7 @@ newMsgsPill.addEventListener("click", () => {
 });
 
 chatFeed.addEventListener("scroll", () => {
-  const distFromBottom = chatFeed.scrollHeight - chatFeed.scrollTop - chatFeed.clientHeight;
-  if (distFromBottom <= 20) {
+  if (_distFromBottom(chatFeed) <= 20) {
     newMsgsPill.classList.remove("show");
     _unreadMsgs = 0;
   }
@@ -1460,7 +1498,8 @@ function addSystemMsg(icon, text, color) {
   const ph = chatFeed.querySelector(".chat-placeholder");
   if (ph) ph.remove();
   const el = document.createElement("div");
-  el.style.cssText = `font-size:11px;color:${color || "var(--txt2)"};padding:6px 10px;border:1px solid ${color || "var(--border)"};border-radius:6px;opacity:.85;`;
+  el.className = "system-msg";
+  if (color) el.style.setProperty("--system-msg-color", color);
   el.textContent = `${icon}  ${text}`;
   chatFeed.appendChild(el);
   scrollIfNearBottom();
@@ -1494,19 +1533,120 @@ function rowColumnInfo(line) {
 }
 
 function renderPreviewTable(rows) {
-  const maxR = 85;
-  const use = rows.slice(0, maxR);
+  const use = rows.slice(0, DATA_PREVIEW.MAX_TABLE_ROWS);
   const head = use[0].map(c => escHtml(c));
   const body = use.slice(1).map(row =>
     `<tr>${row.map(c => `<td>${escHtml(c)}</td>`).join("")}</tr>`
   ).join("");
   let foot = "";
-  if (rows.length > maxR) {
-    const note = t("data_rows_truncated").replace("{n}", String(rows.length - maxR));
+  if (rows.length > DATA_PREVIEW.MAX_TABLE_ROWS) {
+    const note = t("data_rows_truncated").replace("{n}", String(rows.length - DATA_PREVIEW.MAX_TABLE_ROWS));
     foot = `<div class="data-trunc-note">${escHtml(note)}</div>`;
   }
   return `<div class="data-preview-table-wrap"><table class="data-preview-grid"><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>${foot}</div>`;
 }
+
+// ── DATA PREVIEW BLOCK PARSERS ────────────────────────────────────────────────
+// Each parser receives (lines, i) and returns { html, newI } or null if not matched.
+
+function _parseMetaBlock(lines, i) {
+  if (!lines[i].trim().startsWith("# ")) return null;
+  const meta = [];
+  while (i < lines.length && lines[i].trim().startsWith("# ")) {
+    meta.push(escHtml(lines[i].trim().replace(/^#\s*/, "")));
+    i++;
+  }
+  return { html: `<ul class="data-meta">${meta.map(m => `<li>${m}</li>`).join("")}</ul>`, newI: i };
+}
+
+function _parseH3Block(lines, i) {
+  const trim = lines[i].trim();
+  if (!trim.startsWith("## ")) return null;
+  return { html: `<div class="data-h3">${escHtml(trim.slice(3).trim())}</div>`, newI: i + 1 };
+}
+
+function _parseTableBlock(lines, i) {
+  const trim = lines[i].trim();
+  const rci = rowColumnInfo(trim);
+  if (!rci || rci.cols < 2) return null;
+  const cells0 = splitDelimitedRow(trim, rci.delim);
+  if (cells0.length < 2 || cells0.length !== rci.cols) return null;
+  const rows = [];
+  let j = i;
+  while (j < lines.length) {
+    const L = lines[j].trim();
+    if (!L) break;
+    const cells = splitDelimitedRow(L, rci.delim);
+    if (cells.length !== cells0.length) break;
+    rows.push(cells);
+    j++;
+  }
+  if (rows.length < 2) return null;
+  return { html: renderPreviewTable(rows), newI: j };
+}
+
+function _parseDateKvBlock(lines, i) {
+  if (!/^\d{4}-\d{2}-\d{2}:/.test(lines[i].trim())) return null;
+  const kvs = [];
+  let j = i;
+  while (j < lines.length) {
+    const L = lines[j].trim();
+    if (!/^\d{4}-\d{2}-\d{2}:/.test(L)) break;
+    const m = L.match(/^(\d{4}-\d{2}-\d{2}):\s*(.*)$/);
+    if (m) kvs.push(`<div class="data-kv-row"><span class="data-kv-k">${escHtml(m[1])}</span><span class="data-kv-v">${escHtml(m[2])}</span></div>`);
+    j++;
+  }
+  if (!kvs.length) return null;
+  return { html: `<div class="data-kv-block">${kvs.join("")}</div>`, newI: j };
+}
+
+function _parseKvBlock(lines, i) {
+  const trim = lines[i].trim();
+  if (!DATA_PREVIEW.KV_RE.test(trim) || trim.split(",").length >= DATA_PREVIEW.KV_ENTRY_COMMA) return null;
+  const acc = [];
+  let j = i;
+  while (j < lines.length) {
+    const L = lines[j].trim();
+    if (!DATA_PREVIEW.KV_RE.test(L) || L.split(",").length >= DATA_PREVIEW.KV_BREAK_COMMA) break;
+    const ix = L.indexOf(":");
+    const k = L.slice(0, ix).trim();
+    const v = L.slice(ix + 1).trim();
+    if (k.length < 2 || k.length > 60 || !v) break;
+    acc.push({ k, v });
+    j++;
+  }
+  if (acc.length < 2) return null;
+  const html = acc.map(({ k, v }) =>
+    `<div class="data-kv-row"><span class="data-kv-k">${escHtml(k)}</span><span class="data-kv-v">${escHtml(v)}</span></div>`
+  ).join("");
+  return { html: `<div class="data-kv-block">${html}</div>`, newI: j };
+}
+
+function _parseParagraph(lines, i) {
+  const para = [];
+  while (i < lines.length && lines[i].trim()) {
+    const tr = lines[i].trim();
+    if (tr.startsWith("# ") || tr.startsWith("## ")) break;
+    if (/^\d{4}-\d{2}-\d{2}:/.test(tr)) break;
+    if (DATA_PREVIEW.KV_RE.test(tr) && tr.split(",").length < DATA_PREVIEW.KV_ENTRY_COMMA) {
+      let j2 = i, cnt = 0;
+      while (j2 < lines.length && DATA_PREVIEW.KV_RE.test(lines[j2].trim())) { cnt++; j2++; }
+      if (cnt >= 2) break;
+    }
+    const ri = rowColumnInfo(tr);
+    if (ri && ri.cols >= 2) {
+      const c0 = splitDelimitedRow(tr, ri.delim);
+      if (c0.length >= 2 && lines[i + 1] && splitDelimitedRow(lines[i + 1].trim(), ri.delim).length === c0.length)
+        break;
+    }
+    para.push(lines[i]);
+    i++;
+  }
+  if (!para.length) return null;
+  return { html: `<p class="data-para">${escHtml(para.join("\n"))}</p>`, newI: i };
+}
+
+const _BLOCK_PARSERS = [_parseMetaBlock, _parseH3Block, _parseTableBlock, _parseDateKvBlock, _parseKvBlock, _parseParagraph];
 
 /** Turn raw provider strings into readable HTML (safe: escaped text, our tags only). */
 function formatDataFeedPreview(raw) {
@@ -1521,119 +1661,16 @@ function formatDataFeedPreview(raw) {
   const out = [];
   let i = 0;
 
-  function skipEmpty() {
-    while (i < lines.length && !lines[i].trim()) i++;
-  }
-
   while (i < lines.length) {
-    skipEmpty();
+    while (i < lines.length && !lines[i].trim()) i++; // skip blank lines
     if (i >= lines.length) break;
-    const trim = lines[i].trim();
-    if (!trim) { i++; continue; }
 
-    if (trim.startsWith("# ")) {
-      const meta = [];
-      while (i < lines.length && lines[i].trim().startsWith("# ")) {
-        meta.push(escHtml(lines[i].trim().replace(/^#\s*/, "")));
-        i++;
-      }
-      out.push(`<ul class="data-meta">${meta.map(m => `<li>${m}</li>`).join("")}</ul>`);
-      continue;
+    let matched = false;
+    for (const parser of _BLOCK_PARSERS) {
+      const result = parser(lines, i);
+      if (result) { out.push(result.html); i = result.newI; matched = true; break; }
     }
-
-    if (trim.startsWith("## ")) {
-      out.push(`<div class="data-h3">${escHtml(trim.slice(3).trim())}</div>`);
-      i++;
-      continue;
-    }
-
-    const rci = rowColumnInfo(trim);
-    if (rci && rci.cols >= 2) {
-      const cells0 = splitDelimitedRow(trim, rci.delim);
-      if (cells0.length >= 2 && cells0.length === rci.cols) {
-        const rows = [];
-        let j = i;
-        while (j < lines.length) {
-          const L = lines[j].trim();
-          if (!L) break;
-          const cells = splitDelimitedRow(L, rci.delim);
-          if (cells.length !== cells0.length) break;
-          rows.push(cells);
-          j++;
-        }
-        if (rows.length >= 2) {
-          out.push(renderPreviewTable(rows));
-          i = j;
-          continue;
-        }
-      }
-    }
-
-    if (/^\d{4}-\d{2}-\d{2}:/.test(trim)) {
-      const kvs = [];
-      while (i < lines.length) {
-        const L = lines[i].trim();
-        if (!/^\d{4}-\d{2}-\d{2}:/.test(L)) break;
-        const m = L.match(/^(\d{4}-\d{2}-\d{2}):\s*(.*)$/);
-        if (m) kvs.push(`<div class="data-kv-row"><span class="data-kv-k">${escHtml(m[1])}</span><span class="data-kv-v">${escHtml(m[2])}</span></div>`);
-        i++;
-      }
-      if (kvs.length) {
-        out.push(`<div class="data-kv-block">${kvs.join("")}</div>`);
-        continue;
-      }
-    }
-
-    if (/^[^:\n]{2,60}:\s+\S/.test(trim) && trim.split(",").length < 4) {
-      let j = i;
-      const acc = [];
-      while (j < lines.length) {
-        const L = lines[j].trim();
-        if (!/^[^:\n]{2,60}:\s+\S/.test(L) || L.split(",").length >= 6) break;
-        const ix = L.indexOf(":");
-        const k = L.slice(0, ix).trim();
-        const v = L.slice(ix + 1).trim();
-        if (k.length < 2 || k.length > 60 || !v) break;
-        acc.push({ k, v });
-        j++;
-      }
-      if (acc.length >= 2) {
-        const html = acc.map(({ k, v }) =>
-          `<div class="data-kv-row"><span class="data-kv-k">${escHtml(k)}</span><span class="data-kv-v">${escHtml(v)}</span></div>`
-        ).join("");
-        out.push(`<div class="data-kv-block">${html}</div>`);
-        i = j;
-        continue;
-      }
-    }
-
-    const para = [];
-    while (i < lines.length && lines[i].trim()) {
-      const tr = lines[i].trim();
-      if (tr.startsWith("# ") || tr.startsWith("## ")) break;
-      if (/^\d{4}-\d{2}-\d{2}:/.test(tr)) break;
-      if (/^[^:\n]{2,60}:\s+\S/.test(tr) && tr.split(",").length < 4) {
-        let j2 = i;
-        let cnt = 0;
-        while (j2 < lines.length && /^[^:\n]{2,60}:\s+\S/.test(lines[j2].trim())) { cnt++; j2++; }
-        if (cnt >= 2) break;
-      }
-      const ri = rowColumnInfo(tr);
-      if (ri && ri.cols >= 2) {
-        const c0 = splitDelimitedRow(tr, ri.delim);
-        if (c0.length >= 2 && lines[i + 1] && splitDelimitedRow(lines[i + 1].trim(), ri.delim).length === c0.length)
-          break;
-      }
-      para.push(lines[i]);
-      i++;
-    }
-    if (para.length) {
-      out.push(`<p class="data-para">${escHtml(para.join("\n"))}</p>`);
-      continue;
-    }
-
-    out.push(`<p class="data-para">${escHtml(lines[i])}</p>`);
-    i++;
+    if (!matched) { out.push(`<p class="data-para">${escHtml(lines[i])}</p>`); i++; }
   }
 
   return out.length ? out.join("") : `<pre class="data-pre-json">${escHtml(s)}</pre>`;
@@ -1710,7 +1747,7 @@ function formatDataFeedPreview(raw) {
     tickerInput.style.borderColor = "";
     const q = e.target.value.trim().toUpperCase();
     clearTimeout(_timer);
-    _timer = setTimeout(() => fetchSuggestions(q), 180);
+    _timer = setTimeout(() => fetchSuggestions(q), TIMING.TICKER_DEBOUNCE);
   });
 
   tickerInput.addEventListener("keydown", e => {
@@ -1730,7 +1767,7 @@ function formatDataFeedPreview(raw) {
     }
   });
 
-  tickerInput.addEventListener("blur",  () => setTimeout(hideSuggestions, 160));
+  tickerInput.addEventListener("blur",  () => setTimeout(hideSuggestions, TIMING.TICKER_BLUR_HIDE));
   tickerInput.addEventListener("focus", e => {
     const q = e.target.value.trim().toUpperCase();
     if (q) fetchSuggestions(q);
@@ -1744,6 +1781,11 @@ function formatDataFeedPreview(raw) {
 })();
 
 // ── DATA FEED ─────────────────────────────────────────────────────────────────
+function setDataPlaceholder(key) {
+  dataFeed.innerHTML = `<div class="data-feed-placeholder">${t(key || "data_raw_placeholder")}</div>`;
+  dataStatus.textContent = t("data_waiting");
+}
+
 function clearDataPlaceholder() {
   const ph = dataFeed.querySelector(".data-feed-placeholder");
   if (ph) { dataFeed.innerHTML = ""; dataStatus.textContent = t("data_receiving"); }
@@ -1792,8 +1834,7 @@ function connectWS(jid, isReconnect) {
     chatFeed.innerHTML = "";
     delete chatFeed.dataset.debateLabel;
     delete chatFeed.dataset.riskLabel;
-    dataFeed.innerHTML = `<div class="data-feed-placeholder">${t("data_placeholder")}</div>`;
-    dataStatus.textContent = t("data_waiting");
+    setDataPlaceholder("data_placeholder");
     progress = 0;
     setProgress(5, t("reconnecting"));
   }
@@ -1917,7 +1958,7 @@ function connectWS(jid, isReconnect) {
     if (!jobDone && jobId) {
       // Reconnect with exponential backoff (1s → 2s → 4s → 8s → 16s max)
       setTimeout(() => {
-        wsReconnectDelay = Math.min(wsReconnectDelay * 2, 16000);
+        wsReconnectDelay = Math.min(wsReconnectDelay * 2, TIMING.WS_MAX_DELAY);
         connectWS(jobId, true);
       }, wsReconnectDelay);
     }
@@ -1946,33 +1987,35 @@ function renderTeamCard(key) {
 }
 
 function populateTeamShowcase() {
-  const analysts = ["market", "fundamentals", "social", "news"];
+  const analysts   = ["market", "fundamentals", "social", "news"];
   const researchers = ["bull", "bear"];
-  const managers = ["research_manager", "trader"];
-  const risk = ["aggressive", "conservative", "neutral", "portfolio"];
+  const managers   = ["research_manager", "trader"];
+  const risk       = ["aggressive", "conservative", "neutral", "portfolio"];
 
-  document.getElementById("analyistsGrid").innerHTML = analysts.map(renderTeamCard).join("");
+  document.getElementById("analyistsGrid").innerHTML   = analysts.map(renderTeamCard).join("");
   document.getElementById("researchersGrid").innerHTML = researchers.map(renderTeamCard).join("");
-  document.getElementById("managersGrid").innerHTML = managers.map(renderTeamCard).join("");
-  document.getElementById("riskGrid").innerHTML = risk.map(renderTeamCard).join("");
-
-  // Attach toggle click handlers to analyst cards
-  document.querySelectorAll(".team-card.analyst-toggle").forEach(card => {
-    card.addEventListener("click", () => {
-      const key = card.dataset.analyst;
-      const check = card.querySelector(".analyst-check");
-      if (selectedAdvisors.has(key)) {
-        selectedAdvisors.delete(key);
-        card.classList.add("analyst-disabled");
-        if (check) check.textContent = "✕";
-      } else {
-        selectedAdvisors.add(key);
-        card.classList.remove("analyst-disabled");
-        if (check) check.textContent = "✓";
-      }
-    });
-  });
+  document.getElementById("managersGrid").innerHTML    = managers.map(renderTeamCard).join("");
+  document.getElementById("riskGrid").innerHTML        = risk.map(renderTeamCard).join("");
+  // Click handling is via delegated listener on chatFeed — no per-card attachment needed.
 }
+
+// Single delegated listener handles analyst card toggles regardless of re-renders.
+chatFeed.addEventListener("click", e => {
+  const card = e.target.closest(".team-card.analyst-toggle");
+  if (!card) return;
+  const key = card.dataset.analyst;
+  if (!key) return;
+  const check = card.querySelector(".analyst-check");
+  if (selectedAdvisors.has(key)) {
+    selectedAdvisors.delete(key);
+    card.classList.add("analyst-disabled");
+    if (check) check.textContent = "✕";
+  } else {
+    selectedAdvisors.add(key);
+    card.classList.remove("analyst-disabled");
+    if (check) check.textContent = "✓";
+  }
+});
 
 // ── FORM SUBMIT ───────────────────────────────────────────────────────────────
 form.addEventListener("submit", async e => {
@@ -1980,26 +2023,25 @@ form.addEventListener("submit", async e => {
   const analysts = [...selectedAdvisors];
   if (!analysts.length) { setStatus(t("select_advisor"), "error"); return; }
 
-  const prov = document.getElementById("llm_provider").value;
-  let quickModel = document.getElementById("quick_think_llm").value.trim();
-  let deepModel = document.getElementById("deep_think_llm").value.trim();
+  const prov = llmProviderSel.value;
+  let quickModel = quickThinkEl.value.trim();
+  let deepModel  = deepThinkEl.value.trim();
   if (prov === "kimi" || prov === "kimi_cn") {
-    const oq = (document.getElementById("kimi_quick_model_custom") || {}).value;
-    const od = (document.getElementById("kimi_deep_model_custom") || {}).value;
-    if (oq && String(oq).trim()) quickModel = String(oq).trim();
-    if (od && String(od).trim()) deepModel = String(od).trim();
+    const oq = kimiQuickCustomEl && kimiQuickCustomEl.value.trim();
+    const od = kimiDeepCustomEl  && kimiDeepCustomEl.value.trim();
+    if (oq) quickModel = oq;
+    if (od) deepModel  = od;
   }
 
-  function _keyVal(id) { const el = document.getElementById(id); return el && el.value.trim() || null; }
   const payload = {
-    ticker:                  document.getElementById("ticker").value.trim().toUpperCase(),
+    ticker:                  tickerEl.value.trim().toUpperCase(),
     analysis_date:           new Date().toISOString().split("T")[0],
     llm_provider:            prov,
-    backend_url:             document.getElementById("backend_url").value.trim() || null,
+    backend_url:             backendUrlEl.value.trim() || null,
     quick_think_llm:         quickModel,
     deep_think_llm:          deepModel,
-    max_debate_rounds:       Number(document.getElementById("max_debate_rounds").value),
-    max_risk_discuss_rounds: Number(document.getElementById("max_risk_discuss_rounds").value),
+    max_debate_rounds:       Number(maxDebateEl.value),
+    max_risk_discuss_rounds: Number(maxRiskEl.value),
     selected_analysts:       analysts,
     language:                currentLanguage,
     openai_api_key:          _keyVal("openai_api_key"),
@@ -2011,12 +2053,11 @@ form.addEventListener("submit", async e => {
   };
 
   // Reset UI
-  jobDone = false; wsReconnectDelay = 1000;
+  jobDone = false; wsReconnectDelay = TIMING.WS_INITIAL_DELAY;
   setRunningUI(true);
   chatFeed.innerHTML = ""; delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
   newMsgsPill.classList.remove("show"); _unreadMsgs = 0;
-  dataFeed.innerHTML = `<div class="data-feed-placeholder">${t("data_raw_placeholder")}</div>`;
-  dataStatus.textContent = t("data_waiting");
+  setDataPlaceholder("data_raw_placeholder");
   progress = 0; setProgress(5, t("submitting_request"));
   hdrStatus.textContent = `${t("hdr_researching")} ${payload.ticker}...`; hdrStatus.className = "hdr-status running";
   setStatus(t("submitting"), "info");
@@ -2058,12 +2099,12 @@ clearBtn.addEventListener("click", () => {
   progressWrap.classList.remove("show");
 
   // Restore team showcase
-  const teamHtml = `
+  chatFeed.innerHTML = `
     <div class="team-showcase" id="teamShowcase">
-      <div style="text-align:center;margin-bottom:24px;">
-        <div style="font-size:28px;margin-bottom:10px;">🏢</div>
-        <div id="teamShowcaseTitle" style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px;">${t("team_title")}</div>
-        <div id="teamShowcaseSubtitle" style="font-size:11px;color:var(--txt2);">${t("team_subtitle")}</div>
+      <div class="team-showcase-header">
+        <div class="team-showcase-icon">🏢</div>
+        <div id="teamShowcaseTitle" class="team-showcase-title">${t("team_title")}</div>
+        <div id="teamShowcaseSubtitle" class="team-showcase-subtitle">${t("team_subtitle")}</div>
       </div>
       <div class="team-section-title" id="secAnalysts">${t("team_analysts")}</div>
       <div class="analyst-hint" id="teamAnalystHint">${t("analyst_toggle_hint")}</div>
@@ -2076,10 +2117,8 @@ clearBtn.addEventListener("click", () => {
       <div class="team-grid" id="riskGrid"></div>
     </div>
   `;
-  chatFeed.innerHTML = teamHtml;
   populateTeamShowcase();
-
-  dataFeed.innerHTML = `<div class="data-feed-placeholder">${t("data_raw_placeholder")}</div>`;
+  setDataPlaceholder("data_raw_placeholder");
   statusMsg.className = "status-msg";
   delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
 });
@@ -2092,7 +2131,7 @@ const savedJob    = localStorage.getItem(LS_JOB);
 const savedTicker = localStorage.getItem(LS_TICKER);
 if (savedJob) {
   jobId = savedJob;
-  jobDone = false; wsReconnectDelay = 1000;
+  jobDone = false; wsReconnectDelay = TIMING.WS_INITIAL_DELAY;
   hdrStatus.textContent = `${t("hdr_resuming")} ${savedTicker || ""}...`; hdrStatus.className = "hdr-status running";
   setStatus(t("reconnecting_prev"), "info");
   setRunningUI(true);
@@ -2156,7 +2195,7 @@ document.addEventListener("visibilitychange", () => {
   onResize();
 
   // Auto-switch to Research when analysis starts
-  form.addEventListener("submit", () => { setTimeout(() => activateTab("research"), 50); }, true);
+  form.addEventListener("submit", () => { setTimeout(() => activateTab("research"), TIMING.TAB_SWITCH); }, true);
 
   // Badge inactive tabs when new content arrives
   new MutationObserver(() => badgeTab("data")).observe(dataFeed, { childList: true });
