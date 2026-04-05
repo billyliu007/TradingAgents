@@ -25,6 +25,7 @@ import json
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
+from service import tickers as _ticker_svc
 from service.pdf_export import (
     export_filename,
     unique_path,
@@ -675,6 +676,16 @@ async def _startup() -> None:
     except Exception as exc:
         _log(f"DB cache init failed (caching disabled): {exc}")
 
+    # Load ticker list in a background thread so startup is not blocked.
+    import threading
+    def _load_tickers() -> None:
+        try:
+            _ticker_svc.load()
+            _log(f"Ticker index ready: {_ticker_svc.count()} symbols")
+        except Exception as exc:
+            _log(f"Ticker load failed (non-fatal): {exc}")
+    threading.Thread(target=_load_tickers, daemon=True).start()
+
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
@@ -693,6 +704,19 @@ def options() -> dict[str, Any]:
         "max_debate_rounds_default": DEFAULT_CONFIG["max_debate_rounds"],
         "max_risk_discuss_rounds_default": DEFAULT_CONFIG["max_risk_discuss_rounds"],
         "backend_url_default": DEFAULT_CONFIG["backend_url"],
+    }
+
+
+@app.get("/api/tickers/search")
+def ticker_search(q: str = "", limit: int = 10) -> dict[str, Any]:
+    """Autocomplete search over the in-memory US stock ticker index."""
+    q = q.strip()
+    if not q:
+        return {"results": [], "loaded": _ticker_svc.is_loaded()}
+    capped = max(1, min(limit, 20))
+    return {
+        "results": _ticker_svc.search(q, capped),
+        "loaded": _ticker_svc.is_loaded(),
     }
 
 
@@ -779,6 +803,14 @@ def download_all_exports_zip() -> StreamingResponse:
 @app.post("/api/jobs", response_model=JobSubmitResponse)
 def submit_job(payload: AnalyzeRequest) -> JobSubmitResponse:
     """Submit an analysis job. Returns immediately with a job_id to poll."""
+    # Validate ticker against the loaded index (skip if index not ready yet)
+    valid = _ticker_svc.exists(payload.ticker)
+    if valid is False:
+        raise HTTPException(
+            status_code=422,
+            detail=f"'{payload.ticker}' is not a recognised US stock ticker. "
+                   "Please select a ticker from the suggestions.",
+        )
     job_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     with _jobs_lock:

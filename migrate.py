@@ -32,6 +32,16 @@ except ImportError:
     sys.exit(1)
 
 DDL = """
+CREATE TABLE IF NOT EXISTS tickers (
+    symbol     VARCHAR(20)  PRIMARY KEY,
+    name       TEXT         NOT NULL,
+    cik        INTEGER,
+    updated_at TIMESTAMPTZ  DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tickers_symbol_prefix
+    ON tickers (symbol text_pattern_ops);
+
 CREATE TABLE IF NOT EXISTS analysis_cache (
     id                    SERIAL       PRIMARY KEY,
     ticker                VARCHAR(20)  NOT NULL,
@@ -73,7 +83,7 @@ try:
             SELECT table_name
             FROM information_schema.tables
             WHERE table_schema = 'public'
-              AND table_name IN ('analysis_cache', 'analysis_events')
+              AND table_name IN ('tickers', 'analysis_cache', 'analysis_events')
             ORDER BY table_name
         """)
         tables = [row[0] for row in cur.fetchall()]

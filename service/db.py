@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import psycopg2
-    from psycopg2.extras import Json as PgJson
+    from psycopg2.extras import Json as PgJson, execute_values as _pg_execute_values
 
     _PSYCOPG2_AVAILABLE = True
 except ImportError:  # pragma: no cover
@@ -77,6 +77,16 @@ def _connect() -> Any | None:
 # ── Schema ────────────────────────────────────────────────────────────────────
 
 _DDL = """
+CREATE TABLE IF NOT EXISTS tickers (
+    symbol     VARCHAR(20)  PRIMARY KEY,
+    name       TEXT         NOT NULL,
+    cik        INTEGER,
+    updated_at TIMESTAMPTZ  DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tickers_symbol_prefix
+    ON tickers (symbol text_pattern_ops);
+
 CREATE TABLE IF NOT EXISTS analysis_cache (
     id                   SERIAL PRIMARY KEY,
     ticker               VARCHAR(20)  NOT NULL,
@@ -328,5 +338,55 @@ def save_analysis(
         conn.rollback()
         logger.error("save_analysis failed: %s", exc)
         raise
+    finally:
+        conn.close()
+
+
+# ── Ticker helpers ────────────────────────────────────────────────────────────
+
+def load_tickers_from_db() -> list[tuple[str, str]]:
+    """Return all (symbol, name) pairs from the tickers table, or [] on failure."""
+    conn = _connect()
+    if conn is None:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT symbol, name FROM tickers ORDER BY symbol")
+            return [(row[0], row[1]) for row in cur.fetchall()]
+    except Exception as exc:
+        logger.error("load_tickers_from_db failed: %s", exc)
+        return []
+    finally:
+        conn.close()
+
+
+def save_tickers_to_db(pairs: list[tuple[str, str]]) -> bool:
+    """Bulk-upsert (symbol, name) pairs into the tickers table.
+
+    Returns True on success, False if DB unavailable.
+    """
+    conn = _connect()
+    if conn is None:
+        return False
+    try:
+        with conn.cursor() as cur:
+            _pg_execute_values(
+                cur,
+                """
+                INSERT INTO tickers (symbol, name)
+                VALUES %s
+                ON CONFLICT (symbol) DO UPDATE SET
+                    name       = EXCLUDED.name,
+                    updated_at = NOW()
+                """,
+                pairs,
+                page_size=500,
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        conn.rollback()
+        logger.error("save_tickers_to_db failed: %s", exc)
+        return False
     finally:
         conn.close()
