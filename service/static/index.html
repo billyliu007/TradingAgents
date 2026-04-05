@@ -55,20 +55,39 @@
     .layout {
       flex: 1;
       display: grid;
-      grid-template-columns: 300px 1fr 300px;
+      grid-template-columns: 1fr 300px;
       gap: 0;
       overflow: hidden;
     }
-    @media (max-width: 1200px) { .layout { grid-template-columns: 280px 1fr; } .data-col { display: none; } }
-    @media (max-width: 900px) and (min-width: 768px)  { .layout { grid-template-columns: 1fr; } .left-col { display: none; } }
+    @media (max-width: 1200px) { .layout { grid-template-columns: 1fr; } .data-col { display: none; } }
 
     /* ── COLUMNS ───────────────────────────────────────────── */
-    .left-col  { border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .left-col  { display: none !important; }
     .mid-col   { display: flex; flex-direction: column; overflow: hidden; position: relative; }
     .data-col  { border-left: 1px solid var(--border); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 
-    /* ── FORM ──────────────────────────────────────────────── */
-    .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--blue); margin-bottom: 8px; }
+    /* ── TICKER BAR ────────────────────────────────────────── */
+    .ticker-bar {
+      flex-shrink: 0;
+      padding: 10px 16px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+    }
+    .ticker-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ticker-input {
+      flex-shrink: 0; width: 100px;
+      background: rgba(0,0,0,.4); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 10px; color: var(--txt);
+      font-size: 16px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; outline: none; transition: border-color .2s;
+    }
+    .ticker-input:focus { border-color: var(--blue); }
+    .ticker-row .btn-primary { flex: 1; margin-top: 0; }
+    .ticker-row .btn-stop, .ticker-row .btn-clear { width: auto; margin-top: 0; flex-shrink: 0; }
+
+    /* ── FORM (settings inputs only) ──────────────────────── */
     .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
     .form-group label { font-size: 11px; font-weight: 600; color: var(--txt2); text-transform: uppercase; letter-spacing: .04em; }
     input, select { background: rgba(0,0,0,.4); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--txt); font-size: 12px; outline: none; transition: border-color .2s; width: 100%; }
@@ -135,12 +154,12 @@
     @media (max-width: 767px) { .new-msgs-pill { bottom: 70px; } }
 
     /* ── SUBMIT BTN ────────────────────────────────────────── */
-    .btn-primary { width: 100%; padding: 10px; background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: all .2s; margin-top: 4px; }
+    .btn-primary { padding: 10px 16px; background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; transition: all .2s; white-space: nowrap; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,143,255,.3); }
     .btn-primary:disabled { opacity: .55; cursor: wait; }
-    .btn-stop  { width: 100%; padding: 9px; background: rgba(224,82,82,.12); border: 1px solid var(--red); border-radius: 6px; color: var(--red); font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 6px; display: none; transition: all .2s; }
+    .btn-stop  { padding: 9px 12px; background: rgba(224,82,82,.12); border: 1px solid var(--red); border-radius: 6px; color: var(--red); font-size: 12px; font-weight: 700; cursor: pointer; display: none; transition: all .2s; white-space: nowrap; }
     .btn-stop:hover { background: rgba(224,82,82,.22); }
-    .btn-clear { width: 100%; padding: 8px; background: rgba(79,143,255,.08); border: 1px solid var(--border); border-radius: 6px; color: var(--txt2); font-size: 11px; cursor: pointer; margin-top: 6px; display: none; }
+    .btn-clear { padding: 8px 10px; background: rgba(79,143,255,.08); border: 1px solid var(--border); border-radius: 6px; color: var(--txt2); font-size: 13px; cursor: pointer; display: none; }
     .status-msg { font-size: 11px; margin-top: 6px; padding: 7px 10px; border-radius: 5px; display: none; }
     .status-msg.show { display: block; }
     .status-msg.info    { background: rgba(79,143,255,.1); color: var(--blue); }
@@ -149,7 +168,8 @@
     .status-msg.warn    { background: rgba(224,150,42,.1);  color: var(--warn); }
 
     /* ── PROGRESS BAR ──────────────────────────────────────── */
-    .progress-wrap { flex-shrink: 0; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+    .progress-wrap { display: none; flex-shrink: 0; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+    .progress-wrap.show { display: block; }
     .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
     .progress-label { font-size: 11px; color: var(--txt2); }
     .progress-pct   { font-size: 11px; font-weight: 700; color: var(--blue); }
@@ -263,6 +283,23 @@
     .team-name { font-size: 11px; font-weight: 600; color: var(--txt); word-break: break-word; }
     .team-role { font-size: 9px; color: var(--txt2); line-height: 1.3; }
     .team-focus { font-size: 8px; color: var(--txt2); margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.1); }
+    /* Analyst cards in team showcase act as toggles */
+    .analyst-toggle { cursor: pointer; }
+    .analyst-toggle:hover { transform: translateY(-2px); border-color: var(--blue); }
+    .analyst-toggle.analyst-disabled { opacity: .32; border-style: dashed; }
+    .analyst-check {
+      position: absolute; top: 6px; right: 6px;
+      width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800; pointer-events: none;
+      background: rgba(43,182,125,.2); color: var(--green);
+      border: 1.5px solid var(--green);
+    }
+    .analyst-disabled .analyst-check {
+      background: rgba(224,82,82,.1); color: var(--red);
+      border-color: rgba(224,82,82,.45);
+    }
+    .analyst-hint { font-size: 10px; color: var(--txt2); padding: 0 2px 10px; font-style: italic; }
 
     .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; align-items: stretch; justify-content: flex-end; }
     .overlay.show { display: flex; }
@@ -277,13 +314,10 @@
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--blue); }
 
-    /* ── MOBILE SETUP TOGGLE (hidden on desktop) ──────────── */
-    .mobile-setup-toggle { display: none; }
-    /* ── MOBILE SETUP DRAWER (hidden on desktop) ──────────── */
-    .mob-setup-drawer { display: none; }
-    .mob-setup-backdrop { display: none; }
-
     /* ── MOBILE TAB BAR (hidden on desktop) ───────────────── */
+    .mobile-setup-toggle { display: none; }
+    .mob-setup-drawer    { display: none; }
+    .mob-setup-backdrop  { display: none; }
     .mobile-tabs { display: none; }
 
     /* ── MOBILE (≤767px) ───────────────────────────────────── */
@@ -313,76 +347,17 @@
       /* Larger touch targets for form elements */
       input, select { font-size: 16px !important; padding: 11px 12px; min-height: 44px; }
       .form-group label { font-size: 13px; }
-      .section-title { font-size: 11px; }
       .status-msg { font-size: 13px; padding: 9px 12px; }
 
-      /* ── SETUP HEADER BAR (inside Research tab) ─────────── */
-      .mobile-setup-toggle {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 9px 14px;
-        background: var(--bg-card);
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-        min-height: 44px;
-      }
-      .setup-toggle-label { font-size: 12px; font-weight: 600; color: var(--txt); display: flex; align-items: center; gap: 6px; }
-      .setup-toggle-label .stl-ticker { color: var(--blue); font-weight: 800; }
-      .setup-toggle-label .stl-analysts { font-size: 10px; color: var(--txt2); }
-      .setup-edit-btn {
-        font-size: 11px; font-weight: 700; color: var(--blue);
-        background: rgba(79,143,255,.12); border: 1px solid rgba(79,143,255,.35);
-        border-radius: 20px; padding: 5px 12px; cursor: pointer;
-        -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-        white-space: nowrap;
-      }
+      /* Ticker bar on mobile */
+      .ticker-bar { padding: 10px 12px; }
+      .ticker-input { font-size: 16px !important; width: 90px; min-height: 44px; }
+      .ticker-row .btn-primary { padding: 12px 14px; font-size: 13px; min-height: 44px; }
+      .ticker-row .btn-stop    { padding: 12px 10px; font-size: 12px; min-height: 44px; }
+      .ticker-row .btn-clear   { padding: 12px 10px; font-size: 12px; min-height: 44px; }
 
-      /* ── SETUP DRAWER (slides in from left, full-height overlay) */
-      .mob-setup-backdrop {
-        display: block;
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,.55);
-        z-index: 80;
-        opacity: 0; pointer-events: none;
-        transition: opacity .25s ease;
-      }
-      .mob-setup-backdrop.show { opacity: 1; pointer-events: auto; }
-
-      .mob-setup-drawer {
-        display: flex;
-        flex-direction: column;
-        position: fixed;
-        top: 0; left: 0; bottom: 0;
-        width: 88vw; max-width: 360px;
-        background: var(--bg-card);
-        border-right: 1px solid var(--border);
-        z-index: 81;
-        transform: translateX(-100%);
-        transition: transform .28s ease;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding: 14px 16px 80px;
-      }
-      .mob-setup-drawer.show { transform: translateX(0); }
-      .mob-drawer-close {
-        align-self: flex-end;
-        background: none; border: none; color: var(--txt2);
-        font-size: 22px; cursor: pointer; padding: 0 0 10px 0;
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      /* Advisor grid */
-      .advisor-grid { gap: 8px; }
-      .adv-btn { padding: 14px 8px; min-height: 72px; }
-      .adv-emoji { font-size: 26px; }
-      .adv-name { font-size: 11px; white-space: normal; text-align: center; }
-      .adv-role { font-size: 10px; white-space: normal; text-align: center; }
-
-      /* Buttons */
-      .btn-primary { padding: 14px; font-size: 14px; min-height: 50px; margin-top: 8px; }
-      .btn-stop    { padding: 13px; font-size: 13px; min-height: 46px; }
-      .btn-clear   { padding: 11px; font-size: 12px; min-height: 44px; }
+      /* Analyst toggle cards on mobile */
+      .analyst-toggle { min-height: 90px; }
 
       /* Chat messages */
       .chat-bubble { max-height: none; font-size: 13px; line-height: 1.65; padding: 11px 13px; }
@@ -461,47 +436,22 @@
   <button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
 </header>
 
-<!-- ── MOBILE SETUP DRAWER ──────────────────────────────── -->
-<div class="mob-setup-backdrop" id="mobSetupBackdrop"></div>
-<div class="mob-setup-drawer" id="mobSetupDrawer"></div>
-
 <div class="layout">
-  <!-- ── LEFT: FORM ─────────────────────────────────────── -->
-  <aside class="left-col">
-    <div>
-      <div class="section-title">Research Request</div>
+  <!-- ── MID: TICKER BAR + CHAT FEED ──────────────────────── -->
+  <section class="mid-col mobile-active">
+    <!-- Ticker bar — always visible at top of research panel -->
+    <div class="ticker-bar">
       <form id="analyzeForm">
-        <div class="form-group">
-          <label for="ticker">Ticker</label>
-          <input id="ticker" value="NVDA" required />
+        <div class="ticker-row">
+          <input id="ticker" class="ticker-input" value="NVDA" required autocomplete="off" spellcheck="false" placeholder="NVDA" />
+          <button class="btn-primary" id="submitBtn" type="submit">▶ Research</button>
+          <button class="btn-stop"  id="stopBtn"  type="button">⏹ Stop</button>
+          <button class="btn-clear" id="clearBtn" type="button">🗑</button>
         </div>
-        <div class="form-group">
-          <label for="analysis_date">Analysis Date</label>
-          <input id="analysis_date" type="date" required />
-        </div>
-
-        <div class="section-title" style="margin-top:10px;">Your Research Team</div>
-        <div class="advisor-grid" id="advisorGrid"></div>
-
-        <button class="btn-primary" id="submitBtn" type="submit">▶ Start Research</button>
-        <button class="btn-stop"  id="stopBtn"  type="button">⏹ Stop Analysis</button>
-        <button class="btn-clear" id="clearBtn" type="button">🗑 Clear &amp; Reset</button>
         <div class="status-msg" id="statusMsg"></div>
       </form>
     </div>
-  </aside>
-
-  <!-- ── MID: CHAT FEED ─────────────────────────────────── -->
-  <section class="mid-col mobile-active">
-    <!-- Mobile-only: compact setup summary bar with Edit button -->
-    <div class="mobile-setup-toggle" id="mobileSetupToggle">
-      <span class="setup-toggle-label">
-        <span class="stl-ticker" id="stlTicker">NVDA</span>
-        <span class="stl-analysts" id="stlAnalysts">· 4 analysts</span>
-      </span>
-      <button class="setup-edit-btn" id="setupEditBtn" type="button">✏ Edit Setup</button>
-    </div>
-    <div class="progress-wrap">
+    <div class="progress-wrap" id="progressWrap">
       <div class="progress-header">
         <span class="progress-label" id="progressLabel">Waiting for analysis...</span>
         <span class="progress-pct" id="progressPct">0%</span>
@@ -518,8 +468,9 @@
           <div style="font-size:11px;color:var(--txt2);">Meet the 12 AI specialists working together to analyze stocks</div>
         </div>
 
-        <!-- Analysts -->
+        <!-- Analysts (clickable toggles) -->
         <div class="team-section-title">📊 Data Analysts</div>
+        <div class="analyst-hint" id="teamAnalystHint">Tap a card to include or exclude from your analysis</div>
         <div class="team-grid" id="analyistsGrid"></div>
 
         <!-- Researchers -->
@@ -757,6 +708,9 @@ const TRANSLATIONS = {
     "team_leadership": "👔 Leadership",
     "team_risk": "⚠️ Risk Management",
 
+    // Analyst toggle hint
+    "analyst_toggle_hint": "Tap a card to include or exclude from your analysis",
+
     // Settings
     "llm_provider": "LLM Provider",
     "models": "Models",
@@ -872,6 +826,9 @@ const TRANSLATIONS = {
     "team_leadership": "👔 领导层",
     "team_risk": "⚠️ 风险管理",
 
+    // Analyst toggle hint
+    "analyst_toggle_hint": "点击卡片以包含或排除该分析师",
+
     // Settings
     "llm_provider": "LLM提供商",
     "models": "模型",
@@ -897,20 +854,9 @@ function updateLanguage(lang) {
 }
 
 function updateUIText() {
-  // Rebuild advisor buttons with translated text
-  buildAdvisorButtons();
-
-  // Update form labels and buttons
-  const sectionTitles = document.querySelectorAll(".section-title");
-  if (sectionTitles[0]) sectionTitles[0].textContent = t("research_request");
-  if (sectionTitles[1]) sectionTitles[1].textContent = t("your_research_team");
-
-  document.querySelector('label[for="ticker"]').textContent = t("ticker");
-  document.querySelector('label[for="analysis_date"]').textContent = t("analysis_date");
-
   submitBtn.textContent = t("btn_start");
   stopBtn.textContent = t("btn_stop");
-  clearBtn.textContent = t("btn_clear");
+  clearBtn.textContent = "🗑";
 
   progressLabel.textContent = t("waiting_analysis");
 
@@ -953,6 +899,10 @@ function updateUIText() {
   if (teamSectionTitles[1]) teamSectionTitles[1].textContent = t("team_researchers");
   if (teamSectionTitles[2]) teamSectionTitles[2].textContent = t("team_leadership");
   if (teamSectionTitles[3]) teamSectionTitles[3].textContent = t("team_risk");
+
+  // Update analyst hint
+  const analystHint = document.getElementById("teamAnalystHint");
+  if (analystHint) analystHint.textContent = t("analyst_toggle_hint");
 
   // Re-populate team showcase with translated content
   populateTeamShowcase();
@@ -999,7 +949,7 @@ const dataStatus   = document.getElementById("dataStatus");
 const progressFill = document.getElementById("progressFill");
 const progressPct  = document.getElementById("progressPct");
 const progressLabel= document.getElementById("progressLabel");
-const advisorGrid  = document.getElementById("advisorGrid");
+const progressWrap = document.getElementById("progressWrap");
 const overlay      = document.getElementById("overlay");
 
 const LS_JOB    = "ta_job_v2";
@@ -1031,43 +981,6 @@ let jobDone = false;
 let wsReconnectDelay = 1000;
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
-document.getElementById("analysis_date").value = new Date().toISOString().split("T")[0];
-
-// Build advisor selector
-function buildAdvisorButtons() {
-  advisorGrid.innerHTML = "";
-  ADVISOR_CHOICES.forEach(key => {
-    const m = TEAM[key];
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = `adv-btn selected ${key}`;
-    btn.dataset.key = key;
-    const roleText = typeof m.role === "function" ? m.role() : m.role;
-    btn.innerHTML = `
-      <span class="adv-status-dot" aria-hidden="true">✓</span>
-      <span class="adv-emoji">${m.avatar}</span>
-      <span class="adv-name">${m.name}</span>
-      <span class="adv-role">${roleText}</span>
-      <span class="adv-state-label" style="color:var(--green)">Active</span>`;
-    btn.addEventListener("click", () => {
-      if (selectedAdvisors.has(key)) {
-        selectedAdvisors.delete(key);
-        btn.classList.remove("selected");
-        btn.querySelector(".adv-status-dot").textContent = "✕";
-        btn.querySelector(".adv-state-label").textContent = "Off";
-        btn.querySelector(".adv-state-label").style.color = "var(--red)";
-      } else {
-        selectedAdvisors.add(key);
-        btn.classList.add("selected");
-        btn.querySelector(".adv-status-dot").textContent = "✓";
-        btn.querySelector(".adv-state-label").textContent = "Active";
-        btn.querySelector(".adv-state-label").style.color = "var(--green)";
-      }
-    });
-    advisorGrid.appendChild(btn);
-  });
-}
-buildAdvisorButtons();
 
 // ── LANGUAGE SELECTOR LISTENER ────────────────────────────────────────────────
 const langSelect = document.getElementById("language_select");
@@ -1142,6 +1055,7 @@ function setProgress(pct, label, isFinal) {
   progressFill.style.width = progress + "%";
   progressPct.textContent  = progress + "%";
   if (label) progressLabel.textContent = label;
+  if (progress > 0) progressWrap.classList.add("show");
 }
 
 function advanceProgress(by, label) { setProgress(progress + by, label); }
@@ -1416,18 +1330,22 @@ function connectWS(jid, isReconnect) {
 // ── POPULATE TEAM SHOWCASE ────────────────────────────────────────────────────
 function renderTeamCard(key) {
   const member = TEAM[key];
-  const teamFocus = getTeamFocus();
-  const focus = teamFocus[key];
+  const focus = getTeamFocus()[key];
   const roleText = typeof member.role === "function" ? member.role() : member.role;
-  const html = `
-    <div class="team-card">
+  const isAnalyst = ADVISOR_CHOICES.includes(key);
+  const active = !isAnalyst || selectedAdvisors.has(key);
+  const toggleClass = isAnalyst ? `analyst-toggle${active ? "" : " analyst-disabled"}` : "";
+  const checkHtml = isAnalyst ? `<span class="analyst-check">${active ? "✓" : "✕"}</span>` : "";
+  const dataAttr = isAnalyst ? `data-analyst="${key}"` : "";
+  return `
+    <div class="team-card ${toggleClass}" ${dataAttr} style="position:relative">
+      ${checkHtml}
       <div class="team-avatar">${member.avatar}</div>
       <div class="team-name">${member.name}</div>
       <div class="team-role">${roleText}</div>
       <div class="team-focus">${focus}</div>
     </div>
   `;
-  return html;
 }
 
 function populateTeamShowcase() {
@@ -1440,6 +1358,23 @@ function populateTeamShowcase() {
   document.getElementById("researchersGrid").innerHTML = researchers.map(renderTeamCard).join("");
   document.getElementById("managersGrid").innerHTML = managers.map(renderTeamCard).join("");
   document.getElementById("riskGrid").innerHTML = risk.map(renderTeamCard).join("");
+
+  // Attach toggle click handlers to analyst cards
+  document.querySelectorAll(".team-card.analyst-toggle").forEach(card => {
+    card.addEventListener("click", () => {
+      const key = card.dataset.analyst;
+      const check = card.querySelector(".analyst-check");
+      if (selectedAdvisors.has(key)) {
+        selectedAdvisors.delete(key);
+        card.classList.add("analyst-disabled");
+        if (check) check.textContent = "✕";
+      } else {
+        selectedAdvisors.add(key);
+        card.classList.remove("analyst-disabled");
+        if (check) check.textContent = "✓";
+      }
+    });
+  });
 }
 
 // ── FORM SUBMIT ───────────────────────────────────────────────────────────────
@@ -1450,7 +1385,7 @@ form.addEventListener("submit", async e => {
 
   const payload = {
     ticker:                  document.getElementById("ticker").value.trim().toUpperCase(),
-    analysis_date:           document.getElementById("analysis_date").value,
+    analysis_date:           new Date().toISOString().split("T")[0],
     llm_provider:            document.getElementById("llm_provider").value,
     backend_url:             document.getElementById("backend_url").value.trim() || null,
     quick_think_llm:         document.getElementById("quick_think_llm").value.trim(),
@@ -1502,7 +1437,11 @@ clearBtn.addEventListener("click", () => {
   clearSaved(); if (ws) ws.close(); jobId = null;
   setRunningUI(false); clearBtn.style.display = "none";
   hdrStatus.textContent = t("hdr_ready"); hdrStatus.className = "hdr-status";
-  progress = 0; setProgress(0, t("waiting_analysis"));
+  progress = 0;
+  progressFill.style.width = "0%";
+  progressPct.textContent = "0%";
+  progressLabel.textContent = t("waiting_analysis");
+  progressWrap.classList.remove("show");
 
   // Restore team showcase
   const teamHtml = `
@@ -1513,6 +1452,7 @@ clearBtn.addEventListener("click", () => {
         <div style="font-size:11px;color:var(--txt2);">${t("team_subtitle")}</div>
       </div>
       <div class="team-section-title">${t("team_analysts")}</div>
+      <div class="analyst-hint" id="teamAnalystHint">${t("analyst_toggle_hint")}</div>
       <div class="team-grid" id="analyistsGrid"></div>
       <div class="team-section-title">${t("team_researchers")}</div>
       <div class="team-grid" id="researchersGrid"></div>
@@ -1609,63 +1549,6 @@ document.addEventListener("visibilitychange", () => {
   new MutationObserver(() => badgeTab("research")).observe(chatFeed, { childList: true });
 })();
 
-// ── MOBILE SETUP DRAWER ───────────────────────────────────────────────────────
-(function() {
-  const MOBILE_BP   = 767;
-  const drawer      = document.getElementById("mobSetupDrawer");
-  const backdrop    = document.getElementById("mobSetupBackdrop");
-  const editBtn     = document.getElementById("setupEditBtn");
-  const leftCol     = document.querySelector(".left-col");
-  const stlTicker   = document.getElementById("stlTicker");
-  const stlAnalysts = document.getElementById("stlAnalysts");
-
-  function isMobile() { return window.innerWidth <= MOBILE_BP; }
-
-  function updateSummary() {
-    const ticker = document.getElementById("ticker").value.trim().toUpperCase() || "—";
-    const count  = selectedAdvisors.size;
-    stlTicker.textContent   = ticker;
-    stlAnalysts.textContent = `· ${count} analyst${count !== 1 ? "s" : ""}`;
-  }
-
-  function openDrawer() {
-    // Clone the left-col form content into the drawer
-    drawer.innerHTML = "";
-    const closeBtn = document.createElement("button");
-    closeBtn.className = "mob-drawer-close";
-    closeBtn.textContent = "✕";
-    closeBtn.addEventListener("click", closeDrawer);
-    drawer.appendChild(closeBtn);
-    // Move the actual left-col children into the drawer (live DOM refs preserved)
-    Array.from(leftCol.children).forEach(child => drawer.appendChild(child));
-    drawer.classList.add("show");
-    backdrop.classList.add("show");
-  }
-
-  function closeDrawer() {
-    drawer.classList.remove("show");
-    backdrop.classList.remove("show");
-    // Move children back to left-col
-    Array.from(drawer.children).forEach(child => {
-      if (!child.classList.contains("mob-drawer-close")) leftCol.appendChild(child);
-    });
-    updateSummary();
-  }
-
-  if (editBtn)   editBtn.addEventListener("click", () => { if (isMobile()) openDrawer(); });
-  if (backdrop)  backdrop.addEventListener("click", closeDrawer);
-
-  // Auto-close drawer when analysis starts
-  form.addEventListener("submit", () => {
-    if (drawer.classList.contains("show")) closeDrawer();
-    setTimeout(updateSummary, 100);
-  }, true);
-
-  // Keep summary up to date when ticker changes
-  const tickerInput = document.getElementById("ticker");
-  if (tickerInput) tickerInput.addEventListener("input", updateSummary);
-  updateSummary();
-})();
 </script>
 </body>
 </html>
