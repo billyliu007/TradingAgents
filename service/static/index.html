@@ -77,15 +77,15 @@
       display: flex; align-items: center; gap: 8px;
     }
     .ticker-input {
-      flex-shrink: 0; width: 100px;
+      flex: 1; min-width: 80px; max-width: 260px;
       background: rgba(0,0,0,.4); border: 1px solid var(--border);
-      border-radius: 6px; padding: 8px 10px; color: var(--txt);
-      font-size: 16px; font-weight: 700; letter-spacing: .06em;
+      border-radius: 6px; padding: 10px 14px; color: var(--txt);
+      font-size: 22px; font-weight: 800; letter-spacing: .08em;
       text-transform: uppercase; outline: none; transition: border-color .2s;
     }
     .ticker-input:focus { border-color: var(--blue); }
-    .ticker-row .btn-primary { flex: 1; margin-top: 0; }
-    .ticker-row .btn-stop, .ticker-row .btn-clear { width: auto; margin-top: 0; flex-shrink: 0; }
+    .ticker-row .btn-primary { flex-shrink: 0; margin-top: 0; padding: 8px 14px; font-size: 11px; }
+    .ticker-row .btn-stop, .ticker-row .btn-clear { width: auto; margin-top: 0; flex-shrink: 0; padding: 7px 10px; font-size: 11px; }
 
     /* ── FORM (settings inputs only) ──────────────────────── */
     .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
@@ -351,10 +351,10 @@
 
       /* Ticker bar on mobile */
       .ticker-bar { padding: 10px 12px; }
-      .ticker-input { font-size: 16px !important; width: 90px; min-height: 44px; }
-      .ticker-row .btn-primary { padding: 12px 14px; font-size: 13px; min-height: 44px; }
-      .ticker-row .btn-stop    { padding: 12px 10px; font-size: 12px; min-height: 44px; }
-      .ticker-row .btn-clear   { padding: 12px 10px; font-size: 12px; min-height: 44px; }
+      .ticker-input { font-size: 20px !important; min-height: 44px; max-width: none; }
+      .ticker-row .btn-primary { padding: 10px 12px; font-size: 11px; min-height: 44px; }
+      .ticker-row .btn-stop    { padding: 10px 8px;  font-size: 11px; min-height: 44px; }
+      .ticker-row .btn-clear   { padding: 10px 8px;  font-size: 11px; min-height: 44px; }
 
       /* Analyst toggle cards on mobile */
       .analyst-toggle { min-height: 90px; }
