@@ -110,6 +110,12 @@ CREATE TABLE IF NOT EXISTS analysis_events (
     event_type   TEXT    NOT NULL,
     event_data   JSONB   NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    settings   JSONB     NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 
@@ -347,6 +353,58 @@ def save_analysis(
     except Exception as exc:
         conn.rollback()
         logger.error("save_analysis failed: %s", exc)
+        raise
+    finally:
+        conn.close()
+
+
+def get_app_settings() -> dict[str, Any]:
+    """Return global app settings object, or {} if DB unavailable / empty."""
+    conn = _connect()
+    if conn is None:
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT settings FROM app_settings WHERE id = 1")
+            row = cur.fetchone()
+            if not row or row[0] is None:
+                return {}
+            raw = row[0]
+            if isinstance(raw, dict):
+                return dict(raw)
+            if isinstance(raw, str):
+                return dict(json.loads(raw))
+            return {}
+    except Exception as exc:
+        logger.error("get_app_settings failed: %s", exc)
+        return {}
+    finally:
+        conn.close()
+
+
+def save_app_settings(settings: dict[str, Any]) -> bool:
+    """Upsert the singleton app_settings row. Returns False if DB unavailable."""
+    conn = _connect()
+    if conn is None:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO app_settings (id, settings, updated_at)
+                VALUES (1, %s, NOW())
+                ON CONFLICT (id) DO UPDATE SET
+                    settings = EXCLUDED.settings,
+                    updated_at = NOW()
+                """,
+                (PgJson(settings),),
+            )
+        conn.commit()
+        logger.info("app_settings saved (%d keys)", len(settings))
+        return True
+    except Exception as exc:
+        conn.rollback()
+        logger.error("save_app_settings failed: %s", exc)
         raise
     finally:
         conn.close()

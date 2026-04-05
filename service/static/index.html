@@ -1180,70 +1180,6 @@ const dataPanelToggle   = document.getElementById("dataPanelToggle");
 // Form field refs (avoid repeated getElementById in hot paths)
 const tickerEl          = document.getElementById("ticker");
 
-const LS_CFG = {
-  llm_provider: "ta_llm_provider",
-  quick_llm_provider: "ta_quick_llm_provider",
-  deep_llm_provider: "ta_deep_llm_provider",
-  quick: "ta_quick_think_llm",
-  deep: "ta_deep_think_llm",
-  max_debate: "ta_max_debate_rounds",
-  max_risk: "ta_max_risk_discuss_rounds",
-  backend: "ta_backend_url",
-  quick_backend: "ta_quick_backend_url",
-  deep_backend: "ta_deep_backend_url",
-  kimi_q: "ta_kimi_quick_custom",
-  kimi_d: "ta_kimi_deep_custom",
-  openai: "ta_openai_api_key",
-  anthropic: "ta_anthropic_api_key",
-  google: "ta_google_api_key",
-  xai: "ta_xai_api_key",
-  openrouter: "ta_openrouter_api_key",
-  moonshot: "ta_moonshot_api_key",
-};
-
-function lsGet(storageKey, fallback = "") {
-  const v = localStorage.getItem(storageKey);
-  if (v == null || v === "") return fallback;
-  return v;
-}
-
-function lsKeyOrNull(storageKey) {
-  const v = localStorage.getItem(storageKey);
-  return v && v.trim() ? v.trim() : null;
-}
-
-async function ensureConfigDefaultsFromServer() {
-  const leg = localStorage.getItem(LS_CFG.llm_provider);
-  if (leg) {
-    if (!localStorage.getItem(LS_CFG.quick_llm_provider)) localStorage.setItem(LS_CFG.quick_llm_provider, leg);
-    if (!localStorage.getItem(LS_CFG.deep_llm_provider)) localStorage.setItem(LS_CFG.deep_llm_provider, leg);
-  }
-  if (localStorage.getItem(LS_CFG.quick_llm_provider)) return;
-  try {
-    const r = await fetch(apiUrl("/api/options"));
-    const o = await r.json();
-    const d = o.llm_provider_default;
-    if (d) {
-      localStorage.setItem(LS_CFG.llm_provider, String(d));
-      localStorage.setItem(LS_CFG.quick_llm_provider, String(d));
-      localStorage.setItem(LS_CFG.deep_llm_provider, String(d));
-    }
-    const pairs = [
-      [LS_CFG.quick, o.quick_think_default],
-      [LS_CFG.deep, o.deep_think_default],
-      [LS_CFG.max_debate, String(o.max_debate_rounds_default)],
-      [LS_CFG.max_risk, String(o.max_risk_discuss_rounds_default)],
-      [LS_CFG.backend, o.backend_url_default || ""],
-    ];
-    for (const [k, v] of pairs) {
-      if (v != null && localStorage.getItem(k) == null) localStorage.setItem(k, String(v));
-    }
-  } catch (e) {
-    console.warn("ensureConfigDefaultsFromServer", e);
-  }
-}
-ensureConfigDefaultsFromServer();
-
 if (layoutRoot && dataPanelToggle) {
   dataPanelToggle.addEventListener("click", () => {
     layoutRoot.classList.toggle("layout-data-expanded");
@@ -1954,43 +1890,11 @@ form.addEventListener("submit", async e => {
   const analysts = [...selectedAdvisors];
   if (!analysts.length) { setStatus(t("select_advisor"), "error"); return; }
 
-  await ensureConfigDefaultsFromServer();
-
-  const qProv = lsGet(LS_CFG.quick_llm_provider, "").trim() || lsGet(LS_CFG.llm_provider, "kimi_cn").trim();
-  const dProv = lsGet(LS_CFG.deep_llm_provider, "").trim() || qProv;
-  let quickModel = lsGet(LS_CFG.quick, "kimi-k2.5").trim();
-  let deepModel  = lsGet(LS_CFG.deep, "kimi-k2.5").trim();
-  if (qProv === "kimi" || qProv === "kimi_cn") {
-    const oq = lsGet(LS_CFG.kimi_q, "").trim();
-    if (oq) quickModel = oq;
-  }
-  if (dProv === "kimi" || dProv === "kimi_cn") {
-    const od = lsGet(LS_CFG.kimi_d, "").trim();
-    if (od) deepModel = od;
-  }
-
-  const mix = qProv !== dProv;
   const payload = {
-    ticker:                  tickerEl.value.trim().toUpperCase(),
-    analysis_date:           new Date().toISOString().split("T")[0],
-    llm_provider:            qProv,
-    quick_llm_provider:      mix ? qProv : null,
-    deep_llm_provider:       mix ? dProv : null,
-    backend_url:             lsGet(LS_CFG.backend, "").trim() || null,
-    quick_backend_url:       lsKeyOrNull(LS_CFG.quick_backend),
-    deep_backend_url:        lsKeyOrNull(LS_CFG.deep_backend),
-    quick_think_llm:         quickModel,
-    deep_think_llm:          deepModel,
-    max_debate_rounds:       Number(lsGet(LS_CFG.max_debate, "1")),
-    max_risk_discuss_rounds: Number(lsGet(LS_CFG.max_risk, "1")),
-    selected_analysts:       analysts,
-    language:                currentLanguage,
-    openai_api_key:          lsKeyOrNull(LS_CFG.openai),
-    anthropic_api_key:       lsKeyOrNull(LS_CFG.anthropic),
-    google_api_key:          lsKeyOrNull(LS_CFG.google),
-    xai_api_key:             lsKeyOrNull(LS_CFG.xai),
-    openrouter_api_key:      lsKeyOrNull(LS_CFG.openrouter),
-    moonshot_api_key:        lsKeyOrNull(LS_CFG.moonshot),
+    ticker:            tickerEl.value.trim().toUpperCase(),
+    analysis_date:     new Date().toISOString().split("T")[0],
+    selected_analysts: analysts,
+    language:          currentLanguage,
   };
 
   // Reset UI

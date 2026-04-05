@@ -15,10 +15,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from collections import deque
 from threading import Lock, Event as ThreadEvent
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -200,6 +200,40 @@ _LlmProvider = Literal[
     "openai", "google", "anthropic", "xai", "kimi", "kimi_cn", "openrouter", "ollama"
 ]
 
+# Keys allowed in app_settings JSONB (admin UI + global config merge)
+_APP_SETTINGS_KEYS: frozenset[str] = frozenset({
+    "llm_provider",
+    "quick_llm_provider",
+    "deep_llm_provider",
+    "quick_think_llm",
+    "deep_think_llm",
+    "max_debate_rounds",
+    "max_risk_discuss_rounds",
+    "backend_url",
+    "quick_backend_url",
+    "deep_backend_url",
+    "google_thinking_level",
+    "openai_reasoning_effort",
+    "anthropic_effort",
+    "openai_api_key",
+    "anthropic_api_key",
+    "google_api_key",
+    "xai_api_key",
+    "openrouter_api_key",
+    "moonshot_api_key",
+    "kimi_quick_model_custom",
+    "kimi_deep_model_custom",
+})
+
+_API_KEY_SETTINGS_KEYS: frozenset[str] = frozenset({
+    "openai_api_key",
+    "anthropic_api_key",
+    "google_api_key",
+    "xai_api_key",
+    "openrouter_api_key",
+    "moonshot_api_key",
+})
+
 
 class AnalyzeRequest(BaseModel):
     ticker: str = Field(..., min_length=1, description="Ticker, e.g. NVDA")
@@ -208,28 +242,29 @@ class AnalyzeRequest(BaseModel):
         default_factory=lambda: ANALYST_OPTIONS.copy()
     )
     language: Literal["en", "zh"] = "en"
-    llm_provider: _LlmProvider = "kimi_cn"
-    # When set, overrides llm_provider for that track only (mix vendors/models).
+    # Below: optional. When omitted, values come from DB app_settings or DEFAULT_CONFIG.
+    llm_provider: _LlmProvider | None = None
     quick_llm_provider: _LlmProvider | None = None
     deep_llm_provider: _LlmProvider | None = None
     backend_url: str | None = None
     quick_backend_url: str | None = None
     deep_backend_url: str | None = None
-    deep_think_llm: str = "kimi-k2.5"
-    quick_think_llm: str = "kimi-k2.5"
-    max_debate_rounds: int = Field(default=1, ge=1, le=5)
-    max_risk_discuss_rounds: int = Field(default=1, ge=1, le=5)
+    deep_think_llm: str | None = None
+    quick_think_llm: str | None = None
+    max_debate_rounds: int | None = None
+    max_risk_discuss_rounds: int | None = None
     google_thinking_level: str | None = None
     openai_reasoning_effort: str | None = None
     anthropic_effort: str | None = None
     debug: bool = False
-    # Optional API keys — override .env configuration if provided
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
     google_api_key: str | None = None
     xai_api_key: str | None = None
     openrouter_api_key: str | None = None
     moonshot_api_key: str | None = None
+    kimi_quick_model_custom: str | None = None
+    kimi_deep_model_custom: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -261,23 +296,243 @@ class JobStatusResponse(BaseModel):
     error: str | None = None
 
 
-def _llm_cache_profile(payload: AnalyzeRequest) -> str:
-    """Stable string so DB cache keys differ when LLM routing or models change."""
-    qp = payload.quick_llm_provider or payload.llm_provider
-    dp = payload.deep_llm_provider or payload.llm_provider
+def _require_admin(request: Request) -> None:
+    if not _admin_verify_token(request.cookies.get(_ADMIN_COOKIE)):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+def _coerce_round_int(val: Any, default: int, lo: int = 1, hi: int = 5) -> int:
+    try:
+        n = int(val)
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(hi, n))
+
+
+def _apply_map_from_stored(config: dict[str, Any], stored: dict[str, Any]) -> None:
+    for k in _APP_SETTINGS_KEYS:
+        if k not in stored:
+            continue
+        v = stored[k]
+        if v is None:
+            continue
+        if isinstance(v, str) and not v.strip():
+            continue
+        config[k] = v.strip() if isinstance(v, str) else v
+
+
+def _apply_map_from_payload(config: dict[str, Any], payload: AnalyzeRequest) -> None:
+    if payload.llm_provider is not None:
+        config["llm_provider"] = payload.llm_provider
+    if payload.quick_llm_provider is not None:
+        config["quick_llm_provider"] = payload.quick_llm_provider
+    if payload.deep_llm_provider is not None:
+        config["deep_llm_provider"] = payload.deep_llm_provider
+    if payload.quick_think_llm is not None:
+        config["quick_think_llm"] = payload.quick_think_llm.strip()
+    if payload.deep_think_llm is not None:
+        config["deep_think_llm"] = payload.deep_think_llm.strip()
+    if payload.max_debate_rounds is not None:
+        config["max_debate_rounds"] = payload.max_debate_rounds
+    if payload.max_risk_discuss_rounds is not None:
+        config["max_risk_discuss_rounds"] = payload.max_risk_discuss_rounds
+    if payload.google_thinking_level is not None:
+        config["google_thinking_level"] = payload.google_thinking_level
+    if payload.openai_reasoning_effort is not None:
+        config["openai_reasoning_effort"] = payload.openai_reasoning_effort
+    if payload.anthropic_effort is not None:
+        config["anthropic_effort"] = payload.anthropic_effort
+    if payload.backend_url is not None and str(payload.backend_url).strip():
+        config["backend_url"] = str(payload.backend_url).strip()
+    if payload.quick_backend_url is not None:
+        s = str(payload.quick_backend_url).strip()
+        config["quick_backend_url"] = s if s else None
+    if payload.deep_backend_url is not None:
+        s = str(payload.deep_backend_url).strip()
+        config["deep_backend_url"] = s if s else None
+    for key in (
+        "openai_api_key",
+        "anthropic_api_key",
+        "google_api_key",
+        "xai_api_key",
+        "openrouter_api_key",
+        "moonshot_api_key",
+    ):
+        v = getattr(payload, key)
+        if v:
+            config[key] = v
+    if payload.kimi_quick_model_custom is not None:
+        s = payload.kimi_quick_model_custom.strip()
+        if s:
+            config["kimi_quick_model_custom"] = s
+    if payload.kimi_deep_model_custom is not None:
+        s = payload.kimi_deep_model_custom.strip()
+        if s:
+            config["kimi_deep_model_custom"] = s
+
+
+def _apply_kimi_custom_models(config: dict[str, Any]) -> None:
+    qp = str(config.get("quick_llm_provider") or config.get("llm_provider") or "").lower()
+    dp = str(config.get("deep_llm_provider") or config.get("llm_provider") or "").lower()
+    kq = str(config.get("kimi_quick_model_custom") or "").strip()
+    kd = str(config.get("kimi_deep_model_custom") or "").strip()
+    if qp in ("kimi", "kimi_cn") and kq:
+        config["quick_think_llm"] = kq
+    if dp in ("kimi", "kimi_cn") and kd:
+        config["deep_think_llm"] = kd
+
+
+def _build_graph_config(payload: AnalyzeRequest) -> dict[str, Any]:
+    """Merge DEFAULT_CONFIG with Postgres app_settings (if any) or request payload."""
+    config = DEFAULT_CONFIG.copy()
+    stored = db.get_app_settings()
+    if stored:
+        _apply_map_from_stored(config, stored)
+    else:
+        _apply_map_from_payload(config, payload)
+
+    _apply_kimi_custom_models(config)
+
+    config["max_debate_rounds"] = _coerce_round_int(
+        config.get("max_debate_rounds"), int(DEFAULT_CONFIG["max_debate_rounds"])
+    )
+    config["max_risk_discuss_rounds"] = _coerce_round_int(
+        config.get("max_risk_discuss_rounds"),
+        int(DEFAULT_CONFIG["max_risk_discuss_rounds"]),
+    )
+
+    qb = config.get("quick_backend_url")
+    config["quick_backend_url"] = str(qb).strip() if qb else None
+    dbu = config.get("deep_backend_url")
+    config["deep_backend_url"] = str(dbu).strip() if dbu else None
+
+    return config
+
+
+def _llm_cache_profile_from_config(config: dict[str, Any]) -> str:
+    """Stable string so analysis_cache keys differ when LLM routing changes."""
+    lp = config.get("llm_provider") or "kimi_cn"
+    qp = config.get("quick_llm_provider") or lp
+    dp = config.get("deep_llm_provider") or lp
     blob = {
         "qp": qp,
         "dp": dp,
-        "qm": payload.quick_think_llm,
-        "dm": payload.deep_think_llm,
-        "bu": (payload.backend_url or "").strip(),
-        "qbu": (payload.quick_backend_url or "").strip(),
-        "dbu": (payload.deep_backend_url or "").strip(),
-        "g": payload.google_thinking_level,
-        "oe": payload.openai_reasoning_effort,
-        "ae": payload.anthropic_effort,
+        "qm": config.get("quick_think_llm"),
+        "dm": config.get("deep_think_llm"),
+        "bu": str(config.get("backend_url") or "").strip(),
+        "qbu": str(config.get("quick_backend_url") or "").strip(),
+        "dbu": str(config.get("deep_backend_url") or "").strip(),
+        "g": config.get("google_thinking_level"),
+        "oe": config.get("openai_reasoning_effort"),
+        "ae": config.get("anthropic_effort"),
     }
     return json.dumps(blob, sort_keys=True, default=str)
+
+
+def _admin_settings_form_defaults() -> dict[str, Any]:
+    c = DEFAULT_CONFIG
+    lp = c["llm_provider"]
+    qlp = c.get("quick_llm_provider") or lp
+    dlp = c.get("deep_llm_provider") or lp
+    return {
+        "llm_provider": lp,
+        "quick_llm_provider": qlp if isinstance(qlp, str) else lp,
+        "deep_llm_provider": dlp if isinstance(dlp, str) else lp,
+        "quick_think_llm": c["quick_think_llm"],
+        "deep_think_llm": c["deep_think_llm"],
+        "max_debate_rounds": c["max_debate_rounds"],
+        "max_risk_discuss_rounds": c["max_risk_discuss_rounds"],
+        "backend_url": c.get("backend_url") or "",
+        "quick_backend_url": "",
+        "deep_backend_url": "",
+        "google_thinking_level": c.get("google_thinking_level") or "",
+        "openai_reasoning_effort": c.get("openai_reasoning_effort") or "",
+        "anthropic_effort": c.get("anthropic_effort") or "",
+        "openai_api_key": "",
+        "anthropic_api_key": "",
+        "google_api_key": "",
+        "xai_api_key": "",
+        "openrouter_api_key": "",
+        "moonshot_api_key": "",
+        "kimi_quick_model_custom": "",
+        "kimi_deep_model_custom": "",
+    }
+
+
+def _allowed_llm_providers() -> frozenset[str]:
+    return frozenset(get_args(_LlmProvider))
+
+
+def _admin_settings_get_payload() -> dict[str, Any]:
+    base = _admin_settings_form_defaults()
+    stored = db.get_app_settings()
+    api_keys_set = {
+        k: bool(str(stored.get(k) or "").strip()) for k in _API_KEY_SETTINGS_KEYS
+    }
+    for k in _APP_SETTINGS_KEYS:
+        if k in _API_KEY_SETTINGS_KEYS:
+            continue
+        if k not in stored:
+            continue
+        v = stored[k]
+        if v is None:
+            continue
+        if isinstance(v, str) and not v.strip():
+            continue
+        base[k] = v.strip() if isinstance(v, str) else v
+    base["max_debate_rounds"] = _coerce_round_int(
+        base.get("max_debate_rounds"), int(DEFAULT_CONFIG["max_debate_rounds"])
+    )
+    base["max_risk_discuss_rounds"] = _coerce_round_int(
+        base.get("max_risk_discuss_rounds"),
+        int(DEFAULT_CONFIG["max_risk_discuss_rounds"]),
+    )
+    return {"settings": base, "api_keys_set": api_keys_set}
+
+
+def _admin_sanitize_put_body(body: dict[str, Any]) -> dict[str, Any]:
+    """Merge admin form JSON into stored app_settings (keys omitted in body are kept)."""
+    allowed_p = _allowed_llm_providers()
+    existing = db.get_app_settings()
+    out: dict[str, Any] = {
+        k: v for k, v in existing.items() if k in _APP_SETTINGS_KEYS
+    }
+
+    for k, raw in body.items():
+        if k not in _APP_SETTINGS_KEYS:
+            continue
+        if k in _API_KEY_SETTINGS_KEYS:
+            if raw is None:
+                out.pop(k, None)
+                continue
+            s = str(raw).strip()
+            if s:
+                out[k] = s
+            continue
+        if k in ("max_debate_rounds", "max_risk_discuss_rounds"):
+            out[k] = _coerce_round_int(
+                raw,
+                int(DEFAULT_CONFIG[k]),
+            )
+            continue
+        if k in ("quick_llm_provider", "deep_llm_provider"):
+            if raw is None or (isinstance(raw, str) and not raw.strip()):
+                raise HTTPException(status_code=422, detail=f"{k} is required")
+            s = str(raw).strip().lower()
+            if s not in allowed_p:
+                raise HTTPException(status_code=422, detail=f"Invalid {k}")
+            out[k] = s
+            continue
+        if isinstance(raw, str):
+            s = raw.strip()
+            if not s:
+                out.pop(k, None)
+            else:
+                out[k] = s
+        elif raw is not None:
+            out[k] = raw
+
+    return out
 
 
 def _as_text(value: Any) -> str:
@@ -413,13 +668,14 @@ def _build_report(state: dict[str, Any]) -> tuple[str, dict[str, str]]:
 
 def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel_event: ThreadEvent | None = None) -> dict[str, Any]:
     """Run the full analysis and return a result dict. Called by both sync and async paths."""
-    qp = payload.quick_llm_provider or payload.llm_provider
-    dp = payload.deep_llm_provider or payload.llm_provider
+    config = _build_graph_config(payload)
+    qp = config.get("quick_llm_provider") or config.get("llm_provider")
+    dp = config.get("deep_llm_provider") or config.get("llm_provider")
     _log(
         "Analyze request received "
         f"ticker={payload.ticker} date={payload.analysis_date.isoformat()} "
         f"quick={qp} deep={dp} analysts={','.join(payload.selected_analysts)} "
-        f"debate_rounds={payload.max_debate_rounds} risk_rounds={payload.max_risk_discuss_rounds}"
+        f"debate_rounds={config['max_debate_rounds']} risk_rounds={config['max_risk_discuss_rounds']}"
     )
 
     if job_id:
@@ -427,36 +683,6 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
             "ticker": payload.ticker,
             "analysts": payload.selected_analysts,
         })
-
-    config = DEFAULT_CONFIG.copy()
-    config["llm_provider"] = payload.llm_provider
-    config["quick_llm_provider"] = payload.quick_llm_provider
-    config["deep_llm_provider"] = payload.deep_llm_provider
-    config["deep_think_llm"] = payload.deep_think_llm
-    config["quick_think_llm"] = payload.quick_think_llm
-    config["max_debate_rounds"] = payload.max_debate_rounds
-    config["max_risk_discuss_rounds"] = payload.max_risk_discuss_rounds
-    config["google_thinking_level"] = payload.google_thinking_level
-    config["openai_reasoning_effort"] = payload.openai_reasoning_effort
-    config["anthropic_effort"] = payload.anthropic_effort
-
-    if payload.backend_url:
-        config["backend_url"] = payload.backend_url
-    config["quick_backend_url"] = (payload.quick_backend_url or "").strip() or None
-    config["deep_backend_url"] = (payload.deep_backend_url or "").strip() or None
-
-    # Add API key override from request if provided (overrides .env)
-    api_key_fields = {
-        "openai_api_key": payload.openai_api_key,
-        "anthropic_api_key": payload.anthropic_api_key,
-        "google_api_key": payload.google_api_key,
-        "xai_api_key": payload.xai_api_key,
-        "openrouter_api_key": payload.openrouter_api_key,
-        "moonshot_api_key": payload.moonshot_api_key,
-    }
-    for key, value in api_key_fields.items():
-        if value:
-            config[key] = value
 
     def state_callback(prev_state: dict | None, curr_state: dict) -> None:
         if not job_id:
@@ -592,13 +818,14 @@ def _cache_lookup(payload: AnalyzeRequest, label: str = "") -> dict[str, Any] | 
     The cache key also includes an LLM profile (providers, models, backends, effort).
     """
     prefix = f"[{label}] " if label else ""
+    cfg = _build_graph_config(payload)
     try:
         cached = db.get_cached_analysis(
             payload.ticker,
             payload.analysis_date,
             list(payload.selected_analysts),
             language=payload.language,
-            llm_profile=_llm_cache_profile(payload),
+            llm_profile=_llm_cache_profile_from_config(cfg),
         )
     except Exception as exc:
         _log(f"{prefix}DB lookup error (skipping cache): {exc}")
@@ -617,6 +844,7 @@ def _cache_save(payload: AnalyzeRequest, result: dict[str, Any],
                 events: list[dict[str, Any]], label: str = "") -> None:
     """Persist an analysis result to the DB cache (non-fatal on error)."""
     prefix = f"[{label}] " if label else ""
+    cfg = _build_graph_config(payload)
     try:
         pdf_name = result.get("pdf_filename")
         if not pdf_name and result.get("pdf_filenames"):
@@ -630,7 +858,7 @@ def _cache_save(payload: AnalyzeRequest, result: dict[str, Any],
             events,
             pdf_path,
             language=payload.language,
-            llm_profile=_llm_cache_profile(payload),
+            llm_profile=_llm_cache_profile_from_config(cfg),
         ):
             _log(f"{prefix}Saved to DB cache ticker={payload.ticker}")
         else:
@@ -869,18 +1097,49 @@ def admin_me(request: Request) -> dict[str, Any]:
     raise HTTPException(status_code=401, detail="Not authenticated")
 
 
+@app.get("/api/admin/settings")
+def admin_settings_get(request: Request) -> dict[str, Any]:
+    _require_admin(request)
+    return _admin_settings_get_payload()
+
+
+@app.put("/api/admin/settings")
+def admin_settings_put(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    _require_admin(request)
+    merged = _admin_sanitize_put_body(body)
+    if not db.save_app_settings(merged):
+        raise HTTPException(
+            status_code=503,
+            detail="Could not save settings. Set DATABASE_URL and ensure psycopg2 is installed.",
+        )
+    return {"ok": True}
+
+
 @app.get("/api/options")
 def options() -> dict[str, Any]:
+    stored = db.get_app_settings()
+    cfg = DEFAULT_CONFIG.copy()
+    if stored:
+        _apply_map_from_stored(cfg, stored)
+    _apply_kimi_custom_models(cfg)
+    qp = cfg.get("quick_llm_provider") or cfg.get("llm_provider")
+    dp = cfg.get("deep_llm_provider") or cfg.get("llm_provider")
     return {
         "analysts": ANALYST_OPTIONS,
-        "llm_provider_default": DEFAULT_CONFIG["llm_provider"],
-        "quick_llm_provider_default": DEFAULT_CONFIG.get("quick_llm_provider"),
-        "deep_llm_provider_default": DEFAULT_CONFIG.get("deep_llm_provider"),
-        "deep_think_default": DEFAULT_CONFIG["deep_think_llm"],
-        "quick_think_default": DEFAULT_CONFIG["quick_think_llm"],
-        "max_debate_rounds_default": DEFAULT_CONFIG["max_debate_rounds"],
-        "max_risk_discuss_rounds_default": DEFAULT_CONFIG["max_risk_discuss_rounds"],
-        "backend_url_default": DEFAULT_CONFIG["backend_url"],
+        "llm_provider_default": cfg.get("llm_provider"),
+        "quick_llm_provider_default": qp,
+        "deep_llm_provider_default": dp,
+        "deep_think_default": cfg.get("deep_think_llm"),
+        "quick_think_default": cfg.get("quick_think_llm"),
+        "max_debate_rounds_default": _coerce_round_int(
+            cfg.get("max_debate_rounds"), int(DEFAULT_CONFIG["max_debate_rounds"])
+        ),
+        "max_risk_discuss_rounds_default": _coerce_round_int(
+            cfg.get("max_risk_discuss_rounds"),
+            int(DEFAULT_CONFIG["max_risk_discuss_rounds"]),
+        ),
+        "backend_url_default": cfg.get("backend_url") or "",
+        "global_settings_from_db": bool(stored),
     }
 
 

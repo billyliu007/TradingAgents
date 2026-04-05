@@ -74,8 +74,9 @@
   </div>
   <div class="card">
     <h1>Settings</h1>
-    <p class="sub">Saved in this browser (localStorage). The main app reads these values when you run an analysis.</p>
+    <p class="sub">Stored in PostgreSQL for all users. Requires <code style="font-size:11px;">DATABASE_URL</code>. Leave API key fields blank to keep existing secrets.</p>
     <div class="ok" id="saveOk">Saved.</div>
+    <div class="err" id="saveErr"></div>
     <div>
       <div class="s-section-title">Quick LLM provider</div>
       <select id="quick_llm_provider">
@@ -141,7 +142,7 @@
     </div>
     <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
       <div class="s-section-title">API keys (optional)</div>
-      <p class="hint">Leave blank to use server .env only. Values are stored in this browser.</p>
+      <p class="hint">Optional. Leave blank to keep the current saved key on the server.</p>
       <div class="form-group"><label>OpenAI</label><input id="openai_api_key" type="password" placeholder="sk-..." autocomplete="off" /></div>
       <div class="form-group"><label>Anthropic</label><input id="anthropic_api_key" type="password" placeholder="sk-ant-..." autocomplete="off" /></div>
       <div class="form-group"><label>Google</label><input id="google_api_key" type="password" placeholder="AIza..." autocomplete="off" /></div>
@@ -162,27 +163,6 @@ function apiUrl(path) {
   if (!path.startsWith("/")) path = "/" + path;
   return API_BASE ? API_BASE + path : path;
 }
-
-const LS = {
-  llm_provider: "ta_llm_provider",
-  quick_llm_provider: "ta_quick_llm_provider",
-  deep_llm_provider: "ta_deep_llm_provider",
-  quick: "ta_quick_think_llm",
-  deep: "ta_deep_think_llm",
-  max_debate: "ta_max_debate_rounds",
-  max_risk: "ta_max_risk_discuss_rounds",
-  backend: "ta_backend_url",
-  quick_backend: "ta_quick_backend_url",
-  deep_backend: "ta_deep_backend_url",
-  kimi_q: "ta_kimi_quick_custom",
-  kimi_d: "ta_kimi_deep_custom",
-  openai: "ta_openai_api_key",
-  anthropic: "ta_anthropic_api_key",
-  google: "ta_google_api_key",
-  xai: "ta_xai_api_key",
-  openrouter: "ta_openrouter_api_key",
-  moonshot: "ta_moonshot_api_key",
-};
 
 const _KIMI_MODELS = {
   quick: ["kimi-k2.5","moonshot-v1-8k","moonshot-v1-128k"],
@@ -259,106 +239,78 @@ function readInput(id) {
   return el ? el.value : "";
 }
 
-async function hydrateFromServerDefaults() {
-  try {
-    const r = await fetch(apiUrl("/api/options"));
-    const o = await r.json();
-    const d = o.llm_provider_default;
-    if (d && !localStorage.getItem(LS.quick_llm_provider)) {
-      localStorage.setItem(LS.quick_llm_provider, String(d));
-      localStorage.setItem(LS.deep_llm_provider, String(d));
-      if (!localStorage.getItem(LS.llm_provider)) localStorage.setItem(LS.llm_provider, String(d));
-    }
-    const map = [
-      [LS.quick, o.quick_think_default],
-      [LS.deep, o.deep_think_default],
-      [LS.max_debate, String(o.max_debate_rounds_default)],
-      [LS.max_risk, String(o.max_risk_discuss_rounds_default)],
-      [LS.backend, o.backend_url_default || ""],
-    ];
-    for (const [k, v] of map) {
-      if (v == null) continue;
-      if (!localStorage.getItem(k)) localStorage.setItem(k, String(v));
-    }
-  } catch (e) {
-    console.warn("options fetch", e);
+async function loadFormFromServer() {
+  const r = await fetch(apiUrl("/api/admin/settings"), { credentials: "same-origin" });
+  if (!r.ok) {
+    const b = await r.json().catch(() => ({}));
+    throw new Error((b && b.detail) ? (typeof b.detail === "string" ? b.detail : JSON.stringify(b.detail)) : "Could not load settings");
   }
-}
-
-function loadFormFromStorage() {
-  const leg = localStorage.getItem(LS.llm_provider);
-  if (leg && !localStorage.getItem(LS.quick_llm_provider)) {
-    localStorage.setItem(LS.quick_llm_provider, leg);
-    localStorage.setItem(LS.deep_llm_provider, leg);
-  }
-  if (localStorage.getItem(LS.quick_llm_provider)) {
-    quickProvSel.value = localStorage.getItem(LS.quick_llm_provider);
-  }
-  if (localStorage.getItem(LS.deep_llm_provider)) {
-    deepProvSel.value = localStorage.getItem(LS.deep_llm_provider);
-  }
+  const data = await r.json();
+  const s = data.settings || {};
+  const apiSet = data.api_keys_set || {};
+  quickProvSel.value = s.quick_llm_provider || "kimi_cn";
+  deepProvSel.value = s.deep_llm_provider || "kimi_cn";
   _populateQuickModels();
   _populateDeepModels();
-  const q = localStorage.getItem(LS.quick);
-  const d = localStorage.getItem(LS.deep);
-  if (q && [...quickThinkEl.options].some(o => o.value === q)) quickThinkEl.value = q;
-  else if (q) {
+  const qm = String(s.quick_think_llm || "").trim();
+  const dm = String(s.deep_think_llm || "").trim();
+  if (qm && [...quickThinkEl.options].some(o => o.value === qm)) quickThinkEl.value = qm;
+  else if (qm) {
     const o = document.createElement("option");
-    o.value = q; o.textContent = q;
+    o.value = qm; o.textContent = qm;
     quickThinkEl.appendChild(o);
-    quickThinkEl.value = q;
+    quickThinkEl.value = qm;
   }
-  if (d && [...deepThinkEl.options].some(o => o.value === d)) deepThinkEl.value = d;
-  else if (d) {
+  if (dm && [...deepThinkEl.options].some(o => o.value === dm)) deepThinkEl.value = dm;
+  else if (dm) {
     const o = document.createElement("option");
-    o.value = d; o.textContent = d;
+    o.value = dm; o.textContent = dm;
     deepThinkEl.appendChild(o);
-    deepThinkEl.value = d;
+    deepThinkEl.value = dm;
   }
   _syncKimiCustomVisibility();
-  setInput("max_debate_rounds", localStorage.getItem(LS.max_debate) || "1");
-  setInput("max_risk_discuss_rounds", localStorage.getItem(LS.max_risk) || "1");
-  setInput("backend_url", localStorage.getItem(LS.backend) || "");
-  setInput("quick_backend_url", localStorage.getItem(LS.quick_backend) || "");
-  setInput("deep_backend_url", localStorage.getItem(LS.deep_backend) || "");
-  setInput("kimi_quick_model_custom", localStorage.getItem(LS.kimi_q) || "");
-  setInput("kimi_deep_model_custom", localStorage.getItem(LS.kimi_d) || "");
-  setInput("openai_api_key", localStorage.getItem(LS.openai) || "");
-  setInput("anthropic_api_key", localStorage.getItem(LS.anthropic) || "");
-  setInput("google_api_key", localStorage.getItem(LS.google) || "");
-  setInput("xai_api_key", localStorage.getItem(LS.xai) || "");
-  setInput("openrouter_api_key", localStorage.getItem(LS.openrouter) || "");
-  setInput("moonshot_api_key", localStorage.getItem(LS.moonshot) || "");
+  setInput("max_debate_rounds", String(s.max_debate_rounds != null ? s.max_debate_rounds : "1"));
+  setInput("max_risk_discuss_rounds", String(s.max_risk_discuss_rounds != null ? s.max_risk_discuss_rounds : "1"));
+  setInput("backend_url", s.backend_url || "");
+  setInput("quick_backend_url", s.quick_backend_url || "");
+  setInput("deep_backend_url", s.deep_backend_url || "");
+  setInput("kimi_quick_model_custom", s.kimi_quick_model_custom || "");
+  setInput("kimi_deep_model_custom", s.kimi_deep_model_custom || "");
+  const keyIds = ["openai_api_key","anthropic_api_key","google_api_key","xai_api_key","openrouter_api_key","moonshot_api_key"];
+  for (const id of keyIds) {
+    setInput(id, "");
+    const el = document.getElementById(id);
+    if (el) el.placeholder = apiSet[id] ? "•••• saved — type to replace" : "";
+  }
 }
 
-function saveFormToStorage() {
-  localStorage.setItem(LS.quick_llm_provider, quickProvSel.value);
-  localStorage.setItem(LS.deep_llm_provider, deepProvSel.value);
-  localStorage.setItem(LS.llm_provider, quickProvSel.value);
-  localStorage.setItem(LS.quick, quickThinkEl.value.trim());
-  localStorage.setItem(LS.deep, deepThinkEl.value.trim());
-  localStorage.setItem(LS.max_debate, readInput("max_debate_rounds").trim() || "1");
-  localStorage.setItem(LS.max_risk, readInput("max_risk_discuss_rounds").trim() || "1");
-  localStorage.setItem(LS.backend, readInput("backend_url").trim());
-  const qb = readInput("quick_backend_url").trim();
-  const db = readInput("deep_backend_url").trim();
-  if (qb) localStorage.setItem(LS.quick_backend, qb); else localStorage.removeItem(LS.quick_backend);
-  if (db) localStorage.setItem(LS.deep_backend, db); else localStorage.removeItem(LS.deep_backend);
-  localStorage.setItem(LS.kimi_q, readInput("kimi_quick_model_custom").trim());
-  localStorage.setItem(LS.kimi_d, readInput("kimi_deep_model_custom").trim());
-  const keys = ["openai_api_key","anthropic_api_key","google_api_key","xai_api_key","openrouter_api_key","moonshot_api_key"];
-  const lsMap = { openai_api_key: LS.openai, anthropic_api_key: LS.anthropic, google_api_key: LS.google, xai_api_key: LS.xai, openrouter_api_key: LS.openrouter, moonshot_api_key: LS.moonshot };
-  for (const id of keys) {
-    const v = readInput(id).trim();
-    if (v) localStorage.setItem(lsMap[id], v);
-    else localStorage.removeItem(lsMap[id]);
-  }
+function collectSettingsBody() {
+  return {
+    quick_llm_provider: quickProvSel.value,
+    deep_llm_provider: deepProvSel.value,
+    quick_think_llm: quickThinkEl.value.trim(),
+    deep_think_llm: deepThinkEl.value.trim(),
+    max_debate_rounds: Math.max(1, Math.min(5, parseInt(readInput("max_debate_rounds"), 10) || 1)),
+    max_risk_discuss_rounds: Math.max(1, Math.min(5, parseInt(readInput("max_risk_discuss_rounds"), 10) || 1)),
+    backend_url: readInput("backend_url").trim(),
+    quick_backend_url: readInput("quick_backend_url").trim(),
+    deep_backend_url: readInput("deep_backend_url").trim(),
+    kimi_quick_model_custom: readInput("kimi_quick_model_custom").trim(),
+    kimi_deep_model_custom: readInput("kimi_deep_model_custom").trim(),
+    openai_api_key: readInput("openai_api_key").trim(),
+    anthropic_api_key: readInput("anthropic_api_key").trim(),
+    google_api_key: readInput("google_api_key").trim(),
+    xai_api_key: readInput("xai_api_key").trim(),
+    openrouter_api_key: readInput("openrouter_api_key").trim(),
+    moonshot_api_key: readInput("moonshot_api_key").trim(),
+  };
 }
 
 const loginScreen = document.getElementById("loginScreen");
 const adminScreen = document.getElementById("adminScreen");
 const loginErr = document.getElementById("loginErr");
 const saveOk = document.getElementById("saveOk");
+const saveErr = document.getElementById("saveErr");
 
 function showAdmin() {
   loginScreen.style.display = "none";
@@ -374,8 +326,13 @@ async function checkSession() {
   try {
     const r = await fetch(apiUrl("/api/admin/me"), { credentials: "same-origin" });
     if (r.ok) {
-      await hydrateFromServerDefaults();
-      loadFormFromStorage();
+      saveErr.classList.remove("show");
+      try {
+        await loadFormFromServer();
+      } catch (e) {
+        saveErr.textContent = String(e.message || e);
+        saveErr.classList.add("show");
+      }
       showAdmin();
       return true;
     }
@@ -402,8 +359,13 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
       loginErr.classList.add("show");
       return;
     }
-    await hydrateFromServerDefaults();
-    loadFormFromStorage();
+    saveErr.classList.remove("show");
+    try {
+      await loadFormFromServer();
+    } catch (e) {
+      saveErr.textContent = String(e.message || e);
+      saveErr.classList.add("show");
+    }
     showAdmin();
   } catch (err) {
     loginErr.textContent = String(err.message || err);
@@ -418,10 +380,29 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
   showLogin();
 });
 
-document.getElementById("saveBtn").addEventListener("click", () => {
-  saveFormToStorage();
-  saveOk.classList.add("show");
-  setTimeout(() => saveOk.classList.remove("show"), 2500);
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  saveErr.classList.remove("show");
+  saveOk.classList.remove("show");
+  try {
+    const r = await fetch(apiUrl("/api/admin/settings"), {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(collectSettingsBody()),
+    });
+    if (!r.ok) {
+      const b = await r.json().catch(() => ({}));
+      saveErr.textContent = (b && b.detail) ? (typeof b.detail === "string" ? b.detail : JSON.stringify(b.detail)) : "Save failed";
+      saveErr.classList.add("show");
+      return;
+    }
+    await loadFormFromServer();
+    saveOk.classList.add("show");
+    setTimeout(() => saveOk.classList.remove("show"), 2500);
+  } catch (err) {
+    saveErr.textContent = String(err.message || err);
+    saveErr.classList.add("show");
+  }
 });
 
 const backHome = document.getElementById("backHome");

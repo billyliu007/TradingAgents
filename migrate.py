@@ -70,6 +70,12 @@ CREATE INDEX IF NOT EXISTS idx_analysis_cache_lookup
 
 CREATE INDEX IF NOT EXISTS idx_analysis_events_cache_id
     ON analysis_events (cache_id, event_order);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    settings   JSONB     NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 print(f"Connecting to: {db_url[:40]}...")
@@ -83,7 +89,7 @@ try:
             SELECT table_name
             FROM information_schema.tables
             WHERE table_schema = 'public'
-              AND table_name IN ('tickers', 'analysis_cache', 'analysis_events')
+              AND table_name IN ('tickers', 'analysis_cache', 'analysis_events', 'app_settings')
             ORDER BY table_name
         """)
         tables = [row[0] for row in cur.fetchall()]
