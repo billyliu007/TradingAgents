@@ -88,24 +88,28 @@ class TradingAgentsGraph:
                 PromptAuditCallback(default_audit_file_path(self.config))
             )
 
-        # Initialize LLMs with provider-specific thinking configuration
-        llm_kwargs = self._get_provider_kwargs()
+        quick_provider = self._resolved_llm_provider("quick")
+        deep_provider = self._resolved_llm_provider("deep")
+        quick_base = self._resolve_backend_url_for("quick")
+        deep_base = self._resolve_backend_url_for("deep")
 
-        # Add callbacks to kwargs if provided (passed to LLM constructor)
+        quick_kw = self._get_provider_kwargs_for(quick_provider)
+        deep_kw = self._get_provider_kwargs_for(deep_provider)
         if self.callbacks:
-            llm_kwargs["callbacks"] = self.callbacks
+            quick_kw = {**quick_kw, "callbacks": self.callbacks}
+            deep_kw = {**deep_kw, "callbacks": self.callbacks}
 
         deep_client = create_llm_client(
-            provider=self.config["llm_provider"],
+            provider=deep_provider,
             model=self.config["deep_think_llm"],
-            base_url=self.config.get("backend_url"),
-            **llm_kwargs,
+            base_url=deep_base,
+            **deep_kw,
         )
         quick_client = create_llm_client(
-            provider=self.config["llm_provider"],
+            provider=quick_provider,
             model=self.config["quick_think_llm"],
-            base_url=self.config.get("backend_url"),
-            **llm_kwargs,
+            base_url=quick_base,
+            **quick_kw,
         )
 
         self.deep_thinking_llm = deep_client.get_llm()
@@ -197,58 +201,73 @@ class TradingAgentsGraph:
 
         return events
 
-    def _get_provider_kwargs(self) -> Dict[str, Any]:
-        """Get provider-specific kwargs for LLM client creation."""
-        kwargs = {}
-        provider = self.config.get("llm_provider", "").lower()
+    def _resolved_llm_provider(self, track: str) -> str:
+        """Return provider id for quick or deep track (falls back to llm_provider)."""
+        assert track in ("quick", "deep")
+        key = f"{track}_llm_provider"
+        specific = self.config.get(key)
+        if specific is not None and str(specific).strip():
+            return str(specific).strip().lower()
+        return (self.config.get("llm_provider") or "kimi_cn").lower()
 
-        if provider == "google":
+    def _resolve_backend_url_for(self, track: str) -> Optional[str]:
+        """API base for this track: per-track override, else global backend_url."""
+        assert track in ("quick", "deep")
+        key = f"{track}_backend_url"
+        specific = self.config.get(key)
+        if specific is not None and str(specific).strip():
+            return str(specific).strip()
+        bu = self.config.get("backend_url")
+        if bu is None:
+            return None
+        s = str(bu).strip()
+        return s if s else None
+
+    def _get_provider_kwargs_for(self, provider: str) -> Dict[str, Any]:
+        """Provider-specific kwargs for create_llm_client (keys, thinking, etc.)."""
+        kwargs: Dict[str, Any] = {}
+        p = (provider or "").lower()
+
+        if p == "google":
             thinking_level = self.config.get("google_thinking_level")
             if thinking_level:
                 kwargs["thinking_level"] = thinking_level
-            # Google uses 'google_api_key' parameter
             api_key = self.config.get("google_api_key")
             if api_key:
                 kwargs["google_api_key"] = api_key
 
-        elif provider == "openai":
+        elif p == "openai":
             reasoning_effort = self.config.get("openai_reasoning_effort")
             if reasoning_effort:
                 kwargs["reasoning_effort"] = reasoning_effort
-            # OpenAI uses 'api_key' parameter
             api_key = self.config.get("openai_api_key")
             if api_key:
                 kwargs["api_key"] = api_key
 
-        elif provider == "anthropic":
+        elif p == "anthropic":
             effort = self.config.get("anthropic_effort")
             if effort:
                 kwargs["effort"] = effort
-            # Anthropic uses 'api_key' parameter
             api_key = self.config.get("anthropic_api_key")
             if api_key:
                 kwargs["api_key"] = api_key
 
-        elif provider == "xai":
-            # xAI uses 'api_key' parameter (via OpenAI client)
+        elif p == "xai":
             api_key = self.config.get("xai_api_key")
             if api_key:
                 kwargs["api_key"] = api_key
 
-        elif provider == "openrouter":
-            # OpenRouter uses 'api_key' parameter (via OpenAI client)
+        elif p == "openrouter":
             api_key = self.config.get("openrouter_api_key")
             if api_key:
                 kwargs["api_key"] = api_key
 
-        elif provider in ("kimi", "kimi_cn"):
-            # Kimi (Moonshot) uses 'api_key' via OpenAI-compatible client
+        elif p in ("kimi", "kimi_cn"):
             api_key = self.config.get("moonshot_api_key")
             if api_key:
                 kwargs["api_key"] = api_key
 
-        elif provider == "ollama":
-            # Ollama typically doesn't need an API key, but support it if provided
+        elif p == "ollama":
             api_key = self.config.get("openai_api_key")
             if api_key:
                 kwargs["api_key"] = api_key

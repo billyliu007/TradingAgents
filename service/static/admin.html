@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="tradingagents-api-base" content="" />
+  <title>AlphaLens — Admin Settings</title>
+  <style>
+    :root {
+      --bg: #080d16; --bg-card: #0d1525; --bg-hover: #111e33; --border: #1a2740;
+      --txt: #dce6f5; --txt2: #8fa3c0; --blue: #4f8fff; --green: #2bb67d; --red: #e05252;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--txt); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.5; min-height: 100vh; padding: 24px; }
+    a { color: var(--blue); }
+    .top-nav { max-width: 520px; margin: 0 auto 20px; display: flex; justify-content: space-between; align-items: center; }
+    .card {
+      max-width: 520px; margin: 0 auto; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 24px;
+    }
+    h1 { font-size: 18px; margin-bottom: 6px; }
+    .sub { color: var(--txt2); font-size: 12px; margin-bottom: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .form-group label { font-size: 11px; font-weight: 600; color: var(--txt2); text-transform: uppercase; letter-spacing: .04em; }
+    input, select {
+      background: rgba(0,0,0,.4); border: 1px solid var(--border); border-radius: 6px;
+      padding: 10px 12px; color: var(--txt); font-size: 14px; width: 100%; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--blue); }
+    .s-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--blue); margin: 16px 0 8px; }
+    .s-section-title:first-child { margin-top: 0; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+    .btn {
+      padding: 10px 18px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; border: none;
+    }
+    .btn-primary { background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--txt2); }
+    .btn-primary:hover { filter: brightness(1.06); }
+    .err { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
+    .err.show { display: block; }
+    .ok { color: var(--green); font-size: 13px; margin-top: 10px; display: none; }
+    .ok.show { display: block; }
+    #loginScreen { max-width: 400px; margin: 60px auto; }
+    #adminScreen { display: none; max-width: 520px; margin: 0 auto; }
+    #adminScreen.visible { display: block; }
+    .hint { font-size: 11px; color: var(--txt2); font-style: italic; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+<div id="loginScreen" class="card">
+  <h1>Admin login</h1>
+  <p class="sub">Configure LLM defaults and API keys. Credentials are checked on the server.</p>
+  <form id="loginForm">
+    <div class="form-group">
+      <label for="adm_user">Username</label>
+      <input id="adm_user" name="username" autocomplete="username" required />
+    </div>
+    <div class="form-group">
+      <label for="adm_pass">Password</label>
+      <input id="adm_pass" name="password" type="password" autocomplete="current-password" required />
+    </div>
+    <div class="btn-row">
+      <button type="submit" class="btn btn-primary">Sign in</button>
+    </div>
+  </form>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<div id="adminScreen">
+  <div class="top-nav">
+    <a href="/" id="backHome">← Back to research</a>
+    <button type="button" class="btn btn-ghost" id="logoutBtn">Log out</button>
+  </div>
+  <div class="card">
+    <h1>Settings</h1>
+    <p class="sub">Saved in this browser (localStorage). The main app reads these values when you run an analysis.</p>
+    <div class="ok" id="saveOk">Saved.</div>
+    <div>
+      <div class="s-section-title">Quick LLM provider</div>
+      <select id="quick_llm_provider">
+        <option value="kimi_cn">Kimi</option>
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+        <option value="google">Google</option>
+        <option value="xai">xAI (Grok)</option>
+        <option value="openrouter">OpenRouter</option>
+      </select>
+    </div>
+    <div>
+      <div class="s-section-title">Deep LLM provider</div>
+      <select id="deep_llm_provider">
+        <option value="kimi_cn">Kimi</option>
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+        <option value="google">Google</option>
+        <option value="xai">xAI (Grok)</option>
+        <option value="openrouter">OpenRouter</option>
+      </select>
+    </div>
+    <div>
+      <div class="s-section-title">Models</div>
+      <div style="font-size:10px;color:var(--txt2);margin-bottom:4px;text-transform:uppercase;">Quick — fast tasks</div>
+      <select id="quick_think_llm" style="margin-bottom:10px;"></select>
+      <div style="font-size:10px;color:var(--txt2);margin-bottom:4px;text-transform:uppercase;">Deep — complex reasoning</div>
+      <select id="deep_think_llm"></select>
+      <div id="kimi_model_custom_wrap" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+        <details style="font-size:12px;color:var(--txt2);">
+          <summary style="cursor:pointer;color:var(--blue);font-weight:600;">Custom models (optional)</summary>
+          <p style="font-size:11px;margin:8px 0 10px;line-height:1.45;color:var(--txt2);">Use only if support gave you a model name not listed above.</p>
+          <div class="form-group">
+            <label for="kimi_quick_model_custom">Replace quick model</label>
+            <input id="kimi_quick_model_custom" type="text" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="kimi_deep_model_custom">Replace deep model</label>
+            <input id="kimi_deep_model_custom" type="text" autocomplete="off" />
+          </div>
+        </details>
+      </div>
+    </div>
+    <div>
+      <div class="s-section-title">Debate rounds</div>
+      <input id="max_debate_rounds" type="number" min="1" max="5" value="1" />
+    </div>
+    <div>
+      <div class="s-section-title">Risk rounds</div>
+      <input id="max_risk_discuss_rounds" type="number" min="1" max="5" value="1" />
+    </div>
+    <div>
+      <div class="s-section-title">Backend URL (optional)</div>
+      <input id="backend_url" placeholder="Default API base for both tracks" />
+    </div>
+    <div>
+      <div class="s-section-title">Quick backend override (optional)</div>
+      <input id="quick_backend_url" placeholder="Leave empty to use default above" />
+    </div>
+    <div>
+      <div class="s-section-title">Deep backend override (optional)</div>
+      <input id="deep_backend_url" placeholder="Leave empty to use default above" />
+    </div>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+      <div class="s-section-title">API keys (optional)</div>
+      <p class="hint">Leave blank to use server .env only. Values are stored in this browser.</p>
+      <div class="form-group"><label>OpenAI</label><input id="openai_api_key" type="password" placeholder="sk-..." autocomplete="off" /></div>
+      <div class="form-group"><label>Anthropic</label><input id="anthropic_api_key" type="password" placeholder="sk-ant-..." autocomplete="off" /></div>
+      <div class="form-group"><label>Google</label><input id="google_api_key" type="password" placeholder="AIza..." autocomplete="off" /></div>
+      <div class="form-group"><label>xAI</label><input id="xai_api_key" type="password" placeholder="xai-..." autocomplete="off" /></div>
+      <div class="form-group"><label>OpenRouter</label><input id="openrouter_api_key" type="password" placeholder="sk-or-..." autocomplete="off" /></div>
+      <div class="form-group"><label>Kimi (Moonshot)</label><input id="moonshot_api_key" type="password" placeholder="" autocomplete="off" /></div>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn btn-primary" id="saveBtn">Save settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const _metaApiBase = document.querySelector('meta[name="tradingagents-api-base"]')?.getAttribute("content");
+const API_BASE = (_metaApiBase && String(_metaApiBase).trim()) ? String(_metaApiBase).trim().replace(/\/$/, "") : "";
+function apiUrl(path) {
+  if (!path.startsWith("/")) path = "/" + path;
+  return API_BASE ? API_BASE + path : path;
+}
+
+const LS = {
+  llm_provider: "ta_llm_provider",
+  quick_llm_provider: "ta_quick_llm_provider",
+  deep_llm_provider: "ta_deep_llm_provider",
+  quick: "ta_quick_think_llm",
+  deep: "ta_deep_think_llm",
+  max_debate: "ta_max_debate_rounds",
+  max_risk: "ta_max_risk_discuss_rounds",
+  backend: "ta_backend_url",
+  quick_backend: "ta_quick_backend_url",
+  deep_backend: "ta_deep_backend_url",
+  kimi_q: "ta_kimi_quick_custom",
+  kimi_d: "ta_kimi_deep_custom",
+  openai: "ta_openai_api_key",
+  anthropic: "ta_anthropic_api_key",
+  google: "ta_google_api_key",
+  xai: "ta_xai_api_key",
+  openrouter: "ta_openrouter_api_key",
+  moonshot: "ta_moonshot_api_key",
+};
+
+const _KIMI_MODELS = {
+  quick: ["kimi-k2.5","moonshot-v1-8k","moonshot-v1-128k"],
+  deep:  ["kimi-k2.5","moonshot-v1-128k","moonshot-v1-8k"],
+};
+const PROVIDER_MODELS = {
+  openai: {
+    quick: ["gpt-4.1-mini","gpt-4o-mini","gpt-5-mini","o4-mini","o3-mini"],
+    deep:  ["gpt-4.1","gpt-4o","gpt-5.2","gpt-5","o3","o1"],
+  },
+  anthropic: {
+    quick: ["claude-haiku-4-5-20251001","claude-3-5-haiku-20241022"],
+    deep:  ["claude-sonnet-4-6","claude-opus-4-6","claude-3-7-sonnet-20250219","claude-3-5-sonnet-20241022"],
+  },
+  google: {
+    quick: ["gemini-2.5-flash","gemini-2.0-flash","gemini-1.5-flash"],
+    deep:  ["gemini-2.5-pro","gemini-2.0-pro-exp","gemini-1.5-pro"],
+  },
+  xai: {
+    quick: ["grok-3-mini","grok-2-mini"],
+    deep:  ["grok-3","grok-3-fast","grok-2"],
+  },
+  kimi:    _KIMI_MODELS,
+  kimi_cn: _KIMI_MODELS,
+  openrouter: {
+    quick: ["openai/gpt-4o-mini","anthropic/claude-haiku-4-5","google/gemini-flash-1.5","meta-llama/llama-3.3-70b-instruct"],
+    deep:  ["openai/gpt-4o","openai/gpt-4.1","anthropic/claude-sonnet-4-6","google/gemini-pro-1.5","meta-llama/llama-3.3-70b-instruct"],
+  },
+};
+
+const quickProvSel = document.getElementById("quick_llm_provider");
+const deepProvSel = document.getElementById("deep_llm_provider");
+const quickThinkEl = document.getElementById("quick_think_llm");
+const deepThinkEl = document.getElementById("deep_think_llm");
+const kimiWrap = document.getElementById("kimi_model_custom_wrap");
+
+function _populateQuickModels() {
+  const m = PROVIDER_MODELS[quickProvSel.value] || PROVIDER_MODELS.openai;
+  const prevQ = quickThinkEl.value;
+  quickThinkEl.innerHTML = m.quick.map(v => `<option value="${v}">${v}</option>`).join("");
+  if (m.quick.includes(prevQ)) quickThinkEl.value = prevQ;
+}
+
+function _populateDeepModels() {
+  const m = PROVIDER_MODELS[deepProvSel.value] || PROVIDER_MODELS.openai;
+  const prevD = deepThinkEl.value;
+  deepThinkEl.innerHTML  = m.deep.map(v  => `<option value="${v}">${v}</option>`).join("");
+  if (m.deep.includes(prevD))  deepThinkEl.value  = prevD;
+}
+
+function _syncKimiCustomVisibility() {
+  const q = quickProvSel.value;
+  const d = deepProvSel.value;
+  const show = q === "kimi" || q === "kimi_cn" || d === "kimi" || d === "kimi_cn";
+  kimiWrap.style.display = show ? "block" : "none";
+}
+
+quickProvSel.addEventListener("change", () => {
+  _populateQuickModels();
+  _syncKimiCustomVisibility();
+});
+deepProvSel.addEventListener("change", () => {
+  _populateDeepModels();
+  _syncKimiCustomVisibility();
+});
+
+function setInput(id, val) {
+  const el = document.getElementById(id);
+  if (el && val != null) el.value = val;
+}
+
+function readInput(id) {
+  const el = document.getElementById(id);
+  return el ? el.value : "";
+}
+
+async function hydrateFromServerDefaults() {
+  try {
+    const r = await fetch(apiUrl("/api/options"));
+    const o = await r.json();
+    const d = o.llm_provider_default;
+    if (d && !localStorage.getItem(LS.quick_llm_provider)) {
+      localStorage.setItem(LS.quick_llm_provider, String(d));
+      localStorage.setItem(LS.deep_llm_provider, String(d));
+      if (!localStorage.getItem(LS.llm_provider)) localStorage.setItem(LS.llm_provider, String(d));
+    }
+    const map = [
+      [LS.quick, o.quick_think_default],
+      [LS.deep, o.deep_think_default],
+      [LS.max_debate, String(o.max_debate_rounds_default)],
+      [LS.max_risk, String(o.max_risk_discuss_rounds_default)],
+      [LS.backend, o.backend_url_default || ""],
+    ];
+    for (const [k, v] of map) {
+      if (v == null) continue;
+      if (!localStorage.getItem(k)) localStorage.setItem(k, String(v));
+    }
+  } catch (e) {
+    console.warn("options fetch", e);
+  }
+}
+
+function loadFormFromStorage() {
+  const leg = localStorage.getItem(LS.llm_provider);
+  if (leg && !localStorage.getItem(LS.quick_llm_provider)) {
+    localStorage.setItem(LS.quick_llm_provider, leg);
+    localStorage.setItem(LS.deep_llm_provider, leg);
+  }
+  if (localStorage.getItem(LS.quick_llm_provider)) {
+    quickProvSel.value = localStorage.getItem(LS.quick_llm_provider);
+  }
+  if (localStorage.getItem(LS.deep_llm_provider)) {
+    deepProvSel.value = localStorage.getItem(LS.deep_llm_provider);
+  }
+  _populateQuickModels();
+  _populateDeepModels();
+  const q = localStorage.getItem(LS.quick);
+  const d = localStorage.getItem(LS.deep);
+  if (q && [...quickThinkEl.options].some(o => o.value === q)) quickThinkEl.value = q;
+  else if (q) {
+    const o = document.createElement("option");
+    o.value = q; o.textContent = q;
+    quickThinkEl.appendChild(o);
+    quickThinkEl.value = q;
+  }
+  if (d && [...deepThinkEl.options].some(o => o.value === d)) deepThinkEl.value = d;
+  else if (d) {
+    const o = document.createElement("option");
+    o.value = d; o.textContent = d;
+    deepThinkEl.appendChild(o);
+    deepThinkEl.value = d;
+  }
+  _syncKimiCustomVisibility();
+  setInput("max_debate_rounds", localStorage.getItem(LS.max_debate) || "1");
+  setInput("max_risk_discuss_rounds", localStorage.getItem(LS.max_risk) || "1");
+  setInput("backend_url", localStorage.getItem(LS.backend) || "");
+  setInput("quick_backend_url", localStorage.getItem(LS.quick_backend) || "");
+  setInput("deep_backend_url", localStorage.getItem(LS.deep_backend) || "");
+  setInput("kimi_quick_model_custom", localStorage.getItem(LS.kimi_q) || "");
+  setInput("kimi_deep_model_custom", localStorage.getItem(LS.kimi_d) || "");
+  setInput("openai_api_key", localStorage.getItem(LS.openai) || "");
+  setInput("anthropic_api_key", localStorage.getItem(LS.anthropic) || "");
+  setInput("google_api_key", localStorage.getItem(LS.google) || "");
+  setInput("xai_api_key", localStorage.getItem(LS.xai) || "");
+  setInput("openrouter_api_key", localStorage.getItem(LS.openrouter) || "");
+  setInput("moonshot_api_key", localStorage.getItem(LS.moonshot) || "");
+}
+
+function saveFormToStorage() {
+  localStorage.setItem(LS.quick_llm_provider, quickProvSel.value);
+  localStorage.setItem(LS.deep_llm_provider, deepProvSel.value);
+  localStorage.setItem(LS.llm_provider, quickProvSel.value);
+  localStorage.setItem(LS.quick, quickThinkEl.value.trim());
+  localStorage.setItem(LS.deep, deepThinkEl.value.trim());
+  localStorage.setItem(LS.max_debate, readInput("max_debate_rounds").trim() || "1");
+  localStorage.setItem(LS.max_risk, readInput("max_risk_discuss_rounds").trim() || "1");
+  localStorage.setItem(LS.backend, readInput("backend_url").trim());
+  const qb = readInput("quick_backend_url").trim();
+  const db = readInput("deep_backend_url").trim();
+  if (qb) localStorage.setItem(LS.quick_backend, qb); else localStorage.removeItem(LS.quick_backend);
+  if (db) localStorage.setItem(LS.deep_backend, db); else localStorage.removeItem(LS.deep_backend);
+  localStorage.setItem(LS.kimi_q, readInput("kimi_quick_model_custom").trim());
+  localStorage.setItem(LS.kimi_d, readInput("kimi_deep_model_custom").trim());
+  const keys = ["openai_api_key","anthropic_api_key","google_api_key","xai_api_key","openrouter_api_key","moonshot_api_key"];
+  const lsMap = { openai_api_key: LS.openai, anthropic_api_key: LS.anthropic, google_api_key: LS.google, xai_api_key: LS.xai, openrouter_api_key: LS.openrouter, moonshot_api_key: LS.moonshot };
+  for (const id of keys) {
+    const v = readInput(id).trim();
+    if (v) localStorage.setItem(lsMap[id], v);
+    else localStorage.removeItem(lsMap[id]);
+  }
+}
+
+const loginScreen = document.getElementById("loginScreen");
+const adminScreen = document.getElementById("adminScreen");
+const loginErr = document.getElementById("loginErr");
+const saveOk = document.getElementById("saveOk");
+
+function showAdmin() {
+  loginScreen.style.display = "none";
+  adminScreen.classList.add("visible");
+}
+
+function showLogin() {
+  loginScreen.style.display = "block";
+  adminScreen.classList.remove("visible");
+}
+
+async function checkSession() {
+  try {
+    const r = await fetch(apiUrl("/api/admin/me"), { credentials: "same-origin" });
+    if (r.ok) {
+      await hydrateFromServerDefaults();
+      loadFormFromStorage();
+      showAdmin();
+      return true;
+    }
+  } catch (_) { /* ignore */ }
+  showLogin();
+  return false;
+}
+
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  loginErr.classList.remove("show");
+  const username = readInput("adm_user").trim();
+  const password = readInput("adm_pass");
+  try {
+    const r = await fetch(apiUrl("/api/admin/login"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!r.ok) {
+      const b = await r.json().catch(() => ({}));
+      loginErr.textContent = (b && b.detail) ? (typeof b.detail === "string" ? b.detail : JSON.stringify(b.detail)) : "Login failed";
+      loginErr.classList.add("show");
+      return;
+    }
+    await hydrateFromServerDefaults();
+    loadFormFromStorage();
+    showAdmin();
+  } catch (err) {
+    loginErr.textContent = String(err.message || err);
+    loginErr.classList.add("show");
+  }
+});
+
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  try {
+    await fetch(apiUrl("/api/admin/logout"), { method: "POST", credentials: "same-origin" });
+  } catch (_) { /* ignore */ }
+  showLogin();
+});
+
+document.getElementById("saveBtn").addEventListener("click", () => {
+  saveFormToStorage();
+  saveOk.classList.add("show");
+  setTimeout(() => saveOk.classList.remove("show"), 2500);
+});
+
+const backHome = document.getElementById("backHome");
+if (backHome) backHome.href = API_BASE ? API_BASE + "/" : "/";
+
+checkSession();
+</script>
+</body>
+</html>

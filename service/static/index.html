@@ -45,11 +45,20 @@
       background: var(--bg-card);
       border-bottom: 1px solid var(--border);
     }
-    .logo { font-size: 16px; font-weight: 700; background: linear-gradient(90deg, var(--blue), var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .hdr-status { margin-left: auto; font-size: 11px; color: var(--txt2); background: rgba(79,143,255,.1); border: 1px solid rgba(79,143,255,.3); padding: 4px 10px; border-radius: 20px; }
+    .logo { flex-shrink: 0; font-size: 16px; font-weight: 700; background: linear-gradient(90deg, var(--blue), var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hdr-tools { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+    .hdr-lang-wrap { display: flex; align-items: center; gap: 6px; }
+    .hdr-lang-wrap label { font-size: 10px; font-weight: 700; color: var(--txt2); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+    .hdr-lang-select { width: auto; min-width: 110px; max-width: 140px; padding: 6px 8px; font-size: 13px; }
+    .admin-link {
+      font-size: 11px; font-weight: 700; color: var(--txt2); text-decoration: none;
+      padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; white-space: nowrap;
+    }
+    .admin-link:hover { border-color: var(--blue); color: var(--blue); }
+    /* Hidden: open /admin directly when needed */
+    #adminLink { display: none !important; }
+    .hdr-status { font-size: 11px; color: var(--txt2); background: rgba(79,143,255,.1); border: 1px solid rgba(79,143,255,.3); padding: 4px 10px; border-radius: 20px; }
     .hdr-status.running { color: var(--green); border-color: rgba(43,182,125,.4); background: rgba(43,182,125,.1); }
-    .settings-btn { width: 30px; height: 30px; border: 1px solid var(--border); background: var(--bg-card); border-radius: 6px; cursor: pointer; color: var(--txt2); font-size: 15px; display: flex; align-items: center; justify-content: center; transition: all .2s; }
-    .settings-btn:hover { border-color: var(--blue); color: var(--blue); }
 
     /* ── LAYOUT ────────────────────────────────────────────── */
     .layout {
@@ -531,12 +540,6 @@
     }
     .analyst-hint { font-size: 10px; color: var(--txt2); padding: 0 2px 10px; font-style: italic; }
 
-    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; align-items: stretch; justify-content: flex-end; }
-    .overlay.show { display: flex; }
-    .settings-panel { width: 300px; background: var(--bg-card); border-left: 1px solid var(--border); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; animation: slideIn .25s ease-out; }
-    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-    .settings-close { align-self: flex-end; background: none; border: none; color: var(--txt2); font-size: 22px; cursor: pointer; }
-    .settings-close:hover { color: var(--txt); }
     .s-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--blue); margin-bottom: 6px; }
 
     ::-webkit-scrollbar { width: 5px; }
@@ -610,7 +613,6 @@
       .data-col-title { font-size: 11px; margin-bottom: 8px; }
 
       /* Settings panel — full width on mobile */
-      .settings-panel { width: 100%; border-left: none; }
 
       /* ── MOBILE TAB BAR ──────────────────────────────────── */
       .mobile-tabs {
@@ -663,8 +665,17 @@
 
 <header>
   <div class="logo">🔭 AlphaLens</div>
-  <div class="hdr-status" id="hdrStatus">Ready</div>
-  <button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
+  <div class="hdr-tools">
+    <div class="hdr-lang-wrap">
+      <label for="language_select" id="hdrLangLabel">Language</label>
+      <select id="language_select" class="hdr-lang-select" aria-label="Language">
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+      </select>
+    </div>
+    <div class="hdr-status" id="hdrStatus">Ready</div>
+    <a class="admin-link" id="adminLink" href="/admin">Admin</a>
+  </div>
 </header>
 
 <div class="layout" id="layoutRoot">
@@ -754,92 +765,6 @@
   </button>
 </nav>
 
-<!-- ── SETTINGS OVERLAY ─────────────────────────────────── -->
-<div class="overlay" id="overlay">
-  <div class="settings-panel">
-    <button class="settings-close" id="closeSettings">✕</button>
-    <div>
-      <div class="s-section-title" id="setTitleLlm">LLM Provider</div>
-      <select id="llm_provider">
-        <option value="kimi_cn" selected>Kimi</option>
-        <option value="openai">OpenAI</option>
-        <option value="anthropic">Anthropic</option>
-        <option value="google">Google</option>
-        <option value="xai">xAI (Grok)</option>
-        <option value="openrouter">OpenRouter</option>
-      </select>
-    </div>
-    <div>
-      <div class="s-section-title" id="setTitleModels">Models</div>
-      <div id="lblQuickModels" style="font-size:10px;color:var(--txt2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">Quick — fast tasks</div>
-      <select id="quick_think_llm" style="margin-bottom:8px;"></select>
-      <div id="lblDeepModels" style="font-size:10px;color:var(--txt2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">Deep — complex reasoning</div>
-      <select id="deep_think_llm"></select>
-      <div id="kimi_model_custom_wrap" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
-        <details style="font-size:12px;color:var(--txt2);">
-          <summary id="kimiAdvSummary" style="cursor:pointer;color:var(--blue);font-weight:600;">Custom models (optional)</summary>
-          <p id="kimiAdvHelp" style="font-size:11px;margin:8px 0 10px;line-height:1.45;color:var(--txt2);">Usually leave this closed. Only use if the dropdown fails and support gave you a model name.</p>
-          <div class="form-group">
-            <label id="kimiLblQuick">Replace quick model</label>
-            <input id="kimi_quick_model_custom" type="text" autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <label id="kimiLblDeep">Replace deep model</label>
-            <input id="kimi_deep_model_custom" type="text" autocomplete="off" />
-          </div>
-        </details>
-      </div>
-    </div>
-    <div>
-      <div class="s-section-title" id="setTitleDebate">Debate Rounds</div>
-      <input id="max_debate_rounds" type="number" min="1" max="5" value="1" />
-    </div>
-    <div>
-      <div class="s-section-title" id="setTitleRisk">Risk Rounds</div>
-      <input id="max_risk_discuss_rounds" type="number" min="1" max="5" value="1" />
-    </div>
-    <div>
-      <div class="s-section-title" id="setTitleBackend">Backend URL (optional)</div>
-      <input id="backend_url" placeholder="" />
-    </div>
-    <div>
-      <div class="s-section-title" id="setTitleLang">Language</div>
-      <select id="language_select">
-        <option value="en">English</option>
-        <option value="zh">中文 (Chinese)</option>
-      </select>
-    </div>
-    <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
-      <div class="s-section-title" id="setTitleApiKeys">API Keys (optional)</div>
-      <div style="font-size: 10px; color: var(--txt2); margin-bottom: 8px; font-style: italic;">Leave empty to use .env configuration</div>
-      <div class="form-group">
-        <label>OpenAI</label>
-        <input id="openai_api_key" type="password" placeholder="sk-..." />
-      </div>
-      <div class="form-group">
-        <label>Anthropic</label>
-        <input id="anthropic_api_key" type="password" placeholder="sk-ant-..." />
-      </div>
-      <div class="form-group">
-        <label>Google</label>
-        <input id="google_api_key" type="password" placeholder="AIza..." />
-      </div>
-      <div class="form-group">
-        <label>xAI (Grok)</label>
-        <input id="xai_api_key" type="password" placeholder="xai-..." />
-      </div>
-      <div class="form-group">
-        <label>OpenRouter</label>
-        <input id="openrouter_api_key" type="password" placeholder="sk-or-..." />
-      </div>
-      <div class="form-group">
-        <label id="lblMoonshotKey">Kimi API key</label>
-        <input id="moonshot_api_key" type="password" placeholder="" />
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
 // ── API base (same-origin when empty; set meta tradingagents-api-base for cross-origin UI) ──
 const _metaApiBase = document.querySelector('meta[name="tradingagents-api-base"]')?.getAttribute("content");
@@ -849,6 +774,11 @@ function apiUrl(path) {
   if (!path.startsWith("/")) path = "/" + path;
   return API_BASE ? API_BASE + path : path;
 }
+
+(function syncAdminNavLink() {
+  const a = document.getElementById("adminLink");
+  if (a) a.href = API_BASE ? API_BASE + "/admin" : "/admin";
+})();
 
 function wsUrlForJob(jid) {
   if (API_BASE) {
@@ -874,6 +804,7 @@ const TRANSLATIONS = {
     "hdr_researching": "Researching",
     "hdr_resuming": "Resuming",
     "settings": "Settings",
+    "admin_link": "Admin",
 
     // Form Labels
     "research_request": "Research Request",
@@ -1007,6 +938,7 @@ const TRANSLATIONS = {
     "hdr_researching": "研究中",
     "hdr_resuming": "恢复中",
     "settings": "设置",
+    "admin_link": "管理",
 
     // Form Labels
     "research_request": "研究请求",
@@ -1190,30 +1122,10 @@ function updateUIText() {
     if (span) dataColTitle.appendChild(span);
   }
 
-  // Settings panel (IDs — avoids clashes with nested Kimi <details>)
   const _set = (id, key) => { const el = _el(id); if (el) el.textContent = t(key); };
-  _set("setTitleLlm", "llm_provider");
-  _set("setTitleModels", "models");
-  _set("setTitleDebate", "debate_rounds");
-  _set("setTitleRisk", "risk_rounds");
-  _set("setTitleBackend", "backend_url");
-  _set("setTitleLang", "language");
-  _set("setTitleApiKeys", "api_keys_section");
-  _set("kimiAdvSummary", "kimi_adv_summary");
-  _set("kimiAdvHelp", "kimi_adv_help");
-  _set("kimiLblQuick", "kimi_lbl_quick");
-  _set("kimiLblDeep", "kimi_lbl_deep");
-  _set("lblMoonshotKey", "moonshot_key_lbl");
-  _set("lblQuickModels", "quick_models");
-  _set("lblDeepModels", "deep_models");
-  const bu = _el("backend_url");
-  if (bu) bu.placeholder = t("backend_url_ph");
-  const mk = _el("moonshot_api_key");
-  if (mk) mk.placeholder = t("moonshot_key_ph");
-  const kq = _el("kimi_quick_model_custom");
-  const kd = _el("kimi_deep_model_custom");
-  if (kq) kq.placeholder = t("kimi_ph_quick");
-  if (kd) kd.placeholder = t("kimi_ph_deep");
+  _set("hdrLangLabel", "language");
+  const adm = _el("adminLink");
+  if (adm) adm.textContent = t("admin_link");
 
   // Rebuild team cards with translated role/focus text
   populateTeamShowcase();
@@ -1263,21 +1175,74 @@ const progressFill      = document.getElementById("progressFill");
 const progressPct       = document.getElementById("progressPct");
 const progressLabel     = document.getElementById("progressLabel");
 const progressWrap      = document.getElementById("progressWrap");
-const overlay           = document.getElementById("overlay");
 const layoutRoot        = document.getElementById("layoutRoot");
 const dataPanelToggle   = document.getElementById("dataPanelToggle");
 // Form field refs (avoid repeated getElementById in hot paths)
 const tickerEl          = document.getElementById("ticker");
-const backendUrlEl      = document.getElementById("backend_url");
-const maxDebateEl       = document.getElementById("max_debate_rounds");
-const maxRiskEl         = document.getElementById("max_risk_discuss_rounds");
-const quickThinkEl      = document.getElementById("quick_think_llm");
-const deepThinkEl       = document.getElementById("deep_think_llm");
-const kimiQuickCustomEl = document.getElementById("kimi_quick_model_custom");
-const kimiDeepCustomEl  = document.getElementById("kimi_deep_model_custom");
 
-// Reads a password/text input value; returns null when empty (safe to pass to API)
-function _keyVal(id) { const el = document.getElementById(id); return el && el.value.trim() || null; }
+const LS_CFG = {
+  llm_provider: "ta_llm_provider",
+  quick_llm_provider: "ta_quick_llm_provider",
+  deep_llm_provider: "ta_deep_llm_provider",
+  quick: "ta_quick_think_llm",
+  deep: "ta_deep_think_llm",
+  max_debate: "ta_max_debate_rounds",
+  max_risk: "ta_max_risk_discuss_rounds",
+  backend: "ta_backend_url",
+  quick_backend: "ta_quick_backend_url",
+  deep_backend: "ta_deep_backend_url",
+  kimi_q: "ta_kimi_quick_custom",
+  kimi_d: "ta_kimi_deep_custom",
+  openai: "ta_openai_api_key",
+  anthropic: "ta_anthropic_api_key",
+  google: "ta_google_api_key",
+  xai: "ta_xai_api_key",
+  openrouter: "ta_openrouter_api_key",
+  moonshot: "ta_moonshot_api_key",
+};
+
+function lsGet(storageKey, fallback = "") {
+  const v = localStorage.getItem(storageKey);
+  if (v == null || v === "") return fallback;
+  return v;
+}
+
+function lsKeyOrNull(storageKey) {
+  const v = localStorage.getItem(storageKey);
+  return v && v.trim() ? v.trim() : null;
+}
+
+async function ensureConfigDefaultsFromServer() {
+  const leg = localStorage.getItem(LS_CFG.llm_provider);
+  if (leg) {
+    if (!localStorage.getItem(LS_CFG.quick_llm_provider)) localStorage.setItem(LS_CFG.quick_llm_provider, leg);
+    if (!localStorage.getItem(LS_CFG.deep_llm_provider)) localStorage.setItem(LS_CFG.deep_llm_provider, leg);
+  }
+  if (localStorage.getItem(LS_CFG.quick_llm_provider)) return;
+  try {
+    const r = await fetch(apiUrl("/api/options"));
+    const o = await r.json();
+    const d = o.llm_provider_default;
+    if (d) {
+      localStorage.setItem(LS_CFG.llm_provider, String(d));
+      localStorage.setItem(LS_CFG.quick_llm_provider, String(d));
+      localStorage.setItem(LS_CFG.deep_llm_provider, String(d));
+    }
+    const pairs = [
+      [LS_CFG.quick, o.quick_think_default],
+      [LS_CFG.deep, o.deep_think_default],
+      [LS_CFG.max_debate, String(o.max_debate_rounds_default)],
+      [LS_CFG.max_risk, String(o.max_risk_discuss_rounds_default)],
+      [LS_CFG.backend, o.backend_url_default || ""],
+    ];
+    for (const [k, v] of pairs) {
+      if (v != null && localStorage.getItem(k) == null) localStorage.setItem(k, String(v));
+    }
+  } catch (e) {
+    console.warn("ensureConfigDefaultsFromServer", e);
+  }
+}
+ensureConfigDefaultsFromServer();
 
 if (layoutRoot && dataPanelToggle) {
   dataPanelToggle.addEventListener("click", () => {
@@ -1357,63 +1322,6 @@ if (langSelect) {
 document.getElementById("hdrStatus").textContent = t("hdr_ready");
 document.getElementById("dataStatus").textContent = t("data_waiting");
 updateUIText();   // apply language to all labels immediately on load
-
-// ── MODEL LISTS PER PROVIDER ─────────────────────────────────────────────────
-const _KIMI_MODELS = {
-  quick: ["kimi-k2.5","moonshot-v1-8k","moonshot-v1-128k"],
-  deep:  ["kimi-k2.5","moonshot-v1-128k","moonshot-v1-8k"],
-};
-const PROVIDER_MODELS = {
-  openai: {
-    quick: ["gpt-4.1-mini","gpt-4o-mini","gpt-5-mini","o4-mini","o3-mini"],
-    deep:  ["gpt-4.1","gpt-4o","gpt-5.2","gpt-5","o3","o1"],
-  },
-  anthropic: {
-    quick: ["claude-haiku-4-5-20251001","claude-3-5-haiku-20241022"],
-    deep:  ["claude-sonnet-4-6","claude-opus-4-6","claude-3-7-sonnet-20250219","claude-3-5-sonnet-20241022"],
-  },
-  google: {
-    quick: ["gemini-2.5-flash","gemini-2.0-flash","gemini-1.5-flash"],
-    deep:  ["gemini-2.5-pro","gemini-2.0-pro-exp","gemini-1.5-pro"],
-  },
-  xai: {
-    quick: ["grok-3-mini","grok-2-mini"],
-    deep:  ["grok-3","grok-3-fast","grok-2"],
-  },
-  kimi:    _KIMI_MODELS,
-  kimi_cn: _KIMI_MODELS,
-  openrouter: {
-    quick: ["openai/gpt-4o-mini","anthropic/claude-haiku-4-5","google/gemini-flash-1.5","meta-llama/llama-3.3-70b-instruct"],
-    deep:  ["openai/gpt-4o","openai/gpt-4.1","anthropic/claude-sonnet-4-6","google/gemini-pro-1.5","meta-llama/llama-3.3-70b-instruct"],
-  },
-};
-
-function _populateModelSelects(provider) {
-  const m = PROVIDER_MODELS[provider] || PROVIDER_MODELS.openai;
-  const prevQ = quickThinkEl.value, prevD = deepThinkEl.value;
-  quickThinkEl.innerHTML = m.quick.map(v => `<option value="${v}">${v}</option>`).join("");
-  deepThinkEl.innerHTML  = m.deep.map(v  => `<option value="${v}">${v}</option>`).join("");
-  // Preserve selection if the model still exists in the new list
-  if (m.quick.includes(prevQ)) quickThinkEl.value = prevQ;
-  if (m.deep.includes(prevD))  deepThinkEl.value  = prevD;
-}
-
-const llmProviderSel = document.getElementById("llm_provider");
-const _kimiCustomWrap = document.getElementById("kimi_model_custom_wrap");
-function _syncKimiCustomVisibility() {
-  if (_kimiCustomWrap) _kimiCustomWrap.style.display = (llmProviderSel.value === "kimi" || llmProviderSel.value === "kimi_cn") ? "block" : "none";
-}
-_populateModelSelects(llmProviderSel.value);
-_syncKimiCustomVisibility();
-llmProviderSel.addEventListener("change", () => {
-  _populateModelSelects(llmProviderSel.value);
-  _syncKimiCustomVisibility();
-});
-
-// ── SETTINGS ─────────────────────────────────────────────────────────────────
-document.getElementById("settingsBtn").addEventListener("click", () => overlay.classList.add("show"));
-document.getElementById("closeSettings").addEventListener("click", () => overlay.classList.remove("show"));
-overlay.addEventListener("click", e => { if (e.target === overlay) overlay.classList.remove("show"); });
 
 // ── STATUS HELPERS ────────────────────────────────────────────────────────────
 function setStatus(txt, type="info") {
@@ -2046,33 +1954,43 @@ form.addEventListener("submit", async e => {
   const analysts = [...selectedAdvisors];
   if (!analysts.length) { setStatus(t("select_advisor"), "error"); return; }
 
-  const prov = llmProviderSel.value;
-  let quickModel = quickThinkEl.value.trim();
-  let deepModel  = deepThinkEl.value.trim();
-  if (prov === "kimi" || prov === "kimi_cn") {
-    const oq = kimiQuickCustomEl && kimiQuickCustomEl.value.trim();
-    const od = kimiDeepCustomEl  && kimiDeepCustomEl.value.trim();
+  await ensureConfigDefaultsFromServer();
+
+  const qProv = lsGet(LS_CFG.quick_llm_provider, "").trim() || lsGet(LS_CFG.llm_provider, "kimi_cn").trim();
+  const dProv = lsGet(LS_CFG.deep_llm_provider, "").trim() || qProv;
+  let quickModel = lsGet(LS_CFG.quick, "kimi-k2.5").trim();
+  let deepModel  = lsGet(LS_CFG.deep, "kimi-k2.5").trim();
+  if (qProv === "kimi" || qProv === "kimi_cn") {
+    const oq = lsGet(LS_CFG.kimi_q, "").trim();
     if (oq) quickModel = oq;
-    if (od) deepModel  = od;
+  }
+  if (dProv === "kimi" || dProv === "kimi_cn") {
+    const od = lsGet(LS_CFG.kimi_d, "").trim();
+    if (od) deepModel = od;
   }
 
+  const mix = qProv !== dProv;
   const payload = {
     ticker:                  tickerEl.value.trim().toUpperCase(),
     analysis_date:           new Date().toISOString().split("T")[0],
-    llm_provider:            prov,
-    backend_url:             backendUrlEl.value.trim() || null,
+    llm_provider:            qProv,
+    quick_llm_provider:      mix ? qProv : null,
+    deep_llm_provider:       mix ? dProv : null,
+    backend_url:             lsGet(LS_CFG.backend, "").trim() || null,
+    quick_backend_url:       lsKeyOrNull(LS_CFG.quick_backend),
+    deep_backend_url:        lsKeyOrNull(LS_CFG.deep_backend),
     quick_think_llm:         quickModel,
     deep_think_llm:          deepModel,
-    max_debate_rounds:       Number(maxDebateEl.value),
-    max_risk_discuss_rounds: Number(maxRiskEl.value),
+    max_debate_rounds:       Number(lsGet(LS_CFG.max_debate, "1")),
+    max_risk_discuss_rounds: Number(lsGet(LS_CFG.max_risk, "1")),
     selected_analysts:       analysts,
     language:                currentLanguage,
-    openai_api_key:          _keyVal("openai_api_key"),
-    anthropic_api_key:       _keyVal("anthropic_api_key"),
-    google_api_key:          _keyVal("google_api_key"),
-    xai_api_key:             _keyVal("xai_api_key"),
-    openrouter_api_key:      _keyVal("openrouter_api_key"),
-    moonshot_api_key:        _keyVal("moonshot_api_key"),
+    openai_api_key:          lsKeyOrNull(LS_CFG.openai),
+    anthropic_api_key:       lsKeyOrNull(LS_CFG.anthropic),
+    google_api_key:          lsKeyOrNull(LS_CFG.google),
+    xai_api_key:             lsKeyOrNull(LS_CFG.xai),
+    openrouter_api_key:      lsKeyOrNull(LS_CFG.openrouter),
+    moonshot_api_key:        lsKeyOrNull(LS_CFG.moonshot),
   };
 
   // Reset UI

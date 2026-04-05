@@ -1,7 +1,8 @@
 """
 PostgreSQL caching layer for TradingAgents analysis results.
 
-Cache key: (ticker, analysis_date, selected_analysts sorted, language).
+Cache key: (ticker, analysis_date, dimension string).
+The dimension string encodes sorted analysts, language, and an LLM profile fingerprint.
 On cache hit, stored events are replayed to the job stream — no LLM calls.
 On cache miss, results are saved after the analysis completes.
 
@@ -133,15 +134,16 @@ def init_db() -> None:
         conn.close()
 
 
-def _analysts_key(selected_analysts: list[str], language: str = "en") -> str:
-    """Canonical cache key: sorted analyst list + language tag.
-
-    Language is appended so that English and Chinese analyses for the same
-    ticker/date/analysts combination are stored and retrieved independently.
-    The ``|`` separator cannot appear in analyst names or JSON, keeping the
-    key unambiguous.
-    """
-    return json.dumps(sorted(selected_analysts)) + f"|{language}"
+def _cache_dimension_key(
+    selected_analysts: list[str],
+    language: str = "en",
+    llm_profile: str = "",
+) -> str:
+    """Canonical cache dimension: analysts + language + optional LLM profile."""
+    base = json.dumps(sorted(selected_analysts)) + f"|{language}"
+    if llm_profile:
+        return f"{base}|{llm_profile}"
+    return base
 
 
 def get_cached_analysis(
@@ -149,6 +151,7 @@ def get_cached_analysis(
     analysis_date: date,
     selected_analysts: list[str],
     language: str = "en",
+    llm_profile: str = "",
 ) -> dict[str, Any] | None:
     """Return a cached result dict, or None if not cached.
 
@@ -172,7 +175,11 @@ def get_cached_analysis(
                   AND  analysis_date = %s
                   AND  selected_analysts = %s
                 """,
-                (ticker.upper(), analysis_date, _analysts_key(selected_analysts, language)),
+                (
+                    ticker.upper(),
+                    analysis_date,
+                    _cache_dimension_key(selected_analysts, language, llm_profile),
+                ),
             )
             row = cur.fetchone()
             if row is None:
@@ -244,6 +251,7 @@ def save_analysis(
     events: list[dict[str, Any]],
     pdf_path: str | None = None,
     language: str = "en",
+    llm_profile: str = "",
 ) -> bool:
     """Persist an analysis result and its event log to the DB.
 
@@ -252,6 +260,8 @@ def save_analysis(
 
     ``pdf_path`` should be the on-disk path of the generated PDF so the raw
     bytes can be stored alongside the result.
+
+    ``llm_profile`` must match the lookup used in get_cached_analysis.
 
     Returns True if a row was committed; False if DB caching is not configured.
     """
@@ -297,7 +307,7 @@ def save_analysis(
                 (
                     ticker.upper(),
                     analysis_date,
-                    _analysts_key(selected_analysts, language),
+                    _cache_dimension_key(selected_analysts, language, llm_profile),
                     result.get("decision"),
                     result.get("final_trade_decision"),
                     result.get("human_readable_report"),

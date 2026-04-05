@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import io
 import os
 import re
+import time
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -14,7 +18,7 @@ from threading import Lock, Event as ThreadEvent
 from typing import Any, Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -37,6 +41,72 @@ load_dotenv()
 
 APP_DIR = Path(__file__).parent
 STATIC_DIR = APP_DIR / "static"
+
+# ── Admin UI (separate /admin page) ───────────────────────────────────────────
+_ADMIN_COOKIE = "ta_admin_session"
+_ADMIN_COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
+
+
+def _admin_username() -> str:
+    return (os.getenv("TRADINGAGENTS_ADMIN_USER") or "billyliu").strip()
+
+
+def _admin_password_configured() -> bool:
+    return bool((os.getenv("TRADINGAGENTS_ADMIN_PASSWORD") or "").strip())
+
+
+def _admin_session_secret() -> bytes:
+    s = (os.getenv("TRADINGAGENTS_ADMIN_SESSION_SECRET") or "").strip()
+    if s:
+        return s.encode("utf-8")
+    p = (os.getenv("TRADINGAGENTS_ADMIN_PASSWORD") or "").strip()
+    return p.encode("utf-8") if p else b""
+
+
+def _admin_verify_credentials(username: str, password: str) -> bool:
+    if not _admin_password_configured():
+        return False
+    if username != _admin_username():
+        return False
+    expected = (os.getenv("TRADINGAGENTS_ADMIN_PASSWORD") or "").strip().encode("utf-8")
+    return hmac.compare_digest(password.encode("utf-8"), expected)
+
+
+def _admin_issue_token() -> str:
+    secret = _admin_session_secret()
+    if not secret:
+        return ""
+    user = _admin_username()
+    exp = int(time.time()) + _ADMIN_COOKIE_MAX_AGE
+    payload = f"{user}|{exp}"
+    sig = hmac.new(secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return base64.urlsafe_b64encode(f"{payload}|{sig}".encode("utf-8")).decode("ascii")
+
+
+def _admin_verify_token(raw: str | None) -> bool:
+    if not raw:
+        return False
+    secret = _admin_session_secret()
+    if not secret:
+        return False
+    try:
+        inner = base64.urlsafe_b64decode(raw.encode("ascii")).decode("utf-8")
+        user, exp_s, sig = inner.rsplit("|", 2)
+        if user != _admin_username():
+            return False
+        if int(time.time()) > int(exp_s):
+            return False
+        payload = f"{user}|{exp_s}"
+        expect = hmac.new(secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expect, sig)
+    except (ValueError, OSError, UnicodeDecodeError):
+        return False
+
+
+class AdminLoginRequest(BaseModel):
+    username: str = ""
+    password: str = ""
+
 
 ANALYST_OPTIONS = ["market", "social", "news", "fundamentals"]
 LOG_BUFFER_MAX = 1000
@@ -126,6 +196,11 @@ class ExportZipRequest(BaseModel):
     filenames: list[str] = Field(default_factory=list, max_length=100)
 
 
+_LlmProvider = Literal[
+    "openai", "google", "anthropic", "xai", "kimi", "kimi_cn", "openrouter", "ollama"
+]
+
+
 class AnalyzeRequest(BaseModel):
     ticker: str = Field(..., min_length=1, description="Ticker, e.g. NVDA")
     analysis_date: date
@@ -133,10 +208,13 @@ class AnalyzeRequest(BaseModel):
         default_factory=lambda: ANALYST_OPTIONS.copy()
     )
     language: Literal["en", "zh"] = "en"
-    llm_provider: Literal[
-        "openai", "google", "anthropic", "xai", "kimi", "kimi_cn", "openrouter", "ollama"
-    ] = "kimi_cn"
+    llm_provider: _LlmProvider = "kimi_cn"
+    # When set, overrides llm_provider for that track only (mix vendors/models).
+    quick_llm_provider: _LlmProvider | None = None
+    deep_llm_provider: _LlmProvider | None = None
     backend_url: str | None = None
+    quick_backend_url: str | None = None
+    deep_backend_url: str | None = None
     deep_think_llm: str = "kimi-k2.5"
     quick_think_llm: str = "kimi-k2.5"
     max_debate_rounds: int = Field(default=1, ge=1, le=5)
@@ -181,6 +259,25 @@ class JobStatusResponse(BaseModel):
     pdf_download_urls: list[str] | None = None
     sections: dict[str, str] | None = None
     error: str | None = None
+
+
+def _llm_cache_profile(payload: AnalyzeRequest) -> str:
+    """Stable string so DB cache keys differ when LLM routing or models change."""
+    qp = payload.quick_llm_provider or payload.llm_provider
+    dp = payload.deep_llm_provider or payload.llm_provider
+    blob = {
+        "qp": qp,
+        "dp": dp,
+        "qm": payload.quick_think_llm,
+        "dm": payload.deep_think_llm,
+        "bu": (payload.backend_url or "").strip(),
+        "qbu": (payload.quick_backend_url or "").strip(),
+        "dbu": (payload.deep_backend_url or "").strip(),
+        "g": payload.google_thinking_level,
+        "oe": payload.openai_reasoning_effort,
+        "ae": payload.anthropic_effort,
+    }
+    return json.dumps(blob, sort_keys=True, default=str)
 
 
 def _as_text(value: Any) -> str:
@@ -316,10 +413,12 @@ def _build_report(state: dict[str, Any]) -> tuple[str, dict[str, str]]:
 
 def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel_event: ThreadEvent | None = None) -> dict[str, Any]:
     """Run the full analysis and return a result dict. Called by both sync and async paths."""
+    qp = payload.quick_llm_provider or payload.llm_provider
+    dp = payload.deep_llm_provider or payload.llm_provider
     _log(
         "Analyze request received "
         f"ticker={payload.ticker} date={payload.analysis_date.isoformat()} "
-        f"provider={payload.llm_provider} analysts={','.join(payload.selected_analysts)} "
+        f"quick={qp} deep={dp} analysts={','.join(payload.selected_analysts)} "
         f"debate_rounds={payload.max_debate_rounds} risk_rounds={payload.max_risk_discuss_rounds}"
     )
 
@@ -331,6 +430,8 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
 
     config = DEFAULT_CONFIG.copy()
     config["llm_provider"] = payload.llm_provider
+    config["quick_llm_provider"] = payload.quick_llm_provider
+    config["deep_llm_provider"] = payload.deep_llm_provider
     config["deep_think_llm"] = payload.deep_think_llm
     config["quick_think_llm"] = payload.quick_think_llm
     config["max_debate_rounds"] = payload.max_debate_rounds
@@ -341,6 +442,8 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
 
     if payload.backend_url:
         config["backend_url"] = payload.backend_url
+    config["quick_backend_url"] = (payload.quick_backend_url or "").strip() or None
+    config["deep_backend_url"] = (payload.deep_backend_url or "").strip() or None
 
     # Add API key override from request if provided (overrides .env)
     api_key_fields = {
@@ -486,8 +589,7 @@ def _cache_lookup(payload: AnalyzeRequest, label: str = "") -> dict[str, Any] | 
     """Check the DB cache for a previous analysis with identical parameters.
 
     Returns the cached result dict on hit, or None on miss / DB unavailable.
-    The cache key is (ticker, analysis_date, selected_analysts sorted, language)
-    so results are shared across all users and sessions automatically.
+    The cache key also includes an LLM profile (providers, models, backends, effort).
     """
     prefix = f"[{label}] " if label else ""
     try:
@@ -496,6 +598,7 @@ def _cache_lookup(payload: AnalyzeRequest, label: str = "") -> dict[str, Any] | 
             payload.analysis_date,
             list(payload.selected_analysts),
             language=payload.language,
+            llm_profile=_llm_cache_profile(payload),
         )
     except Exception as exc:
         _log(f"{prefix}DB lookup error (skipping cache): {exc}")
@@ -527,6 +630,7 @@ def _cache_save(payload: AnalyzeRequest, result: dict[str, Any],
             events,
             pdf_path,
             language=payload.language,
+            llm_profile=_llm_cache_profile(payload),
         ):
             _log(f"{prefix}Saved to DB cache ticker={payload.ticker}")
         else:
@@ -723,11 +827,55 @@ def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/admin")
+def admin_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "admin.html")
+
+
+@app.post("/api/admin/login")
+def admin_login(body: AdminLoginRequest, response: Response) -> dict[str, bool]:
+    if not _admin_password_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Admin login is not configured (set TRADINGAGENTS_ADMIN_PASSWORD in .env).",
+        )
+    if not _admin_verify_credentials(body.username.strip(), body.password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    token = _admin_issue_token()
+    if not token:
+        raise HTTPException(status_code=503, detail="Could not issue session (check admin env vars).")
+    response.set_cookie(
+        key=_ADMIN_COOKIE,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=_ADMIN_COOKIE_MAX_AGE,
+        path="/",
+    )
+    return {"ok": True}
+
+
+@app.post("/api/admin/logout")
+def admin_logout(response: Response) -> dict[str, bool]:
+    response.delete_cookie(_ADMIN_COOKIE, path="/")
+    return {"ok": True}
+
+
+@app.get("/api/admin/me")
+def admin_me(request: Request) -> dict[str, Any]:
+    tok = request.cookies.get(_ADMIN_COOKIE)
+    if _admin_verify_token(tok):
+        return {"ok": True, "user": _admin_username()}
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+
 @app.get("/api/options")
 def options() -> dict[str, Any]:
     return {
         "analysts": ANALYST_OPTIONS,
         "llm_provider_default": DEFAULT_CONFIG["llm_provider"],
+        "quick_llm_provider_default": DEFAULT_CONFIG.get("quick_llm_provider"),
+        "deep_llm_provider_default": DEFAULT_CONFIG.get("deep_llm_provider"),
         "deep_think_default": DEFAULT_CONFIG["deep_think_llm"],
         "quick_think_default": DEFAULT_CONFIG["quick_think_llm"],
         "max_debate_rounds_default": DEFAULT_CONFIG["max_debate_rounds"],

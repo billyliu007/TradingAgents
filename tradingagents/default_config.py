@@ -9,9 +9,15 @@ DEFAULT_CONFIG = {
     ),
     # LLM settings (default Kimi China — use MOONSHOT_API_KEY + MOONSHOT_API_BASE in .env)
     "llm_provider": "kimi_cn",
+    # When None, quick/deep use llm_provider. Set to mix vendors (e.g. OpenAI quick + Kimi deep).
+    "quick_llm_provider": None,
+    "deep_llm_provider": None,
     "deep_think_llm": "kimi-k2.5",
     "quick_think_llm": "kimi-k2.5",
     "backend_url": "https://api.openai.com/v1",
+    # Optional per-track API base; when None, backend_url is used.
+    "quick_backend_url": None,
+    "deep_backend_url": None,
     # Language settings
     "language": "en",  # "en" for English, "zh" for Chinese
     # Provider-specific thinking configuration
