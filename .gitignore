@@ -224,9 +224,8 @@ eval_results/
 # Generated PDF exports from the HTTP service
 exports/
 
-# macOS / local run outputs
+# macOS
 .DS_Store
-results/
 
 # Google service account credentials (never commit private keys)
 Google/
