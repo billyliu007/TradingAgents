@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 
 from service.analysis import cache_lookup, cache_save, execute_analysis, normalize_analyze_request
+from service.content_sanitize import strip_llm_fake_tool_artifacts
 from service.schemas import AnalyzeRequest, AnalyzeResponse
 from service.server_logging import log_message
 
@@ -12,11 +13,22 @@ def sync_analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
     cached = cache_lookup(payload, label="sync")
     if cached is not None:
         log_message(f"[sync] Cache hit ticker={payload.ticker} lang={payload.language}")
+        raw_sections = cached.get("sections") or {}
+        sections_out: dict[str, str] = {}
+        for k, v in raw_sections.items():
+            if isinstance(v, str):
+                t = strip_llm_fake_tool_artifacts(v)
+                if t:
+                    sections_out[k] = t
+            elif v is not None:
+                sections_out[k] = str(v)
         return AnalyzeResponse(
             decision=cached["decision"],
             final_trade_decision=cached.get("final_trade_decision", ""),
-            human_readable_report=cached.get("human_readable_report", ""),
-            sections=cached.get("sections") or {},
+            human_readable_report=strip_llm_fake_tool_artifacts(
+                cached.get("human_readable_report") or ""
+            ),
+            sections=sections_out,
             raw_state={},
             pdf_filenames=None,
             pdf_download_urls=None,

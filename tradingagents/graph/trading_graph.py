@@ -66,7 +66,7 @@ class TradingAgentsGraph:
             config: Configuration dictionary. If None, uses default config
             callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
             progress_callback: Optional callback for progress messages during execution
-            language: Language for agent prompts ('en' or 'zh')
+            language: Language for agent prompts ('en', 'zh', 'es', or 'ja')
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG

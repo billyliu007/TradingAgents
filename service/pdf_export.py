@@ -164,6 +164,72 @@ def _safe_ticker(ticker: str) -> str:
     return cleaned[:32] or "TICKER"
 
 
+def _language_uses_cjk_font(language: str) -> bool:
+    """Chinese and Japanese body text needs a CJK-capable font (bundled WQY-ZenHei, etc.)."""
+    return (language or "").strip().lower() in ("zh", "ja")
+
+
+# Cover / footer strings per analysis language (PDF shell is localized; report body follows the LLM).
+_PDF_COVER: dict[str, dict[str, str]] = {
+    "en": {
+        "title": "TradingAgents analysis report",
+        "label_ticker": "Ticker",
+        "label_date": "As-of session date (daily close)",
+        "label_analysts": "Analysts",
+        "label_decision": "Decision",
+        "label_report": "Report",
+        "note": "Note: OHLCV from Yahoo Finance is aligned to include this session date.",
+        "tz_note": (
+            "Timezone: the as-of date is the calendar date in US Eastern time "
+            "(America/New_York). The next analysis day begins at 00:00 local Eastern."
+        ),
+        "empty_body": "No report content.",
+    },
+    "zh": {
+        "title": "交易代理分析报告",
+        "label_ticker": "股票代码",
+        "label_date": "截至会话日期（日收盘）",
+        "label_analysts": "分析师",
+        "label_decision": "决策",
+        "label_report": "报告",
+        "note": "注：雅虎财经的OHLCV数据与此会话日期对齐。",
+        "tz_note": (
+            "时区说明：截至日期为美国东部时区（America/New_York）的公历日；"
+            "以当地 00:00 作为下一分析日的分界。"
+        ),
+        "empty_body": "没有报告内容。",
+    },
+    "es": {
+        "title": "Informe de análisis TradingAgents",
+        "label_ticker": "Ticker",
+        "label_date": "Fecha de la sesión (cierre diario)",
+        "label_analysts": "Analistas",
+        "label_decision": "Decisión",
+        "label_report": "Informe",
+        "note": "Nota: los OHLCV de Yahoo Finance están alineados con esta fecha de sesión.",
+        "tz_note": (
+            "Zona horaria: la fecha de referencia es el día calendario en hora del Este de EE. UU. "
+            "(America/New_York). El siguiente día de análisis comienza a las 00:00 hora local del Este."
+        ),
+        "empty_body": "Sin contenido del informe.",
+    },
+    "ja": {
+        "title": "TradingAgents 分析レポート",
+        "label_ticker": "ティッカー",
+        "label_date": "基準日（日足終値）",
+        "label_analysts": "アナリスト",
+        "label_decision": "結論",
+        "label_report": "レポート",
+        "note": "注: Yahoo Finance の OHLCV はこのセッション日に整合しています。",
+        "tz_note": (
+            "タイムゾーン: 基準日は米東部（America/New_York）の暦日です。"
+            "次の分析日は現地 0:00 で始まります。"
+        ),
+        "empty_body": "レポートの内容がありません。",
+    },
+}
+
+
 def export_filename(
     ticker: str,
     analysis_date: date,
@@ -262,8 +328,9 @@ def write_analysis_pdf(
 
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=18)
-    if language == "zh":
-        family = _require_dejavu(pdf)
+    lang_key = (language or "en").strip().lower()
+    if _language_uses_cjk_font(lang_key):
+        family = _require_cjk(pdf)
     else:
         family = _register_font(pdf)
     pdf.add_page()
@@ -273,31 +340,16 @@ def write_analysis_pdf(
     pdf.set_left_margin(lm)
     usable_w = pdf.w - lm - rm
 
-    # Localized strings
-    if language == "zh":
-        title = "交易代理分析报告"
-        label_ticker = "股票代码"
-        label_date = "截至会话日期（日收盘）"
-        label_analysts = "分析师"
-        label_decision = "决策"
-        label_report = "报告"
-        note = "注：雅虎财经的OHLCV数据与此会话日期对齐。"
-        tz_note = (
-            "时区说明：截至日期为美国东部时区（America/New_York）的公历日；"
-            "以当地 00:00 作为下一分析日的分界。"
-        )
-    else:  # English
-        title = "TradingAgents analysis report"
-        label_ticker = "Ticker"
-        label_date = "As-of session date (daily close)"
-        label_analysts = "Analysts"
-        label_decision = "Decision"
-        label_report = "Report"
-        note = "Note: OHLCV from Yahoo Finance is aligned to include this session date."
-        tz_note = (
-            "Timezone: the as-of date is the calendar date in US Eastern time "
-            "(America/New_York). The next analysis day begins at 00:00 local Eastern."
-        )
+    cov = _PDF_COVER.get(lang_key, _PDF_COVER["en"])
+    title = cov["title"]
+    label_ticker = cov["label_ticker"]
+    label_date = cov["label_date"]
+    label_analysts = cov["label_analysts"]
+    label_decision = cov["label_decision"]
+    label_report = cov["label_report"]
+    note = cov["note"]
+    tz_note = cov["tz_note"]
+    empty_body = cov["empty_body"]
 
     pdf.set_font(family, "B", 16)
     pdf.multi_cell(usable_w, 10, title)
@@ -319,7 +371,7 @@ def write_analysis_pdf(
     pdf.multi_cell(usable_w, 8, label_report)
     pdf.ln(2)
     pdf.set_font(family, "", 10)
-    _write_body(pdf, family, human_readable_report or ("No report content." if language == "en" else "没有报告内容。"), usable_w, 5)
+    _write_body(pdf, family, human_readable_report or empty_body, usable_w, 5)
 
     pdf.output(str(path))
 

@@ -11,6 +11,11 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 from service import db
 from service.analysis_dates import normalize_analysis_date
+from service.content_sanitize import (
+    sanitize_event_payload,
+    sanitize_log_event,
+    strip_llm_fake_tool_artifacts,
+)
 from service.constants import ANALYST_OPTIONS
 from service.export_paths import exports_dir
 from service.job_store import jobs, jobs_lock
@@ -85,6 +90,7 @@ _TOOL_LABELS: dict[str, tuple[str, str]] = {
 
 def emit_event(job_id: str, event_type: str, data: dict[str, Any]) -> None:
     """Emit event (thread-safe, appends to persistent event log)."""
+    data = sanitize_event_payload(event_type, data)
     event = {"type": event_type, "timestamp": datetime.now(timezone.utc).isoformat(), **data}
     with jobs_lock:
         if job_id in jobs:
@@ -155,7 +161,7 @@ def build_report(state: dict[str, Any]) -> tuple[str, dict[str, str]]:
     }
 
     for title, content in mapping.items():
-        text = as_text(content)
+        text = strip_llm_fake_tool_artifacts(as_text(content))
         if text:
             sections[title] = text
 
@@ -426,7 +432,7 @@ def replay_cached_job(job_id: str, payload: AnalyzeRequest, cached: dict[str, An
                 "pdf_download_url": pdf_download_url,
             })
         else:
-            replayed_events.append(event)
+            replayed_events.append(sanitize_log_event(event))
 
     # Bulk-append events, then mark done (singular + plural PDF keys for WS + JobStatusResponse).
     with jobs_lock:

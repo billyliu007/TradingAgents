@@ -19,7 +19,7 @@ DEFAULT_CONFIG = {
     "quick_backend_url": None,
     "deep_backend_url": None,
     # Language settings
-    "language": "en",  # "en" for English, "zh" for Chinese
+    "language": "en",  # "en" | "zh" | "es" | "ja"
     # Provider-specific thinking configuration
     "google_thinking_level": None,      # "high", "minimal", etc.
     "openai_reasoning_effort": None,    # "medium", "high", "low"
