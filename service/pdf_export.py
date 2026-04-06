@@ -190,70 +190,98 @@ _PDF_COVER: dict[str, dict[str, str]] = {
     "en": {
         "title": "TradingAgents analysis report",
         "label_ticker": "Ticker",
-        "label_date": "As-of session date (daily close)",
+        "label_date": "Report generation date (US Eastern)",
         "label_analysts": "Analysts",
         "label_decision": "Decision",
         "label_report": "Report",
-        "note": "Note: OHLCV from Yahoo Finance is aligned to include this session date.",
+        "note": (
+            "Note: Quoted OHLCV and indicators use this calendar date as the analysis "
+            "horizon where applicable."
+        ),
         "tz_note": (
-            "Timezone: the as-of date is the calendar date in US Eastern time "
-            "(America/New_York). The next analysis day begins at 00:00 local Eastern."
+            "This is the US Eastern (America/New_York) calendar date for this analysis run "
+            "and this PDF."
+        ),
+        "legal_disclaimer": (
+            "Research and education only. This report is an AI-generated simulation and "
+            "is not investment, legal, or tax advice. Incorporates the open-source "
+            "TradingAgents framework (Tauric Research), licensed under Apache-2.0."
         ),
         "empty_body": "No report content.",
     },
     "zh": {
         "title": "交易代理分析报告",
         "label_ticker": "股票代码",
-        "label_date": "截至会话日期（日收盘）",
+        "label_date": "报告生成日期（美国东部）",
         "label_analysts": "分析师",
         "label_decision": "决策",
         "label_report": "报告",
-        "note": "注：雅虎财经的OHLCV数据与此会话日期对齐。",
+        "note": "注：引用的 OHLCV 与指标在适用情况下以此公历日为分析截止日。",
         "tz_note": (
-            "时区说明：截至日期为美国东部时区（America/New_York）的公历日；"
-            "以当地 00:00 作为下一分析日的分界。"
+            "上述日期为美国东部（America/New_York）时区下本次分析与生成本 PDF 的公历日。"
+        ),
+        "legal_disclaimer": (
+            "仅供研究与教育。本报告为 AI 生成模拟，不构成投资、法律或税务建议。"
+            "使用开源 TradingAgents 框架（Tauric Research），Apache-2.0 许可。"
         ),
         "empty_body": "没有报告内容。",
     },
     "zh-hant": {
         "title": "TradingAgents 分析報告",
         "label_ticker": "股票代號",
-        "label_date": "截至會話日期（日收盤）",
+        "label_date": "報告生成日期（美國東部）",
         "label_analysts": "分析師",
         "label_decision": "決策",
         "label_report": "報告",
-        "note": "註：Yahoo Finance 的 OHLCV 與此會話日期對齊。",
+        "note": "註：引用的 OHLCV 與指標在適用情況下以此曆日為分析截止日。",
         "tz_note": (
-            "時區說明：截至日期為美國東部時區（America/New_York）的曆日；"
-            "下一分析日以當地 00:00 為界。"
+            "上述日期為美國東部（America/New_York）時區下本次分析與產生本 PDF 的曆日。"
+        ),
+        "legal_disclaimer": (
+            "僅供研究與教育。本報告為 AI 生成模擬，不構成投資、法律或稅務建議。"
+            "使用開源 TradingAgents 框架（Tauric Research），Apache-2.0 許可。"
         ),
         "empty_body": "沒有報告內容。",
     },
     "es": {
         "title": "Informe de análisis TradingAgents",
         "label_ticker": "Ticker",
-        "label_date": "Fecha de la sesión (cierre diario)",
+        "label_date": "Fecha de generación del informe (Este de EE. UU.)",
         "label_analysts": "Analistas",
         "label_decision": "Decisión",
         "label_report": "Informe",
-        "note": "Nota: los OHLCV de Yahoo Finance están alineados con esta fecha de sesión.",
+        "note": (
+            "Nota: los OHLCV e indicadores citados usan esta fecha calendario como horizonte "
+            "del análisis cuando aplica."
+        ),
         "tz_note": (
-            "Zona horaria: la fecha de referencia es el día calendario en hora del Este de EE. UU. "
-            "(America/New_York). El siguiente día de análisis comienza a las 00:00 hora local del Este."
+            "Fecha calendario en hora del Este de EE. UU. (America/New_York) de esta ejecución "
+            "de análisis y de este PDF."
+        ),
+        "legal_disclaimer": (
+            "Solo para investigación y educación. Este informe es una simulación generada por IA y "
+            "no constituye asesoramiento de inversión, legal ni fiscal. Incluye el framework "
+            "open source TradingAgents (Tauric Research), bajo licencia Apache-2.0."
         ),
         "empty_body": "Sin contenido del informe.",
     },
     "ja": {
         "title": "TradingAgents 分析レポート",
         "label_ticker": "ティッカー",
-        "label_date": "基準日（日足終値）",
+        "label_date": "レポート生成日（米東部）",
         "label_analysts": "アナリスト",
         "label_decision": "結論",
         "label_report": "レポート",
-        "note": "注: Yahoo Finance の OHLCV はこのセッション日に整合しています。",
+        "note": (
+            "注: 引用する OHLCV や指標は、必要に応じてこの暦日を分析の基準日として使用します。"
+        ),
         "tz_note": (
-            "タイムゾーン: 基準日は米東部（America/New_York）の暦日です。"
-            "次の分析日は現地 0:00 で始まります。"
+            "米東部（America/New_York）暦日での、本分析実行および本 PDF の基準日です。"
+        ),
+        "legal_disclaimer": (
+            "研究・教育目的のみ。本レポートは AI によるシミュレーションであり、"
+            "投資・法務・税務のアドバイスではありません。オープンソースの "
+            "TradingAgents フレームワーク（Tauric Research）を利用、Apache-2.0 ライセンス。"
         ),
         "empty_body": "レポートの内容がありません。",
     },
@@ -321,13 +349,8 @@ def _register_cjk_font(pdf: FPDF) -> str:
 
 
 def _require_cjk(pdf: FPDF) -> str:
-    """CJK font required for Chinese / bilingual PDFs."""
+    """CJK font required for Chinese / Japanese PDF export."""
     return _register_cjk_font(pdf)
-
-
-def _require_dejavu(pdf: FPDF) -> str:
-    """Alias kept for compatibility — now delegates to _require_cjk."""
-    return _require_cjk(pdf)
 
 
 def _write_body(
@@ -390,6 +413,7 @@ def write_analysis_pdf(
     label_report = cov["label_report"]
     note = cov["note"]
     tz_note = cov["tz_note"]
+    legal_disclaimer = cov.get("legal_disclaimer", _PDF_COVER["en"]["legal_disclaimer"])
     empty_body = cov["empty_body"]
 
     pdf.set_font(family, "B", 16)
@@ -404,6 +428,7 @@ def write_analysis_pdf(
         f"{label_decision}: {decision or 'N/A'}",
         note,
         tz_note,
+        legal_disclaimer,
     ]
     pdf.multi_cell(usable_w, 6, "\n".join(meta_lines), **_MC_LEFT)
     pdf.ln(6)
@@ -420,86 +445,6 @@ def write_analysis_pdf(
         5,
         body_language=lang_key,
     )
-
-    pdf.output(str(path))
-
-
-def write_bilingual_analysis_pdf(
-    path: Path,
-    *,
-    ticker: str,
-    analysis_date: date,
-    analysts: list[str],
-    decision_en: str,
-    report_en: str,
-    decision_zh: str,
-    report_zh: str,
-) -> None:
-    """One PDF: English report first, then Chinese on a new page (same ticker/date)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=18)
-    family = _require_dejavu(pdf)
-    pdf.add_page()
-
-    lm = rm = 18
-    pdf.set_margins(lm, 18, rm)
-    pdf.set_left_margin(lm)
-    usable_w = pdf.w - lm - rm
-    sym = ticker.strip().upper()
-    analyst_line = ", ".join(analysts)
-
-    pdf.set_font(family, "B", 15)
-    pdf.multi_cell(usable_w, 8, "TradingAgents — Bilingual analysis report", **_MC_LEFT)
-    pdf.set_font(family, "", 10)
-    pdf.multi_cell(usable_w, 6, "English section first, followed by 中文报告", **_MC_LEFT)
-    pdf.ln(5)
-
-    # ── English (front) ─────────────────────────────────────────────────────
-    pdf.set_font(family, "B", 13)
-    pdf.multi_cell(usable_w, 8, "English", **_MC_LEFT)
-    pdf.ln(2)
-    pdf.set_font(family, "", 10)
-    en_meta = [
-        f"Ticker: {sym}",
-        f"As-of session date (daily close): {analysis_date.isoformat()}",
-        f"Analysts: {analyst_line}",
-        f"Decision: {decision_en or 'N/A'}",
-        "Note: OHLCV from Yahoo Finance is aligned to include this session date.",
-        "Timezone: as-of date is the calendar date in US Eastern (America/New_York); "
-        "the next analysis day starts at 00:00 local Eastern.",
-    ]
-    pdf.multi_cell(usable_w, 6, "\n".join(en_meta), **_MC_LEFT)
-    pdf.ln(4)
-    pdf.set_font(family, "B", 12)
-    pdf.multi_cell(usable_w, 8, "Report", **_MC_LEFT)
-    pdf.ln(2)
-    pdf.set_font(family, "", 10)
-    _write_body(pdf, family, report_en or "No report content.", usable_w, 5, body_language="en")
-
-    pdf.add_page()
-
-    # ── Chinese (after English) ─────────────────────────────────────────────
-    pdf.set_font(family, "B", 13)
-    pdf.multi_cell(usable_w, 8, "中文", **_MC_LEFT)
-    pdf.ln(2)
-    pdf.set_font(family, "", 10)
-    zh_meta = [
-        f"股票代码: {sym}",
-        f"截至会话日期（日收盘）: {analysis_date.isoformat()}",
-        f"分析师: {analyst_line}",
-        f"决策: {decision_zh or 'N/A'}",
-        "注：雅虎财经的 OHLCV 数据与此会话日期对齐。",
-        "时区说明：截至日期为美国东部（America/New_York）公历日；下一分析日以当地 00:00 为界。",
-    ]
-    pdf.multi_cell(usable_w, 6, "\n".join(zh_meta), **_MC_LEFT)
-    pdf.ln(4)
-    pdf.set_font(family, "B", 12)
-    pdf.multi_cell(usable_w, 8, "报告", **_MC_LEFT)
-    pdf.ln(2)
-    pdf.set_font(family, "", 10)
-    _write_body(pdf, family, report_zh or "没有报告内容。", usable_w, 5, body_language="zh")
 
     pdf.output(str(path))
 

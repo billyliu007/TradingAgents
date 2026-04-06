@@ -1,0 +1,13 @@
+Third-party notices
+===================
+
+This distribution includes software derived from the TradingAgents project
+(Tauric Research):
+
+  https://github.com/TauricResearch/TradingAgents
+
+That upstream work is licensed under the Apache License, Version 2.0.
+A copy of that license is included in this repository as the file "LICENSE".
+
+The bundled TradingAgents-derived code may have been modified for this
+application; see version control history for changes.
