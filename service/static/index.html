@@ -866,7 +866,7 @@
   <div class="hdr-tools">
     <div class="hdr-status" id="hdrStatus">Ready</div>
     <a class="admin-link" id="adminLink" href="/admin">Admin</a>
-    <div class="hdr-lang-wrap" role="group" aria-label="Language" id="hdrLangGroup">
+    <div class="hdr-lang-wrap" role="group" aria-label="Language" id="hdrLangWrap">
       <div class="hdr-lang-seg" id="hdrLangSeg"></div>
     </div>
   </div>
@@ -1263,8 +1263,10 @@ const TRANSLATIONS = {
 
 /**
  * UI locales for the header control (order = display order).
- * When adding a language: append here and add a matching top-level key on TRANSLATIONS.
- * `label` is the short control text; `htmlLang` is BCP 47 for <html lang="">.
+ * Add `{ code, label, htmlLang }` plus a `TRANSLATIONS[code]` block for each language.
+ *
+ * Initial UI language: saved `ta_language_v2` if valid, else exact `navigator.language`
+ * (lowercased) if it matches a `code`, else English. No other guessing.
  */
 const DEFAULT_LOCALE = "en";
 const SUPPORTED_LOCALES = [
@@ -1280,12 +1282,8 @@ function resolveInitialLanguage() {
   const codes = _localeCodes();
   const saved = localStorage.getItem("ta_language_v2");
   if (saved && codes.has(saved)) return saved;
-  const raw = (navigator.language || DEFAULT_LOCALE).toLowerCase();
-  if (codes.has(raw)) return raw;
-  const base = raw.split("-")[0];
-  for (const loc of SUPPORTED_LOCALES) {
-    if (loc.code === base) return loc.code;
-  }
+  const nav = (navigator.language || DEFAULT_LOCALE).toLowerCase();
+  if (codes.has(nav)) return nav;
   return DEFAULT_LOCALE;
 }
 
@@ -1379,8 +1377,8 @@ function updateUIText() {
   }
 
   const _set = (id, key) => { const el = _el(id); if (el) el.textContent = t(key); };
-  const lg = _el("hdrLangGroup");
-  if (lg) lg.setAttribute("aria-label", t("language"));
+  const lw = _el("hdrLangWrap");
+  if (lw) lw.setAttribute("aria-label", t("language"));
   syncLangButtons();
   const adm = _el("adminLink");
   if (adm) adm.textContent = t("admin_link");
@@ -1389,6 +1387,8 @@ function updateUIText() {
   populateTeamShowcase();
 
   refreshTeamWorkingSplashI18n();
+
+  syncHdrStatusForLanguage();
 
   syncDataPanelToggleUi();
 }
@@ -1426,7 +1426,6 @@ const form              = document.getElementById("analyzeForm");
 const actionBtn         = document.getElementById("actionBtn");
 const clearBtn          = document.getElementById("clearBtn");
 const statusMsg         = document.getElementById("statusMsg");
-const hdrStatus         = document.getElementById("hdrStatus");
 const chatFeed          = document.getElementById("chatFeed");
 function removeTeamWorkingSplash() {
   const el = document.getElementById("teamWorkingSplash");
@@ -1510,7 +1509,7 @@ function _analystProgressPct() {
 
 // ── LANGUAGE TOGGLE (segmented control, data-driven) ─────────────────────────
 (function bindLangSelector() {
-  const g = _el("hdrLangGroup");
+  const g = _el("hdrLangWrap");
   if (!g || g.dataset.langBound === "1") return;
   g.dataset.langBound = "1";
   g.addEventListener("click", (e) => {
@@ -1524,8 +1523,26 @@ function _analystProgressPct() {
 // ── INITIALIZE UI TEXT ────────────────────────────────────────────────────────
 document.documentElement.lang = localeHtmlLang(currentLanguage);
 buildLangSelector();
-document.getElementById("hdrStatus").textContent = t("hdr_ready");
 document.getElementById("dataStatus").textContent = t("data_waiting");
+
+const _savedJobInit    = localStorage.getItem(LS_JOB);
+const _savedTickerInit = localStorage.getItem(LS_TICKER);
+if (_savedJobInit) {
+  jobId = _savedJobInit;
+  jobDone = false;
+  wsReconnectDelay = TIMING.WS_INITIAL_DELAY;
+  setStatus(t("reconnecting_prev"), "info");
+  setRunningUI(true);
+  setProgress(5, t("reconnecting"));
+  setHdrStatusState("resuming", _savedTickerInit || "");
+  mountTeamWorkingSplash(_savedTickerInit || tickerEl.value.trim().toUpperCase() || "");
+  connectWS(_savedJobInit);
+} else {
+  setHdrStatusState("ready");
+  const showcase = document.getElementById("teamShowcase");
+  if (showcase) showcase.style.display = "block";
+}
+
 updateUIText();   // apply language to all labels immediately on load
 
 // ── STATUS HELPERS ────────────────────────────────────────────────────────────
@@ -1562,6 +1579,52 @@ function setRunningUI(running) {
     actionBtn.textContent = t("btn_start");
   }
   clearBtn.style.display = running ? "none" : "block";
+}
+
+function syncHdrStatusForLanguage() {
+  const el = document.getElementById("hdrStatus");
+  if (!el) return;
+  const mode = el.dataset.hdrMode || "ready";
+  const tick = el.dataset.hdrTicker || "";
+  const running = mode === "researching" || mode === "resuming";
+  el.className = running ? "hdr-status running" : "hdr-status";
+  switch (mode) {
+    case "ready":
+      el.textContent = t("hdr_ready");
+      break;
+    case "researching":
+      el.textContent = `${t("hdr_researching")} ${tick}...`.trim();
+      break;
+    case "resuming":
+      el.textContent = `${t("hdr_resuming")} ${tick}...`.trim();
+      break;
+    case "complete":
+      el.textContent = t("hdr_complete");
+      break;
+    case "stopped":
+      el.textContent = t("hdr_stopped");
+      break;
+    case "failed":
+      el.textContent = t("hdr_failed");
+      break;
+    default:
+      el.textContent = t("hdr_ready");
+  }
+}
+
+function setHdrStatusState(mode, ticker) {
+  const el = document.getElementById("hdrStatus");
+  if (!el) return;
+  el.dataset.hdrMode = mode;
+  if (mode === "researching" || mode === "resuming") {
+    const tk = (ticker != null && String(ticker).trim() !== "")
+      ? String(ticker).trim()
+      : (localStorage.getItem(LS_TICKER) || "").trim();
+    el.dataset.hdrTicker = tk;
+  } else {
+    delete el.dataset.hdrTicker;
+  }
+  syncHdrStatusForLanguage();
 }
 
 // ── CHAT HELPERS ──────────────────────────────────────────────────────────────
@@ -2152,7 +2215,7 @@ function connectWS(jid, isReconnect) {
         jobDone = true;
         setStatus(t("previous_job_not_found"), "error");
         clearSaved(); setRunningUI(false);
-        hdrStatus.textContent = t("hdr_ready"); hdrStatus.className = "hdr-status";
+        setHdrStatusState("ready");
         progressWrap.classList.remove("show");
         remountTeamShowcaseInChatFeed();
         delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
@@ -2223,7 +2286,7 @@ function connectWS(jid, isReconnect) {
       removeTeamWorkingSplash();
       jobDone = true; wsReconnectDelay = 1000;
       setProgress(100, t("analysis_complete"), true);
-      hdrStatus.textContent = t("hdr_complete"); hdrStatus.className = "hdr-status";
+      setHdrStatusState("complete");
       setStatus(t("complete_success"), "success");
       if (ev.decision) {
         addSectionLabel(t("final_recommendation"));
@@ -2253,7 +2316,7 @@ function connectWS(jid, isReconnect) {
       removeTeamWorkingSplash();
       jobDone = true; wsReconnectDelay = 1000;
       setProgress(progress, "Analysis stopped");
-      hdrStatus.textContent = t("hdr_stopped"); hdrStatus.className = "hdr-status";
+      setHdrStatusState("stopped");
       setStatus(t("analysis_stopped"), "warn");
       addSystemMsg("⏹", t("stopped_partial"), "var(--txt2)");
       dataStatus.textContent = t("data_stopped");
@@ -2266,7 +2329,7 @@ function connectWS(jid, isReconnect) {
       removeTeamWorkingSplash();
       jobDone = true; wsReconnectDelay = 1000;
       setProgress(0, "Analysis failed");
-      hdrStatus.textContent = t("hdr_failed"); hdrStatus.className = "hdr-status";
+      setHdrStatusState("failed");
       setStatus(`❌ ${ev.error}`, "error");
       if (dataStatus) dataStatus.textContent = t("data_waiting");
       setRunningUI(false); clearSaved();
@@ -2380,7 +2443,7 @@ form.addEventListener("submit", async e => {
   newMsgsPill.classList.remove("show"); _unreadMsgs = 0;
   setDataPlaceholder("data_raw_placeholder");
   progress = 0; setProgress(5, t("submitting_request"));
-  hdrStatus.textContent = `${t("hdr_researching")} ${payload.ticker}...`; hdrStatus.className = "hdr-status running";
+  setHdrStatusState("researching", payload.ticker);
   setStatus(t("submitting"), "info");
 
   try {
@@ -2389,7 +2452,7 @@ form.addEventListener("submit", async e => {
       const b = await r.json();
       setStatus(t("error_generic") + (typeof b.detail === "string" ? b.detail : JSON.stringify(b.detail)), "error");
       setRunningUI(false);
-      hdrStatus.textContent = t("hdr_ready"); hdrStatus.className = "hdr-status";
+      setHdrStatusState("ready");
       progress = 0;
       progressFill.style.width = "0%";
       progressPct.textContent = "0%";
@@ -2409,7 +2472,7 @@ form.addEventListener("submit", async e => {
   } catch(err) {
     setStatus(t("error_generic") + err.message, "error");
     setRunningUI(false);
-    hdrStatus.textContent = t("hdr_ready"); hdrStatus.className = "hdr-status";
+    setHdrStatusState("ready");
     progress = 0;
     progressFill.style.width = "0%";
     progressPct.textContent = "0%";
@@ -2428,7 +2491,7 @@ function clearSaved() {
 clearBtn.addEventListener("click", () => {
   clearSaved(); if (ws) ws.close(); jobId = null;
   setRunningUI(false); clearBtn.style.display = "none";
-  hdrStatus.textContent = t("hdr_ready"); hdrStatus.className = "hdr-status";
+  setHdrStatusState("ready");
   progress = 0;
   progressFill.style.width = "0%";
   progressPct.textContent = "0%";
@@ -2440,27 +2503,6 @@ clearBtn.addEventListener("click", () => {
   statusMsg.className = "status-msg";
   delete chatFeed.dataset.debateLabel; delete chatFeed.dataset.riskLabel;
 });
-
-// ── INITIALIZE TEAM SHOWCASE ─────────────────────────────────────────────────
-populateTeamShowcase();
-
-// ── RESTORE SAVED JOB ─────────────────────────────────────────────────────────
-const savedJob    = localStorage.getItem(LS_JOB);
-const savedTicker = localStorage.getItem(LS_TICKER);
-if (savedJob) {
-  jobId = savedJob;
-  jobDone = false; wsReconnectDelay = TIMING.WS_INITIAL_DELAY;
-  hdrStatus.textContent = `${t("hdr_resuming")} ${savedTicker || ""}...`; hdrStatus.className = "hdr-status running";
-  setStatus(t("reconnecting_prev"), "info");
-  setRunningUI(true);
-  setProgress(5, t("reconnecting"));
-  mountTeamWorkingSplash(savedTicker || tickerEl.value.trim().toUpperCase() || "");
-  connectWS(savedJob);
-} else {
-  // No saved job, ensure team showcase is visible
-  const showcase = document.getElementById("teamShowcase");
-  if (showcase) showcase.style.display = "block";
-}
 
 // ── RECONNECT ON PAGE VISIBILITY (handles mobile screen-off / app-switch) ─────
 document.addEventListener("visibilitychange", () => {
