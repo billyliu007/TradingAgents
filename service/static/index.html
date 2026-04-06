@@ -51,20 +51,57 @@
       flex: 1; min-width: 0; flex-wrap: wrap; justify-content: flex-end;
     }
     .hdr-lang-wrap {
-      display: flex; align-items: center; gap: 4px;
-      flex: 0 0 auto; margin-left: 4px;
+      display: flex; align-items: center;
+      flex: 0 0 auto; margin-left: 8px;
     }
-    .hdr-lang-wrap label {
-      font-size: 9px; font-weight: 700; color: var(--txt2); text-transform: uppercase;
-      letter-spacing: .04em; white-space: nowrap;
+    .hdr-lang-seg {
+      display: inline-flex;
+      align-items: stretch;
+      padding: 3px;
+      border-radius: 10px;
+      background: rgba(0,0,0,.45);
+      border: 1px solid var(--border);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
     }
-    .hdr-lang-select {
-      width: auto; min-width: 76px; max-width: 100px;
-      padding: 5px 6px; font-size: 12px;
-      background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 6px;
-      color: var(--txt); outline: none;
+    .hdr-lang-seg:focus-within {
+      border-color: rgba(79,143,255,.45);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 0 0 2px rgba(79,143,255,.12);
     }
-    .hdr-lang-select:focus { border-color: var(--blue); }
+    .hdr-lang-btn {
+      position: relative;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      padding: 7px 12px;
+      min-height: 32px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      color: var(--txt2);
+      background: transparent;
+      transition: color .15s, background .15s, box-shadow .15s;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .hdr-lang-btn:hover {
+      color: var(--txt);
+      background: rgba(79,143,255,.08);
+    }
+    .hdr-lang-btn[aria-pressed="true"] {
+      color: var(--txt);
+      background: linear-gradient(145deg, rgba(79,143,255,.22), rgba(42,184,165,.12));
+      box-shadow: 0 1px 0 rgba(255,255,255,.06);
+    }
+    .hdr-lang-btn[aria-pressed="true"]::after {
+      content: "";
+      position: absolute;
+      left: 8px; right: 8px; bottom: 4px;
+      height: 2px;
+      border-radius: 1px;
+      background: linear-gradient(90deg, var(--blue), var(--teal));
+      opacity: .9;
+    }
     .admin-link {
       font-size: 11px; font-weight: 700; color: var(--txt2); text-decoration: none;
       padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; white-space: nowrap;
@@ -79,26 +116,22 @@
     .layout {
       flex: 1;
       display: grid;
-      grid-template-columns: 1fr 300px;
+      grid-template-columns: 1fr 44px;
       gap: 0;
       overflow: hidden;
+      transition: grid-template-columns 0.22s ease;
     }
-    @media (max-width: 1200px) { .layout { grid-template-columns: 1fr; } .data-col { display: none; } }
+    .layout.layout-data-expanded {
+      grid-template-columns: 1fr min(300px, 32vw);
+    }
 
     /* ── COLUMNS ───────────────────────────────────────────── */
     .left-col  { display: none !important; }
     .mid-col   { display: flex; flex-direction: column; overflow: hidden; position: relative; }
     .data-col  { border-left: 1px solid var(--border); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 
-    /* Desktop (wide): live data column starts folded — narrow rail, expand on demand */
-    @media (min-width: 1201px) {
-      .layout {
-        grid-template-columns: 1fr 44px;
-        transition: grid-template-columns 0.22s ease;
-      }
-      .layout.layout-data-expanded {
-        grid-template-columns: 1fr min(300px, 32vw);
-      }
+    /* Tablet & desktop (≥768px): live data column starts folded — narrow rail, expand on demand */
+    @media (min-width: 768px) {
       .layout .data-col {
         padding: 0;
         overflow: hidden;
@@ -185,7 +218,8 @@
         overflow-y: auto;
       }
     }
-    @media (max-width: 1200px) {
+    @media (max-width: 767px) {
+      .layout { grid-template-columns: 1fr !important; transition: none; }
       .data-panel-toggle { display: none !important; }
       .data-col-inner {
         display: flex !important;
@@ -606,9 +640,9 @@
       .ticker-row .btn-primary,
       .ticker-row .btn-stop.ticker-action-btn { padding: 10px 12px; font-size: 11px; min-height: 44px; min-width: 96px; }
       .ticker-row .btn-clear   { padding: 10px 8px;  font-size: 11px; min-height: 44px; }
-      .hdr-lang-wrap { margin-left: 2px; gap: 2px; }
-      .hdr-lang-wrap label { display: none; }
-      .hdr-lang-select { min-width: 64px; max-width: 78px; padding: 6px 4px; font-size: 11px; }
+      .hdr-lang-wrap { margin-left: 4px; }
+      .hdr-lang-seg { padding: 2px; border-radius: 9px; }
+      .hdr-lang-btn { padding: 8px 11px; min-height: 40px; font-size: 11px; }
       header { padding: 10px 12px; gap: 8px; }
 
       /* Analyst toggle cards on mobile */
@@ -689,12 +723,11 @@
   <div class="hdr-tools">
     <div class="hdr-status" id="hdrStatus">Ready</div>
     <a class="admin-link" id="adminLink" href="/admin">Admin</a>
-    <div class="hdr-lang-wrap">
-      <label for="language_select" id="hdrLangLabel">Language</label>
-      <select id="language_select" class="hdr-lang-select" aria-label="Language">
-        <option value="en">EN</option>
-        <option value="zh">中文</option>
-      </select>
+    <div class="hdr-lang-wrap" role="group" aria-label="Language" id="hdrLangGroup">
+      <div class="hdr-lang-seg">
+        <button type="button" class="hdr-lang-btn" id="langBtnEn" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" class="hdr-lang-btn" id="langBtnZh" data-lang="zh" aria-pressed="false">中文</button>
+      </div>
     </div>
   </div>
 </header>
@@ -911,6 +944,7 @@ const TRANSLATIONS = {
     "data_panel_collapse": "Hide panel",
     "data_waiting": "Waiting...",
     "data_receiving": "Receiving...",
+    "data_complete": "Up to date",
     "data_stopped": "Stopped",
     "data_placeholder": "Raw data from providers will appear here...",
     "data_raw_placeholder": "Raw data from providers will appear here...",
@@ -1045,6 +1079,7 @@ const TRANSLATIONS = {
     "data_panel_collapse": "收起面板",
     "data_waiting": "等待中...",
     "data_receiving": "接收中...",
+    "data_complete": "已同步",
     "data_stopped": "已停止",
     "data_placeholder": "来自数据提供商的原始数据将显示在这里...",
     "data_raw_placeholder": "来自数据提供商的原始数据将显示在这里...",
@@ -1106,6 +1141,13 @@ function updateLanguage(lang) {
   updateUIText();
 }
 
+function syncLangButtons() {
+  const en = _el("langBtnEn");
+  const zh = _el("langBtnZh");
+  if (en) en.setAttribute("aria-pressed", currentLanguage === "en" ? "true" : "false");
+  if (zh) zh.setAttribute("aria-pressed", currentLanguage === "zh" ? "true" : "false");
+}
+
 function _el(id) { return document.getElementById(id); }
 
 function updateUIText() {
@@ -1146,7 +1188,9 @@ function updateUIText() {
   }
 
   const _set = (id, key) => { const el = _el(id); if (el) el.textContent = t(key); };
-  _set("hdrLangLabel", "language");
+  const lg = _el("hdrLangGroup");
+  if (lg) lg.setAttribute("aria-label", t("language"));
+  syncLangButtons();
   const adm = _el("adminLink");
   if (adm) adm.textContent = t("admin_link");
 
@@ -1268,14 +1312,15 @@ function _analystProgressPct() {
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 
-// ── LANGUAGE SELECTOR LISTENER ────────────────────────────────────────────────
-const langSelect = document.getElementById("language_select");
-if (langSelect) {
-  langSelect.value = currentLanguage;
-  langSelect.addEventListener("change", (e) => {
-    updateLanguage(e.target.value);
+// ── LANGUAGE TOGGLE (segmented control) ───────────────────────────────────────
+(function bindLangButtons() {
+  document.querySelectorAll(".hdr-lang-btn[data-lang]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const lang = btn.getAttribute("data-lang");
+      if (lang && lang !== currentLanguage) updateLanguage(lang);
+    });
   });
-}
+})();
 
 // ── INITIALIZE UI TEXT ────────────────────────────────────────────────────────
 document.getElementById("hdrStatus").textContent = t("hdr_ready");
@@ -1831,6 +1876,7 @@ function connectWS(jid, isReconnect) {
         chatFeed.appendChild(btn);
       });
       if (pdfNames.length) chatFeed.scrollTop = chatFeed.scrollHeight; // always show PDF button
+      if (dataStatus) dataStatus.textContent = t("data_complete");
       setRunningUI(false); clearSaved();
       return;
     }
@@ -1852,6 +1898,7 @@ function connectWS(jid, isReconnect) {
       setProgress(0, "Analysis failed");
       hdrStatus.textContent = t("hdr_failed"); hdrStatus.className = "hdr-status";
       setStatus(`❌ ${ev.error}`, "error");
+      if (dataStatus) dataStatus.textContent = t("data_waiting");
       setRunningUI(false); clearSaved();
       return;
     }
