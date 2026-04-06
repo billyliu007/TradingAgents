@@ -2,11 +2,160 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 from typing import Literal
 
 from fpdf import FPDF
+
+_SEP_CELL_RE = re.compile(r"^:?-{2,}:?$")
+
+
+def _split_pipe_row(line: str) -> list[str] | None:
+    """Split a Markdown pipe table row into cells, or None if not a pipe row."""
+    s = line.strip()
+    if "|" not in s:
+        return None
+    core = s[1:] if s.startswith("|") else s
+    if core.endswith("|"):
+        core = core[:-1]
+    parts: list[str] = []
+    cur: list[str] = []
+    i = 0
+    while i < len(core):
+        if core[i] == "\\" and i + 1 < len(core) and core[i + 1] == "|":
+            cur.append("|")
+            i += 2
+            continue
+        if core[i] == "|":
+            parts.append("".join(cur).strip())
+            cur = []
+            i += 1
+            continue
+        cur.append(core[i])
+        i += 1
+    parts.append("".join(cur).strip())
+    if len(parts) < 2:
+        return None
+    return parts
+
+
+def _is_separator_row(cells: list[str]) -> bool:
+    if len(cells) < 2:
+        return False
+    return all(_SEP_CELL_RE.match(c.strip() or "-") for c in cells)
+
+
+def _normalize_markdown_table_rows(raw_rows: list[list[str]]) -> list[list[str]] | None:
+    """Drop GFM separator row; ensure at least header + one body row."""
+    if len(raw_rows) < 2:
+        return None
+    ncols = max(len(r) for r in raw_rows)
+    for r in raw_rows:
+        while len(r) < ncols:
+            r.append("")
+        del r[ncols:]
+    if len(raw_rows) >= 2 and _is_separator_row(raw_rows[1]):
+        body = raw_rows[2:]
+        out = [raw_rows[0]] + body
+    else:
+        out = [r for r in raw_rows if not _is_separator_row(r)]
+    if len(out) < 2:
+        return None
+    return out
+
+
+def _consume_pipe_table_block(lines: list[str], start: int) -> tuple[list[list[str]], int] | None:
+    """If lines[start:] begin a pipe table, return (rows for PDF/HTML, index after last row)."""
+    i = start
+    raw_rows: list[list[str]] = []
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if not stripped:
+            break
+        cells = _split_pipe_row(lines[i])
+        if cells is None:
+            break
+        raw_rows.append(cells)
+        i += 1
+    if len(raw_rows) < 2:
+        return None
+    data = _normalize_markdown_table_rows(raw_rows)
+    if not data:
+        return None
+    return data, i
+
+
+def _iter_text_and_pipe_tables(paragraph: str):
+    """Yield ("text", str) and ("table", list[list[str]]) segments in order."""
+    lines = paragraph.split("\n")
+    i = 0
+    text_start = 0
+    while i < len(lines):
+        consumed = _consume_pipe_table_block(lines, i)
+        if consumed is not None:
+            rows, end_i = consumed
+            if i > text_start:
+                chunk = "\n".join(lines[text_start:i]).strip()
+                if chunk:
+                    yield ("text", chunk)
+            yield ("table", rows)
+            text_start = end_i
+            i = end_i
+            continue
+        i += 1
+    if text_start < len(lines):
+        chunk = "\n".join(lines[text_start:]).strip()
+        if chunk:
+            yield ("text", chunk)
+
+
+def _write_pdf_pipe_table(
+    pdf: FPDF,
+    family: str,
+    rows: list[list[str]],
+    usable_w: float,
+    line_h: float,
+) -> None:
+    """Render a rectangular Markdown-derived table using fpdf2 table()."""
+    if not rows:
+        return
+    ncols = len(rows[0])
+    col_fracs = tuple([1] * ncols)
+    pdf.set_font(family, "", 9)
+    line_height = max(line_h * 1.2, 4.5)
+    with pdf.table(
+        width=usable_w,
+        col_widths=col_fracs,
+        line_height=line_height,
+        text_align="LEFT",
+        first_row_as_headings=True,
+    ) as table:
+        for data_row in rows:
+            table.row(data_row)
+    pdf.set_font(family, "", 10)
+    pdf.ln(2)
+
+
+def _write_paragraph_with_tables(
+    pdf: FPDF,
+    family: str,
+    paragraph: str,
+    usable_w: float,
+    line_h: float,
+) -> None:
+    """Write a paragraph that may contain Markdown pipe tables."""
+    paragraph = paragraph.strip()
+    if not paragraph:
+        return
+    for kind, payload in _iter_text_and_pipe_tables(paragraph):
+        if kind == "text":
+            pdf.set_font(family, "", 10)
+            pdf.multi_cell(usable_w, line_h, payload)
+            pdf.ln(2)
+        else:
+            _write_pdf_pipe_table(pdf, family, payload, usable_w, line_h)
 
 _FONT_DIR = Path(__file__).resolve().parent / "fonts"
 
@@ -98,9 +247,7 @@ def _write_body(pdf: FPDF, family: str, text: str, usable_w: float, line_h: floa
             pdf.ln(2)
             pdf.set_font(family, "", 10)
         else:
-            pdf.set_font(family, "", 10)
-            pdf.multi_cell(usable_w, line_h, para)
-            pdf.ln(2)
+            _write_paragraph_with_tables(pdf, family, para, usable_w, line_h)
 
 
 def write_analysis_pdf(

@@ -408,10 +408,40 @@
       font-size: 12px;
       line-height: 1.6;
       color: var(--txt2);
-      white-space: pre-wrap;
+      white-space: normal;
       word-break: break-word;
       max-height: 280px;
       overflow-y: auto;
+    }
+    .chat-bubble .chat-plain {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .chat-bubble .chat-table-wrap {
+      margin: 10px 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+    }
+    .chat-bubble .chat-md-table {
+      width: 100%;
+      min-width: 0;
+      border-collapse: collapse;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--txt2);
+    }
+    .chat-bubble .chat-md-table th,
+    .chat-bubble .chat-md-table td {
+      border: 1px solid var(--border);
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .chat-bubble .chat-md-table th {
+      background: rgba(79,143,255,.14);
+      color: var(--txt);
+      font-weight: 700;
     }
     /* per-role left border accent */
     .chat-bubble.market       { border-left: 3px solid var(--blue);   color: var(--txt); }
@@ -1424,7 +1454,7 @@ function addChatMsg(role, content, extraLabel) {
         <span class="chat-role">${extraLabel || roleText}</span>
         <span class="chat-time">${now()}</span>
       </div>
-      <div class="chat-bubble ${role}">${escHtml(content)}</div>
+      <div class="chat-bubble ${role}">${formatAnalystContentWithTables(content)}</div>
     </div>`;
   chatFeed.appendChild(wrap);
   scrollIfNearBottom();
@@ -1443,6 +1473,110 @@ function addSystemMsg(icon, text, color) {
 
 function escHtml(s) {
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+/** Markdown pipe tables → real <table> (cells escaped); plain text wrapped in .chat-plain */
+function splitPipeRow(line) {
+  const s = line.trim();
+  if (!s.includes("|")) return null;
+  let core = s.startsWith("|") ? s.slice(1) : s;
+  if (core.endsWith("|")) core = core.slice(0, -1);
+  const parts = [];
+  let cur = "";
+  for (let k = 0; k < core.length; k++) {
+    if (core[k] === "\\" && core[k + 1] === "|") {
+      cur += "|";
+      k++;
+      continue;
+    }
+    if (core[k] === "|") {
+      parts.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    cur += core[k];
+  }
+  parts.push(cur.trim());
+  if (parts.length < 2) return null;
+  return parts;
+}
+
+function isSeparatorMarkdownRow(cells) {
+  if (cells.length < 2) return false;
+  return cells.every((c) => /^:?-{2,}:?$/.test(String(c || "-").trim()));
+}
+
+function normalizeMarkdownTableRows(rawRows) {
+  if (rawRows.length < 2) return null;
+  const ncols = Math.max(...rawRows.map((r) => r.length));
+  for (const r of rawRows) {
+    while (r.length < ncols) r.push("");
+    r.length = ncols;
+  }
+  let out;
+  if (rawRows.length >= 2 && isSeparatorMarkdownRow(rawRows[1])) {
+    out = [rawRows[0]].concat(rawRows.slice(2));
+  } else {
+    out = rawRows.filter((r) => !isSeparatorMarkdownRow(r));
+  }
+  return out.length >= 2 ? out : null;
+}
+
+function consumePipeTableBlock(lines, start) {
+  let i = start;
+  const rawRows = [];
+  while (i < lines.length) {
+    if (!lines[i].trim()) break;
+    const cells = splitPipeRow(lines[i]);
+    if (!cells) break;
+    rawRows.push(cells);
+    i++;
+  }
+  if (rawRows.length < 2) return null;
+  const data = normalizeMarkdownTableRows(rawRows);
+  if (!data) return null;
+  return { rows: data, end: i };
+}
+
+function renderChatMarkdownTable(rows) {
+  const head = rows[0].map((c) => `<th>${escHtml(c)}</th>`).join("");
+  const body = rows.slice(1)
+    .map((row) => `<tr>${row.map((c) => `<td>${escHtml(c)}</td>`).join("")}</tr>`)
+    .join("");
+  return `<div class="chat-table-wrap"><table class="chat-md-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function formatAnalystContentWithTables(text) {
+  const s = String(text || "");
+  const lines = s.split("\n");
+  let i = 0;
+  let textStart = 0;
+  const chunks = [];
+  while (i < lines.length) {
+    const consumed = consumePipeTableBlock(lines, i);
+    if (consumed) {
+      if (i > textStart) {
+        const t = lines.slice(textStart, i).join("\n");
+        if (t.trim()) chunks.push({ type: "text", html: escHtml(t) });
+      }
+      chunks.push({ type: "table", rows: consumed.rows });
+      textStart = consumed.end;
+      i = consumed.end;
+      continue;
+    }
+    i++;
+  }
+  if (textStart < lines.length) {
+    const t = lines.slice(textStart).join("\n");
+    if (t.trim()) chunks.push({ type: "text", html: escHtml(t) });
+  }
+  if (!chunks.length) return `<div class="chat-plain">${escHtml(s)}</div>`;
+  return chunks.map((p) => {
+    if (p.type === "text" && p.html)
+      return `<div class="chat-plain">${p.html.replace(/\n/g, "<br>")}</div>`;
+    if (p.type === "table") return renderChatMarkdownTable(p.rows);
+    return "";
+  }).join("");
 }
 
 function splitDelimitedRow(line, delim) {
