@@ -13,10 +13,10 @@ from service.admin_auth import (
     admin_username,
     admin_verify_credentials,
     admin_verify_token,
-    require_admin,
 )
-from service.settings_ops import admin_sanitize_put_body, admin_settings_get_payload
+from service.api.deps import CurrentAdmin
 from service.schemas import AdminLoginRequest
+from service.settings_ops import admin_sanitize_put_body, admin_settings_get_payload
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -59,14 +59,12 @@ def admin_me(request: Request) -> dict[str, Any]:
 
 
 @router.get("/settings")
-def admin_settings_get(request: Request) -> dict[str, Any]:
-    require_admin(request)
+def admin_settings_get(_admin: CurrentAdmin) -> dict[str, Any]:
     return admin_settings_get_payload()
 
 
 @router.put("/settings")
-def admin_settings_put(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    require_admin(request)
+def admin_settings_put(_admin: CurrentAdmin, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     merged = admin_sanitize_put_body(body)
     if not db.save_app_settings(merged):
         raise HTTPException(

@@ -428,17 +428,11 @@ def replay_cached_job(job_id: str, payload: AnalyzeRequest, cached: dict[str, An
         else:
             replayed_events.append(event)
 
-    # Bulk-append to the job's event log (WebSocket handler picks them up)
+    # Bulk-append events, then mark done (singular + plural PDF keys for WS + JobStatusResponse).
     with jobs_lock:
         if job_id in jobs:
             jobs[job_id]["event_log"].append(cache_notice)
             jobs[job_id]["event_log"].extend(replayed_events)
-
-    # Mark job as done — set both singular and plural PDF keys so that
-    # JobStatusResponse (which uses plural) and the WS job_complete event
-    # (which uses singular) both work correctly for cache hits.
-    with jobs_lock:
-        if job_id in jobs:
             jobs[job_id].update(
                 status="done",
                 completed_at=datetime.now(timezone.utc).isoformat(),

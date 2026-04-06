@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from tradingagents.default_config import DEFAULT_CONFIG
 
 from service import db
+from service.constants import ANALYST_OPTIONS
 from service.schemas import AnalyzeRequest, LlmProvider
 
 # Keys allowed in app_settings JSONB (admin UI + global config merge)
@@ -277,3 +278,31 @@ def admin_sanitize_put_body(body: dict[str, Any]) -> dict[str, Any]:
             out[k] = raw
 
     return out
+
+
+def ui_options_response() -> dict[str, Any]:
+    """Payload for ``GET /api/options`` (merged DB settings + defaults for the web UI)."""
+    stored = db.get_app_settings()
+    cfg = DEFAULT_CONFIG.copy()
+    if stored:
+        apply_map_from_stored(cfg, stored)
+    apply_kimi_custom_models(cfg)
+    qp = cfg.get("quick_llm_provider") or cfg.get("llm_provider")
+    dp = cfg.get("deep_llm_provider") or cfg.get("llm_provider")
+    return {
+        "analysts": ANALYST_OPTIONS,
+        "llm_provider_default": cfg.get("llm_provider"),
+        "quick_llm_provider_default": qp,
+        "deep_llm_provider_default": dp,
+        "deep_think_default": cfg.get("deep_think_llm"),
+        "quick_think_default": cfg.get("quick_think_llm"),
+        "max_debate_rounds_default": coerce_round_int(
+            cfg.get("max_debate_rounds"), int(DEFAULT_CONFIG["max_debate_rounds"])
+        ),
+        "max_risk_discuss_rounds_default": coerce_round_int(
+            cfg.get("max_risk_discuss_rounds"),
+            int(DEFAULT_CONFIG["max_risk_discuss_rounds"]),
+        ),
+        "backend_url_default": cfg.get("backend_url") or "",
+        "global_settings_from_db": bool(stored),
+    }

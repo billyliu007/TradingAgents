@@ -8,8 +8,6 @@ import time
 
 from fastapi import HTTPException, Request
 
-from service.schemas import AdminLoginRequest
-
 _ADMIN_COOKIE = "ta_admin_session"
 _ADMIN_COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
 

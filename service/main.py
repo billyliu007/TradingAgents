@@ -9,8 +9,8 @@ from fastapi.staticfiles import StaticFiles
 
 from service import db
 from service import tickers as _ticker_svc
+from service.api import register_routes
 from service.constants import STATIC_DIR
-from service.routers import admin_routes, common_api, jobs_routes, pages
 from service.server_logging import log_message
 
 load_dotenv()
@@ -57,10 +57,7 @@ def create_app() -> FastAPI:
 
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-    app.include_router(pages.router)
-    app.include_router(admin_routes.router)
-    app.include_router(common_api.router)
-    app.include_router(jobs_routes.router)
+    register_routes(app)
 
     return app
 
@@ -74,7 +71,3 @@ def run() -> None:
     host = os.getenv("TRADINGAGENTS_SERVICE_HOST", "0.0.0.0")
     port = int(os.getenv("TRADINGAGENTS_SERVICE_PORT", "8000"))
     uvicorn.run("service.main:app", host=host, port=port, reload=False)
-
-
-if __name__ == "__main__":
-    run()
