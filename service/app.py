@@ -246,6 +246,13 @@ class AnalyzeRequest(BaseModel):
             "explicit US Eastern calendar date."
         ),
     )
+    pdf_filename_date: date | None = Field(
+        default=None,
+        description=(
+            "Optional calendar date for the exported PDF filename only (typically the user's "
+            "local date). When omitted, ``analysis_date`` is used in the filename."
+        ),
+    )
     selected_analysts: list[Literal["market", "social", "news", "fundamentals"]] = Field(
         default_factory=lambda: ANALYST_OPTIONS.copy()
     )
@@ -309,6 +316,13 @@ class JobStatusResponse(BaseModel):
 def _require_admin(request: Request) -> None:
     if not _admin_verify_token(request.cookies.get(_ADMIN_COOKIE)):
         raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+def _pdf_filename_calendar_date(payload: AnalyzeRequest) -> date:
+    """Date segment in ``export_filename`` — user-local when provided, else session ``analysis_date``."""
+    if payload.pdf_filename_date is not None:
+        return payload.pdf_filename_date
+    return payload.analysis_date
 
 
 def _normalize_analyze_request(payload: AnalyzeRequest) -> AnalyzeRequest:
@@ -799,7 +813,7 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
     try:
         fname = export_filename(
             payload.ticker,
-            payload.analysis_date,
+            _pdf_filename_calendar_date(payload),
             language=payload.language,
         )
         out_path = unique_path(_exports_dir(), fname)

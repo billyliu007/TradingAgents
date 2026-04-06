@@ -170,7 +170,11 @@ def export_filename(
     *,
     language: str = "en",
 ) -> str:
-    """Base filename: ``TICKER_YYYY-MM-DD_LANG.pdf`` (calendar date + report language)."""
+    """Base filename: ``TICKER_YYYY-MM-DD_LANG.pdf``.
+
+    ``analysis_date`` here is only the date segment in the filename; the caller may pass
+    a user-local calendar date while the PDF body still uses the session as-of date.
+    """
     sym = _safe_ticker(ticker)
     d = analysis_date.isoformat()
     lang_clean = re.sub(r"[^A-Za-z0-9]+", "_", (language or "en").strip()).strip("_").upper() or "EN"

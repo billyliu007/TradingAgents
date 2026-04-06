@@ -2086,7 +2086,7 @@ function populateTeamShowcase() {
   document.getElementById("riskGrid").innerHTML        = risk.map(renderTeamCard).join("");
 }
 
-/** Calendar YYYY-MM-DD in America/New_York (matches server PDF / cache semantics). */
+/** Calendar YYYY-MM-DD in America/New_York (analysis / cache as-of day). */
 function analysisDateUsEastern() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
@@ -2100,15 +2100,25 @@ function analysisDateUsEastern() {
   return `${y}-${m}-${d}`;
 }
 
+/** User's local calendar YYYY-MM-DD (PDF filename only). */
+function pdfFilenameLocalYmd() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 // ── FORM SUBMIT ───────────────────────────────────────────────────────────────
 form.addEventListener("submit", async e => {
   e.preventDefault();
 
   const payload = {
-    ticker:            tickerEl.value.trim().toUpperCase(),
-    analysis_date:     analysisDateUsEastern(),
-    selected_analysts: [...ADVISOR_CHOICES],
-    language:          currentLanguage,
+    ticker:              tickerEl.value.trim().toUpperCase(),
+    analysis_date:       analysisDateUsEastern(),
+    pdf_filename_date:   pdfFilenameLocalYmd(),
+    selected_analysts:   [...ADVISOR_CHOICES],
+    language:            currentLanguage,
   };
 
   // Reset UI
