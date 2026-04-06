@@ -7,8 +7,21 @@ from datetime import date
 from pathlib import Path
 
 from fpdf import FPDF
+from fpdf.enums import Align, WrapMode
 
 _SEP_CELL_RE = re.compile(r"^:?-{2,}:?$")
+
+# fpdf2 defaults multi_cell to JUSTIFY, which adds huge gaps between few Latin tokens
+# on lines mixed with CJK (e.g. "3. close_200_sma（200 SMA） —— …").
+_MC_LEFT = {"align": Align.L}
+
+
+def _multicell_body_kwargs(body_language: str | None) -> dict:
+    """Left-aligned body text; character wrap for CJK, word wrap for Latin scripts."""
+    lk = (body_language or "en").strip().lower()
+    if lk in ("zh", "ja"):
+        return {"align": Align.L, "wrapmode": WrapMode.CHAR}
+    return {"align": Align.L, "wrapmode": WrapMode.WORD}
 
 
 def _split_pipe_row(line: str) -> list[str] | None:
@@ -143,15 +156,18 @@ def _write_paragraph_with_tables(
     paragraph: str,
     usable_w: float,
     line_h: float,
+    *,
+    body_language: str = "en",
 ) -> None:
     """Write a paragraph that may contain Markdown pipe tables."""
     paragraph = paragraph.strip()
     if not paragraph:
         return
+    mc_kw = _multicell_body_kwargs(body_language)
     for kind, payload in _iter_text_and_pipe_tables(paragraph):
         if kind == "text":
             pdf.set_font(family, "", 10)
-            pdf.multi_cell(usable_w, line_h, payload)
+            pdf.multi_cell(usable_w, line_h, payload, **mc_kw)
             pdf.ln(2)
         else:
             _write_pdf_pipe_table(pdf, family, payload, usable_w, line_h)
@@ -300,18 +316,29 @@ def _require_dejavu(pdf: FPDF) -> str:
     return _require_cjk(pdf)
 
 
-def _write_body(pdf: FPDF, family: str, text: str, usable_w: float, line_h: float) -> None:
+def _write_body(
+    pdf: FPDF,
+    family: str,
+    text: str,
+    usable_w: float,
+    line_h: float,
+    *,
+    body_language: str = "en",
+) -> None:
+    mc_kw = _multicell_body_kwargs(body_language)
     for para in text.split("\n\n"):
         para = para.strip()
         if not para:
             continue
         if para.startswith("## "):
             pdf.set_font(family, "B", 12)
-            pdf.multi_cell(usable_w, line_h + 1, para[3:].strip())
+            pdf.multi_cell(usable_w, line_h + 1, para[3:].strip(), **mc_kw)
             pdf.ln(2)
             pdf.set_font(family, "", 10)
         else:
-            _write_paragraph_with_tables(pdf, family, para, usable_w, line_h)
+            _write_paragraph_with_tables(
+                pdf, family, para, usable_w, line_h, body_language=body_language
+            )
 
 
 def write_analysis_pdf(
@@ -352,7 +379,7 @@ def write_analysis_pdf(
     empty_body = cov["empty_body"]
 
     pdf.set_font(family, "B", 16)
-    pdf.multi_cell(usable_w, 10, title)
+    pdf.multi_cell(usable_w, 10, title, **_MC_LEFT)
     pdf.ln(4)
 
     pdf.set_font(family, "", 10)
@@ -364,14 +391,21 @@ def write_analysis_pdf(
         note,
         tz_note,
     ]
-    pdf.multi_cell(usable_w, 6, "\n".join(meta_lines))
+    pdf.multi_cell(usable_w, 6, "\n".join(meta_lines), **_MC_LEFT)
     pdf.ln(6)
 
     pdf.set_font(family, "B", 12)
-    pdf.multi_cell(usable_w, 8, label_report)
+    pdf.multi_cell(usable_w, 8, label_report, **_MC_LEFT)
     pdf.ln(2)
     pdf.set_font(family, "", 10)
-    _write_body(pdf, family, human_readable_report or empty_body, usable_w, 5)
+    _write_body(
+        pdf,
+        family,
+        human_readable_report or empty_body,
+        usable_w,
+        5,
+        body_language=lang_key,
+    )
 
     pdf.output(str(path))
 
@@ -403,14 +437,14 @@ def write_bilingual_analysis_pdf(
     analyst_line = ", ".join(analysts)
 
     pdf.set_font(family, "B", 15)
-    pdf.multi_cell(usable_w, 8, "TradingAgents — Bilingual analysis report")
+    pdf.multi_cell(usable_w, 8, "TradingAgents — Bilingual analysis report", **_MC_LEFT)
     pdf.set_font(family, "", 10)
-    pdf.multi_cell(usable_w, 6, "English section first, followed by 中文报告")
+    pdf.multi_cell(usable_w, 6, "English section first, followed by 中文报告", **_MC_LEFT)
     pdf.ln(5)
 
     # ── English (front) ─────────────────────────────────────────────────────
     pdf.set_font(family, "B", 13)
-    pdf.multi_cell(usable_w, 8, "English")
+    pdf.multi_cell(usable_w, 8, "English", **_MC_LEFT)
     pdf.ln(2)
     pdf.set_font(family, "", 10)
     en_meta = [
@@ -422,19 +456,19 @@ def write_bilingual_analysis_pdf(
         "Timezone: as-of date is the calendar date in US Eastern (America/New_York); "
         "the next analysis day starts at 00:00 local Eastern.",
     ]
-    pdf.multi_cell(usable_w, 6, "\n".join(en_meta))
+    pdf.multi_cell(usable_w, 6, "\n".join(en_meta), **_MC_LEFT)
     pdf.ln(4)
     pdf.set_font(family, "B", 12)
-    pdf.multi_cell(usable_w, 8, "Report")
+    pdf.multi_cell(usable_w, 8, "Report", **_MC_LEFT)
     pdf.ln(2)
     pdf.set_font(family, "", 10)
-    _write_body(pdf, family, report_en or "No report content.", usable_w, 5)
+    _write_body(pdf, family, report_en or "No report content.", usable_w, 5, body_language="en")
 
     pdf.add_page()
 
     # ── Chinese (after English) ─────────────────────────────────────────────
     pdf.set_font(family, "B", 13)
-    pdf.multi_cell(usable_w, 8, "中文")
+    pdf.multi_cell(usable_w, 8, "中文", **_MC_LEFT)
     pdf.ln(2)
     pdf.set_font(family, "", 10)
     zh_meta = [
@@ -445,13 +479,13 @@ def write_bilingual_analysis_pdf(
         "注：雅虎财经的 OHLCV 数据与此会话日期对齐。",
         "时区说明：截至日期为美国东部（America/New_York）公历日；下一分析日以当地 00:00 为界。",
     ]
-    pdf.multi_cell(usable_w, 6, "\n".join(zh_meta))
+    pdf.multi_cell(usable_w, 6, "\n".join(zh_meta), **_MC_LEFT)
     pdf.ln(4)
     pdf.set_font(family, "B", 12)
-    pdf.multi_cell(usable_w, 8, "报告")
+    pdf.multi_cell(usable_w, 8, "报告", **_MC_LEFT)
     pdf.ln(2)
     pdf.set_font(family, "", 10)
-    _write_body(pdf, family, report_zh or "没有报告内容。", usable_w, 5)
+    _write_body(pdf, family, report_zh or "没有报告内容。", usable_w, 5, body_language="zh")
 
     pdf.output(str(path))
 
