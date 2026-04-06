@@ -417,15 +417,19 @@
       white-space: pre-wrap;
       word-break: break-word;
     }
+    /* Desktop/tablet: table only as wide as content (cap at bubble; scroll if wider) */
     .chat-bubble .chat-table-wrap {
       margin: 10px 0;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      width: max-content;
       max-width: 100%;
     }
     .chat-bubble .chat-md-table {
-      width: 100%;
+      width: auto;
+      max-width: 100%;
       min-width: 0;
+      table-layout: auto;
       border-collapse: collapse;
       font-size: 11px;
       line-height: 1.45;
@@ -680,6 +684,13 @@
 
       /* Chat messages */
       .chat-bubble { max-height: none; font-size: 13px; line-height: 1.65; padding: 11px 13px; }
+      .chat-bubble .chat-table-wrap {
+        width: 100%;
+        max-width: 100%;
+      }
+      .chat-bubble .chat-md-table {
+        width: 100%;
+      }
       .chat-avatar { width: 34px; height: 34px; font-size: 15px; }
       .chat-name   { font-size: 13px; }
       .chat-role   { font-size: 11px; }
