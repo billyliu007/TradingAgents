@@ -32,7 +32,10 @@ def create_trader(llm, memory, language: str = "en"):
         }
 
         trader_prompt_template = get_trader_prompt(language)
-        trader_prompt_content = trader_prompt_template.format(past_memory_str=past_memory_str)
+        trader_prompt_content = trader_prompt_template.format(
+            past_memory_str=past_memory_str,
+            session_date=state["trade_date"],
+        )
 
         messages = [
             {

@@ -21,6 +21,21 @@ _EN_OUTPUT_SANITIZE = (
     "pseudo search queries, placeholder calls, or raw function-call JSON.\n\n"
 )
 
+# Debate / trader / risk / portfolio prompts get {session_date} = state["trade_date"] (analysts already have current_date).
+_SESSION_ANCHOR_EN = (
+    "**Session as-of date (US Eastern trading calendar day):** {session_date}\n"
+    "Interpret “latest”, “recent”, “current”, and “this year” **only** relative to this date. "
+    "The analyst reports below were generated for this session via real data tools—not from open-web search. "
+    "Do **not** treat an earlier year common in training text (e.g. 2024) as “today”, and do **not** invent "
+    "search queries or headlines tied to the wrong calendar period.\n\n"
+)
+
+_SESSION_ANCHOR_ZH = (
+    "**分析会话基准日（美国东部交易日历日）:** {session_date}\n"
+    "文中“最新”“近期”“当前”“今年”等表述**仅**相对于该基准日；下方报告由本会话的真实数据工具生成，并非开放式网页搜索。"
+    "勿将训练语料里常见的示例年份当作“现在”，勿编造与错误时期挂钩的检索或标题。\n\n"
+)
+
 # Spanish / Japanese: keep tool names and the English sentinel line the graph expects.
 _ES_OUTPUT_PREFIX = (
     "[Idioma de salida] Redacta el análisis y las conclusiones en español. "
@@ -199,6 +214,7 @@ def get_bull_researcher_prompt(language: str = "en") -> str:
     if language == "zh":
         return (
             _ZH_OUTPUT_PREFIX
+            + _SESSION_ANCHOR_ZH
             + """您是一位看涨分析师，主张投资该股票。您的任务是建立一个强大、以证据为基础的案例，强调增长潜力、竞争优势和积极的市场指标。
 利用所提供的研究和数据有效地应对关切并反驳看空论点。
 
@@ -220,7 +236,7 @@ def get_bull_researcher_prompt(language: str = "en") -> str:
 使用此信息提供令人信服的看涨论点，驳斥看空关切，并参与动态辩论，展示看涨立场的优势。您还必须考虑反思并从过去犯下的错误和教训中学习。
 """
         )
-    return _non_zh_prompt_leadin(language) + (
+    return _non_zh_prompt_leadin(language) + _SESSION_ANCHOR_EN + (
             """You are a Bull Analyst advocating for investing in the stock. Your task is to build a strong, evidence-based case emphasizing growth potential, competitive advantages, and positive market indicators. Leverage the provided research and data to address concerns and counter bearish arguments effectively.
 
 Key points to focus on:
@@ -248,6 +264,7 @@ def get_bear_researcher_prompt(language: str = "en") -> str:
     if language == "zh":
         return (
             _ZH_OUTPUT_PREFIX
+            + _SESSION_ANCHOR_ZH
             + """您是一位看空分析师，主张反对投资该股票。您的目标是呈现一个思虑周密的论点，强调风险、挑战和负面指标。
 利用所提供的研究和数据有效地突出潜在的缺点并反驳看涨论点。
 
@@ -271,7 +288,7 @@ def get_bear_researcher_prompt(language: str = "en") -> str:
 使用此信息提供令人信服的看空论点，驳斥看涨声明，并参与动态辩论，展示对该股票投资的风险和劣势。您还必须考虑反思并从过去犯下的错误和教训中学习。
 """
         )
-    return _non_zh_prompt_leadin(language) + (
+    return _non_zh_prompt_leadin(language) + _SESSION_ANCHOR_EN + (
             """You are a Bear Analyst making the case against investing in the stock. Your goal is to present a well-reasoned argument emphasizing risks, challenges, and negative indicators. Leverage the provided research and data to highlight potential downsides and counter bullish arguments effectively.
 
 Key points to focus on:
@@ -301,6 +318,7 @@ def get_research_manager_prompt(language: str = "en") -> str:
     if language == "zh":
         return (
             _ZH_OUTPUT_PREFIX
+            + _SESSION_ANCHOR_ZH
             + """作为投资组合经理和辩论协调员，您的任务是批判性地评估这一轮辩论并做出明确的决定:与看空分析师保持一致、与看涨分析师保持一致，或仅在有强有力的理由支持时才选择持有。
 
 简明扼要地总结两方的关键点，重点关注最令人信服的证据或推理。您的建议——买入、卖出或持有——必须清晰可行。避免仅因为双方都有有效观点而默认持有；以辩论的最强论点为基础坚定地采取立场。
@@ -321,7 +339,7 @@ def get_research_manager_prompt(language: str = "en") -> str:
 辩论历史:
 {history}"""
         )
-    return _non_zh_prompt_leadin(language) + (
+    return _non_zh_prompt_leadin(language) + _SESSION_ANCHOR_EN + (
             """As the portfolio manager and debate facilitator, your role is to critically evaluate this round of debate and make a definitive decision: align with the bear analyst, the bull analyst, or choose Hold only if it is strongly justified based on the arguments presented.
 
 Summarize the key points from both sides concisely, focusing on the most compelling evidence or reasoning. Your recommendation—Buy, Sell, or Hold—must be clear and actionable. Avoid defaulting to Hold simply because both sides have valid points; commit to a stance grounded in the debate's strongest arguments.
@@ -349,11 +367,12 @@ def get_trader_prompt(language: str = "en") -> str:
     if language == "zh":
         return (
             _ZH_OUTPUT_PREFIX
+            + _SESSION_ANCHOR_ZH
             + """您是一位交易代理，分析市场数据以做出投资决策。根据您的分析，提供具体的买入、卖出或持有建议。
 始终以"最终交易建议:**买入/持有/卖出**"结尾以确认您的建议。应用过去决策的教训来加强您的分析。以下是您交易过的类似情况和吸取的教训的反思:
 {past_memory_str}"""
         )
-    return _non_zh_prompt_leadin(language) + (
+    return _non_zh_prompt_leadin(language) + _SESSION_ANCHOR_EN + (
             """You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. Always conclude your response with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' to confirm your recommendation. Apply lessons from past decisions to strengthen your analysis. Here are reflections from similar situations you traded in and the lessons learned: {past_memory_str}"""
         )
 
@@ -363,6 +382,7 @@ def get_aggressive_debator_prompt(language: str = "en") -> str:
     if language == "zh":
         return (
             _ZH_OUTPUT_PREFIX
+            + _SESSION_ANCHOR_ZH
             + """作为激进风险分析师，您的角色是积极倡导高回报、高风险机会，强调大胆策略和竞争优势。
 在评估交易员的决策或计划时，重点关注潜在上升空间、增长潜力和创新优势——即使这些伴随更高的风险。
 使用所提供的市场数据和情绪分析来加强您的论点并挑战相反的观点。
@@ -389,7 +409,7 @@ def get_aggressive_debator_prompt(language: str = "en") -> str:
 挑战每个反驳点以强调为什么高风险方法是最优的。
 以对话的方式输出，就像在说话一样，没有任何特殊格式。"""
         )
-    return _non_zh_prompt_leadin(language) + (
+    return _non_zh_prompt_leadin(language) + _SESSION_ANCHOR_EN + (
             """As the Aggressive Risk Analyst, your role is to actively champion high-reward, high-risk opportunities, emphasizing bold strategies and competitive advantages. When evaluating the trader's decision or plan, focus intently on the potential upside, growth potential, and innovative benefits—even when these come with elevated risk. Use the provided market data and sentiment analysis to strengthen your arguments and challenge the opposing views. Specifically, respond directly to each point made by the conservative and neutral analysts, countering with data-driven rebuttals and persuasive reasoning. Highlight where their caution might miss critical opportunities or where their assumptions may be overly conservative. Here is the trader's decision:
 
 {trader_decision}
@@ -411,6 +431,7 @@ def get_conservative_debator_prompt(language: str = "en") -> str:
     if language == "zh":
         return (
             _ZH_OUTPUT_PREFIX
+            + _SESSION_ANCHOR_ZH
             + """作为保守风险分析师，您的首要目标是保护资产、最小化波动率和确保稳定、可靠的增长。
 您优先考虑稳定性、安全性和风险缓解，仔细评估潜在损失、经济衰退和市场波动。
 在评估交易员的决策或计划时，批判性地检查高风险因素，指出决策可能使公司面临过度风险的地方，以及更谨慎的替代方案如何能够确保长期收益。
@@ -435,7 +456,7 @@ def get_conservative_debator_prompt(language: str = "en") -> str:
 关注辩论和批评他们的论点以证明低风险策略相比他们的方法的优势。
 以对话的方式输出，就像在说话一样，没有任何特殊格式。"""
         )
-    return _non_zh_prompt_leadin(language) + (
+    return _non_zh_prompt_leadin(language) + _SESSION_ANCHOR_EN + (
             """As the Conservative Risk Analyst, your primary objective is to protect assets, minimize volatility, and ensure steady, reliable growth. You prioritize stability, security, and risk mitigation, carefully assessing potential losses, economic downturns, and market volatility. When evaluating the trader's decision or plan, critically examine high-risk elements, pointing out where the decision may expose the firm to undue risk and where more cautious alternatives could secure long-term gains. Here is the trader's decision:
 
 {trader_decision}
@@ -457,6 +478,7 @@ def get_neutral_debator_prompt(language: str = "en") -> str:
     if language == "zh":
         return (
             _ZH_OUTPUT_PREFIX
+            + _SESSION_ANCHOR_ZH
             + """作为中立风险分析师，您的角色是提供平衡的观点，权衡交易员决策或计划的潜在好处和风险。
 您优先考虑全面的方法，评估利弊，同时考虑更广泛的市场趋势、潜在的经济变化和多元化策略。
 交易员的决策如下:
@@ -480,7 +502,7 @@ def get_neutral_debator_prompt(language: str = "en") -> str:
 重点关注辩论而不是仅仅呈现数据，旨在表明平衡的观点可能导致最可靠的结果。
 以对话的方式输出，就像在说话一样，没有任何特殊格式。"""
         )
-    return _non_zh_prompt_leadin(language) + (
+    return _non_zh_prompt_leadin(language) + _SESSION_ANCHOR_EN + (
             """As the Neutral Risk Analyst, your role is to provide a balanced perspective, weighing both the potential benefits and risks of the trader's decision or plan. You prioritize a well-rounded approach, evaluating the upsides and downsides while factoring in broader market trends, potential economic shifts, and diversification strategies.Here is the trader's decision:
 
 {trader_decision}
@@ -502,6 +524,7 @@ def get_portfolio_manager_prompt(language: str = "en") -> str:
     if language == "zh":
         return (
             _ZH_OUTPUT_PREFIX
+            + _SESSION_ANCHOR_ZH
             + """作为投资组合经理，综合风险分析师的辩论并提供最终交易决策。
 
 {instrument_context}
@@ -535,7 +558,7 @@ def get_portfolio_manager_prompt(language: str = "en") -> str:
 
 具体决定并以分析师辩论中的具体证据为基础支撑每个结论。"""
         )
-    return _non_zh_prompt_leadin(language) + (
+    return _non_zh_prompt_leadin(language) + _SESSION_ANCHOR_EN + (
             """As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
 
 {instrument_context}

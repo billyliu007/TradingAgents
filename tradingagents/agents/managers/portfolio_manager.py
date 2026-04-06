@@ -31,6 +31,7 @@ def create_portfolio_manager(llm, memory, language: str = "en"):
             trader_plan=trader_plan,
             past_memory_str=past_memory_str,
             history=history,
+            session_date=state["trade_date"],
         )
 
         response = llm.invoke(prompt)

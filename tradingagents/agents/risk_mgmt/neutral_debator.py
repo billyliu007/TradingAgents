@@ -29,6 +29,7 @@ def create_neutral_debator(llm, language: str = "en"):
             history=history,
             current_aggressive_response=current_aggressive_response,
             current_conservative_response=current_conservative_response,
+            session_date=state["trade_date"],
         )
 
         response = llm.invoke(prompt)

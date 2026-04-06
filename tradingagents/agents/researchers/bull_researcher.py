@@ -32,6 +32,7 @@ def create_bull_researcher(llm, memory, language: str = "en"):
             history=history,
             current_response=current_response,
             past_memory_str=past_memory_str,
+            session_date=state["trade_date"],
         )
 
         response = llm.invoke(prompt)

@@ -28,6 +28,7 @@ def create_research_manager(llm, memory, language: str = "en"):
             instrument_context=instrument_context,
             past_memory_str=past_memory_str,
             history=history,
+            session_date=state["trade_date"],
         )
         response = llm.invoke(prompt)
 
