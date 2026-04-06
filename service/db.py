@@ -5,6 +5,8 @@ Cache key: (ticker, analysis_date, dimension string).
 The dimension string encodes sorted analysts, language, and an LLM profile fingerprint.
 On cache hit, stored events are replayed to the job stream — no LLM calls.
 On cache miss, results are saved after the analysis completes.
+Stale rows (past the US/Eastern midnight following ``analysis_date``) are not served
+but remain in the database until overwritten by a new run.
 
 Requires the DATABASE_URL environment variable to point at a PostgreSQL
 connection string (e.g. a Neon pooler URL).  If DATABASE_URL is not set
@@ -20,6 +22,8 @@ import os
 import re
 from datetime import date
 from typing import Any
+
+from service.analysis_dates import analysis_cache_is_stale
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +193,14 @@ def get_cached_analysis(
             )
             row = cur.fetchone()
             if row is None:
+                return None
+
+            if analysis_cache_is_stale(analysis_date):
+                logger.info(
+                    "Cache stale (past US/Eastern midnight for next day) ticker=%s date=%s",
+                    ticker.upper(),
+                    analysis_date,
+                )
                 return None
 
             (

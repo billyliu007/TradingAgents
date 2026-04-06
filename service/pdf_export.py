@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from datetime import date
 from pathlib import Path
-from typing import Literal
 
 from fpdf import FPDF
 
@@ -168,19 +167,14 @@ def _safe_ticker(ticker: str) -> str:
 def export_filename(
     ticker: str,
     analysis_date: date,
-    analysts: list[Literal["market", "social", "news", "fundamentals"]],
+    *,
     language: str = "en",
 ) -> str:
-    """Base filename: ASSET_asof_DATE_analyst1-analyst2_LANG.pdf (session / close date).
-
-    ``language`` is typically ``en``, ``zh``, or ``en_zh`` (bilingual PDF).
-    """
+    """Base filename: ``TICKER_YYYY-MM-DD_LANG.pdf`` (calendar date + report language)."""
     sym = _safe_ticker(ticker)
     d = analysis_date.isoformat()
-    parts = sorted(set(analysts))
-    analyst_part = "-".join(parts) if parts else "none"
-    lang_suffix = language.upper()
-    return f"{sym}_asof_{d}_{analyst_part}_{lang_suffix}.pdf"
+    lang_clean = re.sub(r"[^A-Za-z0-9]+", "_", (language or "en").strip()).strip("_").upper() or "EN"
+    return f"{sym}_{d}_{lang_clean}.pdf"
 
 
 def _register_font(pdf: FPDF) -> str:
@@ -284,6 +278,10 @@ def write_analysis_pdf(
         label_decision = "决策"
         label_report = "报告"
         note = "注：雅虎财经的OHLCV数据与此会话日期对齐。"
+        tz_note = (
+            "时区说明：截至日期为美国东部时区（America/New_York）的公历日；"
+            "以当地 00:00 作为下一分析日的分界。"
+        )
     else:  # English
         title = "TradingAgents analysis report"
         label_ticker = "Ticker"
@@ -292,6 +290,10 @@ def write_analysis_pdf(
         label_decision = "Decision"
         label_report = "Report"
         note = "Note: OHLCV from Yahoo Finance is aligned to include this session date."
+        tz_note = (
+            "Timezone: the as-of date is the calendar date in US Eastern time "
+            "(America/New_York). The next analysis day begins at 00:00 local Eastern."
+        )
 
     pdf.set_font(family, "B", 16)
     pdf.multi_cell(usable_w, 10, title)
@@ -304,6 +306,7 @@ def write_analysis_pdf(
         f"{label_analysts}: {', '.join(analysts)}",
         f"{label_decision}: {decision or 'N/A'}",
         note,
+        tz_note,
     ]
     pdf.multi_cell(usable_w, 6, "\n".join(meta_lines))
     pdf.ln(6)
@@ -360,6 +363,8 @@ def write_bilingual_analysis_pdf(
         f"Analysts: {analyst_line}",
         f"Decision: {decision_en or 'N/A'}",
         "Note: OHLCV from Yahoo Finance is aligned to include this session date.",
+        "Timezone: as-of date is the calendar date in US Eastern (America/New_York); "
+        "the next analysis day starts at 00:00 local Eastern.",
     ]
     pdf.multi_cell(usable_w, 6, "\n".join(en_meta))
     pdf.ln(4)
@@ -382,6 +387,7 @@ def write_bilingual_analysis_pdf(
         f"分析师: {analyst_line}",
         f"决策: {decision_zh or 'N/A'}",
         "注：雅虎财经的 OHLCV 数据与此会话日期对齐。",
+        "时区说明：截至日期为美国东部（America/New_York）公历日；下一分析日以当地 00:00 为界。",
     ]
     pdf.multi_cell(usable_w, 6, "\n".join(zh_meta))
     pdf.ln(4)

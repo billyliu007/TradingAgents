@@ -36,6 +36,7 @@ from service.pdf_export import (
     write_analysis_pdf,
 )
 from service import db
+from service.analysis_dates import normalize_analysis_date
 
 load_dotenv()
 
@@ -237,7 +238,14 @@ _API_KEY_SETTINGS_KEYS: frozenset[str] = frozenset({
 
 class AnalyzeRequest(BaseModel):
     ticker: str = Field(..., min_length=1, description="Ticker, e.g. NVDA")
-    analysis_date: date
+    analysis_date: date = Field(
+        ...,
+        description=(
+            "As-of calendar date. If this equals the server's UTC calendar date for 'today', "
+            "it is normalized to today's date in America/New_York; otherwise it is treated as an "
+            "explicit US Eastern calendar date."
+        ),
+    )
     selected_analysts: list[Literal["market", "social", "news", "fundamentals"]] = Field(
         default_factory=lambda: ANALYST_OPTIONS.copy()
     )
@@ -275,12 +283,14 @@ class AnalyzeResponse(BaseModel):
     raw_state: dict[str, Any]
     pdf_filenames: list[str] | None = None
     pdf_download_urls: list[str] | None = None
+    analysis_date: date | None = None
 
 
 class JobSubmitResponse(BaseModel):
     job_id: str
     status: str
     message: str
+    analysis_date: date
 
 
 class JobStatusResponse(BaseModel):
@@ -299,6 +309,15 @@ class JobStatusResponse(BaseModel):
 def _require_admin(request: Request) -> None:
     if not _admin_verify_token(request.cookies.get(_ADMIN_COOKIE)):
         raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+def _normalize_analyze_request(payload: AnalyzeRequest) -> AnalyzeRequest:
+    """Normalize ``analysis_date`` (US Eastern session day) and always use all data analysts."""
+    d = normalize_analysis_date(payload.analysis_date)
+    analysts = list(ANALYST_OPTIONS)
+    if d == payload.analysis_date and list(payload.selected_analysts) == analysts:
+        return payload
+    return payload.model_copy(update={"analysis_date": d, "selected_analysts": analysts})
 
 
 def _coerce_round_int(val: Any, default: int, lo: int = 1, hi: int = 5) -> int:
@@ -779,7 +798,8 @@ def _execute_analysis(payload: AnalyzeRequest, job_id: str | None = None, cancel
 
     try:
         fname = export_filename(
-            payload.ticker, payload.analysis_date, payload.selected_analysts,
+            payload.ticker,
+            payload.analysis_date,
             language=payload.language,
         )
         out_path = unique_path(_exports_dir(), fname)
@@ -1239,6 +1259,7 @@ def download_all_exports_zip() -> StreamingResponse:
 @app.post("/api/jobs", response_model=JobSubmitResponse)
 def submit_job(payload: AnalyzeRequest) -> JobSubmitResponse:
     """Submit an analysis job. Returns immediately with a job_id to poll."""
+    payload = _normalize_analyze_request(payload)
     # Validate ticker against the loaded index (skip if index not ready yet)
     valid = _ticker_svc.exists(payload.ticker)
     if valid is False:
@@ -1274,6 +1295,7 @@ def submit_job(payload: AnalyzeRequest) -> JobSubmitResponse:
         job_id=job_id,
         status="pending",
         message="Job queued. Connect to /ws/job/{job_id} for live results.",
+        analysis_date=payload.analysis_date,
     )
 
 
@@ -1368,6 +1390,7 @@ async def websocket_job_stream(websocket: WebSocket, job_id: str) -> None:
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
+    payload = _normalize_analyze_request(payload)
     # Always check DB cache first — same key as the async job path so results
     # are shared across all users, sessions, and entry points.
     cached = _cache_lookup(payload, label="sync")
@@ -1381,11 +1404,21 @@ def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
             raw_state={},
             pdf_filenames=None,
             pdf_download_urls=None,
+            analysis_date=payload.analysis_date,
         )
     try:
         result = _execute_analysis(payload, job_id=None)
         _cache_save(payload, result, [], label="sync")
-        return AnalyzeResponse(**result)
+        return AnalyzeResponse(
+            decision=result["decision"],
+            final_trade_decision=result["final_trade_decision"],
+            human_readable_report=result["human_readable_report"],
+            sections=result["sections"],
+            raw_state=result["raw_state"],
+            pdf_filenames=result.get("pdf_filenames"),
+            pdf_download_urls=result.get("pdf_download_urls"),
+            analysis_date=payload.analysis_date,
+        )
     except Exception as exc:
         _log(f"Analyze failed ticker={payload.ticker} error={exc}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {exc}") from exc
