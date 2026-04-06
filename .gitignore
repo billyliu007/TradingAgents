@@ -227,5 +227,8 @@ exports/
 # macOS
 .DS_Store
 
+# Agent run outputs (local; do not commit)
+results/
+
 # Google service account credentials (never commit private keys)
 Google/
