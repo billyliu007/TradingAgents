@@ -51,60 +51,43 @@
       flex: 1; min-width: 0; flex-wrap: wrap; justify-content: flex-end;
     }
     .hdr-lang-wrap {
-      display: flex; align-items: center;
-      flex: 0 0 auto; margin-left: 8px;
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+      margin-left: 8px;
+      position: relative;
     }
-    .hdr-lang-seg {
-      display: inline-flex;
-      flex-wrap: wrap;
-      align-items: stretch;
-      justify-content: center;
-      gap: 2px;
-      padding: 3px;
+    .hdr-lang-select {
+      appearance: none;
+      -webkit-appearance: none;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .02em;
+      padding: 10px 34px 10px 12px;
+      min-height: 44px;
       border-radius: 10px;
+      cursor: pointer;
+      color: var(--txt);
       background: rgba(0,0,0,.45);
       border: 1px solid var(--border);
       box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
-      max-width: min(100%, 320px);
+      outline: none;
+      max-width: 220px;
     }
-    .hdr-lang-seg:focus-within {
+    .hdr-lang-select:focus {
       border-color: rgba(79,143,255,.45);
       box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 0 0 2px rgba(79,143,255,.12);
     }
-    .hdr-lang-btn {
-      position: relative;
-      font-family: inherit;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .02em;
-      padding: 7px 12px;
-      min-height: 32px;
-      border: none;
-      border-radius: 7px;
-      cursor: pointer;
-      color: var(--txt2);
-      background: transparent;
-      transition: color .15s, background .15s, box-shadow .15s;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-    }
-    .hdr-lang-btn:hover {
-      color: var(--txt);
-      background: rgba(79,143,255,.08);
-    }
-    .hdr-lang-btn[aria-pressed="true"] {
-      color: var(--txt);
-      background: linear-gradient(145deg, rgba(79,143,255,.22), rgba(42,184,165,.12));
-      box-shadow: 0 1px 0 rgba(255,255,255,.06);
-    }
-    .hdr-lang-btn[aria-pressed="true"]::after {
-      content: "";
+    .hdr-lang-wrap::after {
+      content: "▾";
       position: absolute;
-      left: 8px; right: 8px; bottom: 4px;
-      height: 2px;
-      border-radius: 1px;
-      background: linear-gradient(90deg, var(--blue), var(--teal));
-      opacity: .9;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--txt2);
+      font-size: 11px;
     }
     .admin-link {
       font-size: 11px; font-weight: 700; color: var(--txt2); text-decoration: none;
@@ -743,8 +726,7 @@
       .ticker-row .btn-stop.ticker-action-btn { padding: 10px 12px; font-size: 11px; min-height: 44px; min-width: 96px; }
       .ticker-row .btn-clear   { padding: 10px 8px;  font-size: 11px; min-height: 44px; }
       .hdr-lang-wrap { margin-left: 4px; }
-      .hdr-lang-seg { padding: 2px; border-radius: 9px; }
-      .hdr-lang-btn { padding: 8px 11px; min-height: 40px; font-size: 11px; }
+      .hdr-lang-select { max-width: 180px; }
       header { padding: 10px 12px; gap: 8px; }
 
       #analyistsGrid .team-card { min-height: 90px; }
@@ -866,8 +848,8 @@
   <div class="hdr-tools">
     <div class="hdr-status" id="hdrStatus">Ready</div>
     <a class="admin-link" id="adminLink" href="/admin">Admin</a>
-    <div class="hdr-lang-wrap" role="group" aria-label="Language" id="hdrLangWrap">
-      <div class="hdr-lang-seg" id="hdrLangSeg"></div>
+    <div class="hdr-lang-wrap" aria-label="Language" id="hdrLangWrap">
+      <select class="hdr-lang-select" id="hdrLangSelect" aria-label="Language"></select>
     </div>
   </div>
 </header>
@@ -1517,6 +1499,147 @@ const TRANSLATIONS = {
   },
 };
 
+// Traditional Chinese: start with zh (Simplified) then override key strings.
+// Keeps the UI scalable without duplicating the whole dictionary.
+TRANSLATIONS["zh-hant"] = {
+  ...TRANSLATIONS.zh,
+  // Header & Status
+  "hdr_ready": "就緒",
+  "hdr_running": "運行中",
+  "hdr_complete": "完成",
+  "hdr_stopped": "已停止",
+  "hdr_failed": "失敗",
+  "hdr_researching": "研究中",
+  "hdr_resuming": "恢復中",
+  "settings": "設定",
+  "admin_link": "管理",
+
+  // Form Labels
+  "research_request": "研究請求",
+  "ticker": "股票代號",
+  "analysis_date": "分析日期",
+  "your_research_team": "您的研究團隊",
+  "btn_start": "▶ 分析",
+  "btn_stop": "⏹ 停止",
+  "btn_clear": "🗑 清空",
+  "stopping": "停止中…",
+  "tab_research": "研究",
+  "tab_data": "數據",
+
+  // Advisors
+  "market_analyst": "市場分析師",
+  "fundamentals_expert": "基本面專家",
+  "sentiment_analyst": "情緒分析師",
+  "news_researcher": "新聞研究員",
+  "bull_researcher": "看漲研究員",
+  "bear_researcher": "看跌研究員",
+  "research_manager": "研究經理",
+  "senior_trader": "高級交易員",
+  "risk_aggressive": "風險·激進",
+  "risk_conservative": "風險·保守",
+  "risk_neutral": "風險·中立",
+  "portfolio_manager": "投資組合經理",
+
+  // Team Focus
+  "focus_market": "價格趨勢與技術信號",
+  "focus_fundamentals": "財務健康與收益",
+  "focus_social": "情緒與社交趨勢",
+  "focus_news": "新聞影響",
+  "focus_bull": "積極投資案例",
+  "focus_bear": "風險與下行空間",
+  "focus_research_manager": "綜合研究辯論",
+  "focus_trader": "提出交易計畫",
+  "focus_aggressive": "增長機會關注",
+  "focus_conservative": "資本保護",
+  "focus_neutral": "平衡評估",
+  "focus_portfolio": "最終買入/賣出/持有決定",
+
+  // Progress & Status
+  "waiting_analysis": "等待分析...",
+  "fetching_data": "獲取市場數據...",
+  "research_debating": "研究團隊討論中...",
+  "risk_reviewing": "風險團隊審查中...",
+  "analysis_complete": "分析完成",
+  "complete_success": "✓ 研究完成",
+  "submitting": "提交中...",
+  "submitting_request": "提交分析請求...",
+  "team_starting": "研究團隊啟動中...",
+  "team_working": "研究團隊正在工作...",
+  "team_working_headline": "虛擬團隊已開工",
+  "team_working_subline": "正在為 {ticker} 拉取即時數據並執行多智能體全流程分析。",
+  "team_working_patience": "請耐心等待——完整深度分析最長可能需要約 10 分鐘。",
+  "team_working_pipeline": "流程：數據團隊 → 研究辯論 → 交易員 → 風險評審 → 最終決策",
+  "team_working_hint": "各階段完成後，對話訊息將顯示在此處。",
+  "reconnecting": "重新連接到分析...",
+  "reconnecting_prev": "重新連接到之前的分析...",
+
+  // Error & Validation
+  "select_advisor": "請選擇至少一個顧問。",
+  "error_generic": "錯誤：",
+  "error_prefix": "錯誤：",
+  "data_fetch_failed": "數據獲取失敗",
+  "analysis_stopped": "分析已被用戶停止。",
+  "stopped_partial": "分析已停止。上面顯示部分結果。",
+  "previous_job_not_found": "找不到之前的工作。請提交新的分析。",
+  "reconnecting_to": "重新連接中...",
+
+  // Analysis Labels
+  "market_complete": "市場分析完成",
+  "fundamentals_complete": "基本面分析完成",
+  "social_complete": "情緒分析完成",
+  "news_complete": "新聞分析完成",
+  "research_manager_complete": "團隊共識達成",
+  "trader_complete": "交易計畫確定",
+  "portfolio_complete": "最終決策已做出",
+  "investment_debate": "━━  投資辯論  ━━",
+  "risk_review": "━━  風險審查  ━━",
+  "final_recommendation": "━━  最終建議  ━━",
+
+  // Buttons & Links
+  "download_pdf": "📥 下載完整報告 (PDF)",
+  "dl_stopping": "停止中...",
+
+  // Data Feed
+  "live_data_feed": "⚡ 即時數據源",
+  "data_panel_expand": "顯示即時數據",
+  "data_panel_collapse": "收起面板",
+  "data_waiting": "等待中...",
+  "data_receiving": "接收中...",
+  "data_complete": "已同步",
+  "data_stopped": "已停止",
+  "data_placeholder": "來自數據提供商的原始數據將顯示在這裡...",
+  "data_raw_placeholder": "來自數據提供商的原始數據將顯示在這裡...",
+  "data_rows_truncated": "還有 {n} 行未顯示",
+
+  // Team Showcase
+  "team_title": "您的研究團隊",
+  "team_subtitle": "認識12位AI專家，他們合作分析股票",
+  "team_analysts": "📊 數據分析師",
+  "team_researchers": "🔬 研究團隊",
+  "team_leadership": "👔 領導層",
+  "team_risk": "⚠️ 風險管理",
+
+  // Settings
+  "llm_provider": "LLM提供商",
+  "models": "模型",
+  "quick_models": "快速 — 快速任務",
+  "deep_models": "深度 — 複雜推理",
+  "debate_rounds": "辯論輪數",
+  "risk_rounds": "風險輪數",
+  "backend_url": "後端URL（可選）",
+  "language": "語言",
+  "api_keys_section": "API 密鑰（可選）",
+  "kimi_adv_summary": "自定義模型（可選）",
+  "kimi_adv_help": "一般無需展開。僅當上方的模型無法使用時，再按客服提供的名稱填寫。",
+  "kimi_lbl_quick": "替換「快速」模型",
+  "kimi_lbl_deep": "替換「深度」模型",
+  "kimi_ph_quick": "留空則使用上方下拉框",
+  "kimi_ph_deep": "留空則使用上方下拉框",
+  "moonshot_key_lbl": "Kimi API 密鑰",
+  "moonshot_key_ph": "來自 platform.moonshot.cn",
+  "backend_url_ph": "通常留空。高階用戶可填寫自定義接口地址。",
+};
+
 /**
  * UI locales for the header control (order = display order).
  * Add `{ code, label, htmlLang }` plus a `TRANSLATIONS[code]` block for each language.
@@ -1528,6 +1651,7 @@ const DEFAULT_LOCALE = "en";
 const SUPPORTED_LOCALES = [
   { code: "en", label: "EN", htmlLang: "en" },
   { code: "zh", label: "中文", htmlLang: "zh-Hans" },
+  { code: "zh-hant", label: "繁體", htmlLang: "zh-Hant" },
   { code: "es", label: "ES", htmlLang: "es" },
   { code: "ja", label: "日本語", htmlLang: "ja" },
 ];
@@ -1543,6 +1667,15 @@ function resolveInitialLanguage() {
   const nav = (navigator.language || DEFAULT_LOCALE).toLowerCase();
   if (codes.has(nav)) return nav;
   const primary = nav.split("-")[0];
+  // Special-case Chinese: map region to Hans/Hant.
+  if (primary === "zh") {
+    const parts = nav.split("-");
+    const region = (parts[1] || "").toLowerCase();
+    const script = (parts[1] || "").toLowerCase();
+    const r2 = (parts[2] || "").toLowerCase();
+    const wantsHant = script === "hant" || region === "tw" || region === "hk" || region === "mo" || r2 === "tw" || r2 === "hk" || r2 === "mo";
+    return wantsHant && codes.has("zh-hant") ? "zh-hant" : (codes.has("zh") ? "zh" : DEFAULT_LOCALE);
+  }
   if (codes.has(primary)) return primary;
   return DEFAULT_LOCALE;
 }
@@ -1577,27 +1710,17 @@ function updateLanguage(lang) {
   updateUIText();
 }
 
-function buildLangSelector() {
-  const seg = _el("hdrLangSeg");
-  if (!seg) return;
-  seg.replaceChildren();
+function buildLangDropdown() {
+  const sel = _el("hdrLangSelect");
+  if (!sel) return;
+  sel.replaceChildren();
   for (const loc of SUPPORTED_LOCALES) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "hdr-lang-btn";
-    btn.dataset.lang = loc.code;
-    btn.setAttribute("aria-pressed", loc.code === currentLanguage ? "true" : "false");
-    btn.textContent = loc.label;
-    btn.title = loc.label;
-    seg.appendChild(btn);
+    const opt = document.createElement("option");
+    opt.value = loc.code;
+    opt.textContent = loc.label;
+    sel.appendChild(opt);
   }
-}
-
-function syncLangButtons() {
-  document.querySelectorAll(".hdr-lang-btn[data-lang]").forEach((btn) => {
-    const lang = btn.getAttribute("data-lang");
-    btn.setAttribute("aria-pressed", lang === currentLanguage ? "true" : "false");
-  });
+  sel.value = currentLanguage;
 }
 
 function _el(id) { return document.getElementById(id); }
@@ -1639,7 +1762,11 @@ function updateUIText() {
   const _set = (id, key) => { const el = _el(id); if (el) el.textContent = t(key); };
   const lw = _el("hdrLangWrap");
   if (lw) lw.setAttribute("aria-label", t("language"));
-  syncLangButtons();
+  const sel = _el("hdrLangSelect");
+  if (sel) {
+    sel.setAttribute("aria-label", t("language"));
+    sel.value = currentLanguage;
+  }
   const adm = _el("adminLink");
   if (adm) adm.textContent = t("admin_link");
 
@@ -1767,22 +1894,20 @@ function _analystProgressPct() {
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 
-// ── LANGUAGE TOGGLE (segmented control, data-driven) ─────────────────────────
+// ── LANGUAGE SELECT (dropdown, scalable) ─────────────────────────────────────
 (function bindLangSelector() {
-  const g = _el("hdrLangWrap");
-  if (!g || g.dataset.langBound === "1") return;
-  g.dataset.langBound = "1";
-  g.addEventListener("click", (e) => {
-    const btn = e.target.closest(".hdr-lang-btn[data-lang]");
-    if (!btn || !g.contains(btn)) return;
-    const lang = btn.getAttribute("data-lang");
+  const sel = _el("hdrLangSelect");
+  if (!sel || sel.dataset.langBound === "1") return;
+  sel.dataset.langBound = "1";
+  sel.addEventListener("change", () => {
+    const lang = (sel.value || "").toLowerCase();
     if (lang && lang !== currentLanguage) updateLanguage(lang);
   });
 })();
 
 // ── INITIALIZE UI TEXT ────────────────────────────────────────────────────────
 document.documentElement.lang = localeHtmlLang(currentLanguage);
-buildLangSelector();
+buildLangDropdown();
 document.getElementById("dataStatus").textContent = t("data_waiting");
 
 const _savedJobInit    = localStorage.getItem(LS_JOB);

@@ -370,6 +370,39 @@ def save_analysis(
         conn.close()
 
 
+def clear_all_analysis_cache() -> dict[str, Any]:
+    """Delete every analysis cache row and associated event log rows.
+
+    ``analysis_events`` is cleared via ``TRUNCATE ... CASCADE`` on ``analysis_cache``.
+    ``tickers`` and ``app_settings`` are untouched.
+
+    Returns:
+        ``{"ok": bool, "removed": int, "detail": str | None}``
+        If the database is not configured, ``ok`` is True and ``removed`` is 0.
+    """
+    conn = _connect()
+    if conn is None:
+        return {
+            "ok": True,
+            "removed": 0,
+            "detail": "DATABASE_URL not set or psycopg2 unavailable — no PostgreSQL cache to clear.",
+        }
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM analysis_cache")
+            n = int(cur.fetchone()[0])
+            cur.execute("TRUNCATE analysis_cache RESTART IDENTITY CASCADE")
+        conn.commit()
+        logger.info("Cleared analysis_cache (%s rows)", n)
+        return {"ok": True, "removed": n, "detail": None}
+    except Exception as exc:
+        conn.rollback()
+        logger.error("clear_all_analysis_cache failed: %s", exc)
+        return {"ok": False, "removed": 0, "detail": str(exc)}
+    finally:
+        conn.close()
+
+
 def get_app_settings() -> dict[str, Any]:
     """Return global app settings object, or {} if DB unavailable / empty."""
     conn = _connect()

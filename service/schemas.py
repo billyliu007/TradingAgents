@@ -41,7 +41,10 @@ class AnalyzeRequest(BaseModel):
     selected_analysts: list[Literal["market", "social", "news", "fundamentals"]] = Field(
         default_factory=lambda: ANALYST_OPTIONS.copy()
     )
-    language: Literal["en", "zh", "es", "ja"] = "en"
+    # Language code (UI + prompt + PDF + DB cache dimension)
+    # - "zh" = Simplified Chinese (default Chinese)
+    # - "zh-hant" = Traditional Chinese
+    language: Literal["en", "zh", "zh-hant", "es", "ja"] = "en"
     # Below: optional. When omitted, values come from DB app_settings or DEFAULT_CONFIG.
     llm_provider: LlmProvider | None = None
     quick_llm_provider: LlmProvider | None = None

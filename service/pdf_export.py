@@ -182,7 +182,7 @@ def _safe_ticker(ticker: str) -> str:
 
 def _language_uses_cjk_font(language: str) -> bool:
     """Chinese and Japanese body text needs a CJK-capable font (bundled WQY-ZenHei, etc.)."""
-    return (language or "").strip().lower() in ("zh", "ja")
+    return (language or "").strip().lower() in ("zh", "zh-hans", "zh-hant", "ja")
 
 
 # Cover / footer strings per analysis language (PDF shell is localized; report body follows the LLM).
@@ -214,6 +214,20 @@ _PDF_COVER: dict[str, dict[str, str]] = {
             "以当地 00:00 作为下一分析日的分界。"
         ),
         "empty_body": "没有报告内容。",
+    },
+    "zh-hant": {
+        "title": "TradingAgents 分析報告",
+        "label_ticker": "股票代號",
+        "label_date": "截至會話日期（日收盤）",
+        "label_analysts": "分析師",
+        "label_decision": "決策",
+        "label_report": "報告",
+        "note": "註：Yahoo Finance 的 OHLCV 與此會話日期對齊。",
+        "tz_note": (
+            "時區說明：截至日期為美國東部時區（America/New_York）的曆日；"
+            "下一分析日以當地 00:00 為界。"
+        ),
+        "empty_body": "沒有報告內容。",
     },
     "es": {
         "title": "Informe de análisis TradingAgents",

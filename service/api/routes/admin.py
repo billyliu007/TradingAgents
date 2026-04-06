@@ -72,3 +72,15 @@ def admin_settings_put(_admin: CurrentAdmin, body: dict[str, Any] = Body(...)) -
             detail="Could not save settings. Set DATABASE_URL and ensure psycopg2 is installed.",
         )
     return {"ok": True}
+
+
+@router.delete("/analysis-cache")
+def admin_clear_analysis_cache(_admin: CurrentAdmin) -> dict[str, Any]:
+    """Remove all cached analysis results and replay events from PostgreSQL."""
+    result = db.clear_all_analysis_cache()
+    if not result.get("ok"):
+        raise HTTPException(
+            status_code=503,
+            detail=result.get("detail") or "Could not clear analysis cache.",
+        )
+    return result
