@@ -101,25 +101,17 @@
     /* Hidden: open /admin directly when needed */
     #adminLink { display: none !important; }
 
-    /* Legal / attribution — low-contrast, unobtrusive */
-    .app-footer {
-      flex-shrink: 0;
-      padding: 5px 18px 7px;
-      border-top: 1px solid var(--border);
-      background: rgba(8, 13, 22, 0.92);
+    /* Legal attribution — subtle, low-key, inside Team Showcase (not floating) */
+    .legal-corner {
+      margin-top: 14px;
       font-size: 10px;
-      line-height: 1.5;
-      color: var(--txt2);
-      text-align: center;
+      line-height: 1.35;
+      color: rgba(143, 163, 192, 0.36);
+      text-align: right;
+      user-select: none;
+      text-shadow: 0 1px 0 rgba(0,0,0,.35);
     }
-    .app-footer__line { margin: 0 0 3px; opacity: 0.88; }
-    .app-footer__line:last-child { margin-bottom: 0; }
-    .app-footer__link {
-      color: inherit;
-      text-decoration: underline;
-      text-underline-offset: 2px;
-    }
-    .app-footer__link:hover { color: var(--blue); }
+    .legal-corner strong { font-weight: 700; color: rgba(143, 163, 192, 0.42); }
     .hdr-status { font-size: 11px; color: var(--txt2); background: rgba(79,143,255,.1); border: 1px solid rgba(79,143,255,.3); padding: 4px 10px; border-radius: 20px; }
     .hdr-status.running { color: var(--green); border-color: rgba(43,182,125,.4); background: rgba(43,182,125,.1); }
 
@@ -362,7 +354,7 @@
     }
     .new-msgs-pill.show { display: block; }
     /* On mobile, raise pill above the fixed tab bar (56px) */
-      @media (max-width: 767px) { .new-msgs-pill { bottom: 108px; } }
+      @media (max-width: 767px) { .new-msgs-pill { bottom: 70px; } }
 
     /* ── SUBMIT BTN ────────────────────────────────────────── */
     .btn-primary { padding: 10px 16px; background: linear-gradient(90deg, var(--blue), #3d77e0); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
@@ -734,18 +726,8 @@
 
       /* Chat panel fills the screen */
       .mid-col  { overflow: hidden; }
-      .chat-feed { padding-bottom: 110px; }
-      .data-col  { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px 110px; }
-
-      .app-footer {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: calc(56px + env(safe-area-inset-bottom, 0px));
-        z-index: 45;
-        padding: 4px 10px 5px;
-        border-top: 1px solid var(--border);
-      }
+      .chat-feed { padding-bottom: 72px; }
+      .data-col  { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px 72px; }
 
       /* Larger touch targets for form elements */
       input, select { font-size: 16px !important; padding: 11px 12px; min-height: 44px; }
@@ -937,6 +919,11 @@
         <!-- Risk Managers -->
         <div class="team-section-title" id="secRisk">⚠️ Risk Management</div>
         <div class="team-grid" id="riskGrid"></div>
+
+        <div class="legal-corner" id="legalCorner" aria-hidden="true">
+          <div>For research and education only. Outputs are AI-generated simulations, not investment, legal, or tax advice.</div>
+          <div>Builds on <strong>TradingAgents</strong> (Tauric Research), licensed under <strong>Apache-2.0</strong>. See <strong>NOTICE</strong> in the source repository.</div>
+        </div>
       </div>
 
       <!-- Chat Messages (shown during analysis) -->
@@ -958,11 +945,6 @@
     </div>
   </aside>
 </div>
-
-<footer class="app-footer" id="appFooter" aria-label="Legal">
-  <p class="app-footer__line" id="footerDisclaimer"></p>
-  <p class="app-footer__line" id="footerAttrib"></p>
-</footer>
 
 <!-- ── MOBILE TAB BAR ───────────────────────────────────── -->
 <nav class="mobile-tabs" id="mobileTabs" aria-label="Main navigation">
@@ -1026,7 +1008,7 @@ const TRANSLATIONS = {
     "ticker": "Ticker",
     "analysis_date": "Analysis Date",
     "your_research_team": "Your Research Team",
-    "btn_start": "▶ Analyze",
+    "btn_start": "▶ Research",
     "btn_stop": "⏹ Stop",
     "btn_clear": "🗑 Clear",
     "stopping": "Stopping…",
@@ -1059,7 +1041,7 @@ const TRANSLATIONS = {
     "focus_aggressive": "Growth opportunity focus",
     "focus_conservative": "Capital preservation",
     "focus_neutral": "Balanced assessment",
-    "focus_portfolio": "Simulated BUY/SELL/HOLD label (not advice)",
+    "focus_portfolio": "Simulated label (not advice)",
 
     // Progress & Status
     "waiting_analysis": "Waiting for analysis...",
@@ -1097,7 +1079,7 @@ const TRANSLATIONS = {
     "news_complete": "News Analysis Complete",
     "research_manager_complete": "Team Consensus Reached",
     "trader_complete": "Trading Plan Set",
-    "portfolio_complete": "Final Decision Made",
+    "portfolio_complete": "Simulated label ready",
     "investment_debate": "━━  Bull / bear discussion  ━━",
     "risk_review": "━━  Risk Review  ━━",
     "final_recommendation": "━━  Model summary (illustrative)  ━━",
@@ -1166,7 +1148,7 @@ const TRANSLATIONS = {
     "ticker": "股票代码",
     "analysis_date": "分析日期",
     "your_research_team": "您的研究团队",
-    "btn_start": "▶ 分析",
+    "btn_start": "▶ 研究",
     "btn_stop": "⏹ 停止",
     "btn_clear": "🗑 清空",
     "stopping": "停止中…",
@@ -1199,7 +1181,7 @@ const TRANSLATIONS = {
     "focus_aggressive": "增长机会关注",
     "focus_conservative": "资本保护",
     "focus_neutral": "平衡评估",
-    "focus_portfolio": "模拟买入/卖出/持有标签（非建议）",
+    "focus_portfolio": "模拟标签（非建议）",
 
     // Progress & Status
     "waiting_analysis": "等待分析...",
@@ -1237,7 +1219,7 @@ const TRANSLATIONS = {
     "news_complete": "新闻分析完成",
     "research_manager_complete": "团队共识达成",
     "trader_complete": "交易计划确定",
-    "portfolio_complete": "最终决策已做出",
+    "portfolio_complete": "模拟标签已生成",
     "investment_debate": "━━  看涨/看跌讨论  ━━",
     "risk_review": "━━  风险审查  ━━",
     "final_recommendation": "━━  模型摘要（示意）  ━━",
@@ -1304,7 +1286,7 @@ const TRANSLATIONS = {
     "ticker": "Ticker",
     "analysis_date": "Fecha de análisis",
     "your_research_team": "Tu equipo de investigación",
-    "btn_start": "▶ Analizar",
+    "btn_start": "▶ Investigar",
     "btn_stop": "⏹ Detener",
     "btn_clear": "🗑 Borrar",
     "stopping": "Deteniendo…",
@@ -1335,7 +1317,7 @@ const TRANSLATIONS = {
     "focus_aggressive": "Enfoque en oportunidades de crecimiento",
     "focus_conservative": "Preservación de capital",
     "focus_neutral": "Valoración equilibrada",
-    "focus_portfolio": "Etiqueta simulada COMPRAR/VENDER/MANTENER (no es asesoramiento)",
+    "focus_portfolio": "Etiqueta simulada (no es asesoramiento)",
 
     "waiting_analysis": "Esperando análisis...",
     "fetching_data": "Obteniendo datos de mercado...",
@@ -1370,7 +1352,7 @@ const TRANSLATIONS = {
     "news_complete": "Noticias completadas",
     "research_manager_complete": "Consenso del equipo alcanzado",
     "trader_complete": "Plan de trading definido",
-    "portfolio_complete": "Decisión final tomada",
+    "portfolio_complete": "Etiqueta simulada lista",
     "investment_debate": "━━  Discusión alcista / bajista  ━━",
     "risk_review": "━━  Revisión de riesgo  ━━",
     "final_recommendation": "━━  Resumen del modelo (ilustrativo)  ━━",
@@ -1433,7 +1415,7 @@ const TRANSLATIONS = {
     "ticker": "ティッカー",
     "analysis_date": "分析日",
     "your_research_team": "あなたのリサーチチーム",
-    "btn_start": "▶ 分析",
+    "btn_start": "▶ 調査",
     "btn_stop": "⏹ 停止",
     "btn_clear": "🗑 クリア",
     "stopping": "停止中…",
@@ -1464,7 +1446,7 @@ const TRANSLATIONS = {
     "focus_aggressive": "成長機会重視",
     "focus_conservative": "資本保全",
     "focus_neutral": "バランス評価",
-    "focus_portfolio": "シミュレーション上の買い/売り/様子見ラベル（助言ではありません）",
+    "focus_portfolio": "シミュレーション・ラベル（助言ではありません）",
 
     "waiting_analysis": "分析待ち...",
     "fetching_data": "市場データ取得中...",
@@ -1499,7 +1481,7 @@ const TRANSLATIONS = {
     "news_complete": "ニュース分析完了",
     "research_manager_complete": "チーム合意形成",
     "trader_complete": "取引プラン確定",
-    "portfolio_complete": "最終判断完了",
+    "portfolio_complete": "シミュレーション・ラベル生成",
     "investment_debate": "━━  強気・弱気の議論  ━━",
     "risk_review": "━━  リスクレビュー  ━━",
     "final_recommendation": "━━  モデル要約（示意）  ━━",
@@ -1568,7 +1550,7 @@ TRANSLATIONS["zh-hant"] = {
   "ticker": "股票代號",
   "analysis_date": "分析日期",
   "your_research_team": "您的研究團隊",
-  "btn_start": "▶ 分析",
+  "btn_start": "▶ 研究",
   "btn_stop": "⏹ 停止",
   "btn_clear": "🗑 清空",
   "stopping": "停止中…",
@@ -1601,7 +1583,7 @@ TRANSLATIONS["zh-hant"] = {
   "focus_aggressive": "增長機會關注",
   "focus_conservative": "資本保護",
   "focus_neutral": "平衡評估",
-  "focus_portfolio": "模擬買入/賣出/持有標籤（非建議）",
+  "focus_portfolio": "模擬標籤（非建議）",
 
   // Progress & Status
   "waiting_analysis": "等待分析...",
@@ -1639,7 +1621,7 @@ TRANSLATIONS["zh-hant"] = {
   "news_complete": "新聞分析完成",
   "research_manager_complete": "團隊共識達成",
   "trader_complete": "交易計畫確定",
-  "portfolio_complete": "最終決策已做出",
+  "portfolio_complete": "模擬標籤已生成",
   "investment_debate": "━━  看漲/看跌討論  ━━",
   "risk_review": "━━  風險審查  ━━",
   "final_recommendation": "━━  模型摘要（示意）  ━━",
@@ -1804,31 +1786,6 @@ function buildLangDropdown() {
 
 function _el(id) { return document.getElementById(id); }
 
-function syncFooterLegal() {
-  const fd = _el("footerDisclaimer");
-  if (fd) fd.textContent = t("footer_disclaimer");
-  const fa = _el("footerAttrib");
-  if (!fa) return;
-  fa.replaceChildren();
-  const aUp = document.createElement("a");
-  aUp.className = "app-footer__link";
-  aUp.href = "https://github.com/TauricResearch/TradingAgents";
-  aUp.rel = "noopener noreferrer";
-  aUp.target = "_blank";
-  aUp.textContent = "TradingAgents";
-  const aLic = document.createElement("a");
-  aLic.className = "app-footer__link";
-  aLic.href = "https://www.apache.org/licenses/LICENSE-2.0";
-  aLic.rel = "noopener noreferrer";
-  aLic.target = "_blank";
-  aLic.textContent = "Apache-2.0";
-  fa.appendChild(document.createTextNode("Builds on "));
-  fa.appendChild(aUp);
-  fa.appendChild(document.createTextNode(" (Tauric Research), licensed under "));
-  fa.appendChild(aLic);
-  fa.appendChild(document.createTextNode(". " + t("footer_see_notice")));
-}
-
 function updateUIText() {
   // Main action: Analyze vs Stop (or "Stopping…" while cancel is in flight)
   if (actionBtn.disabled && analysisRunning) {
@@ -1883,8 +1840,6 @@ function updateUIText() {
   syncHdrStatusForLanguage();
 
   syncDataPanelToggleUi();
-
-  syncFooterLegal();
 }
 
 // ── RANDOM NAME GENERATOR ────────────────────────────────────────────────────
@@ -1935,6 +1890,8 @@ const layoutRoot        = document.getElementById("layoutRoot");
 const dataPanelToggle   = document.getElementById("dataPanelToggle");
 // Form field refs (avoid repeated getElementById in hot paths)
 const tickerEl          = document.getElementById("ticker");
+
+// Legal attribution is rendered as a subtle, non-interactive corner overlay.
 
 if (layoutRoot && dataPanelToggle) {
   dataPanelToggle.addEventListener("click", () => {

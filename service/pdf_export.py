@@ -15,6 +15,34 @@ _SEP_CELL_RE = re.compile(r"^:?-{2,}:?$")
 # on lines mixed with CJK (e.g. "3. close_200_sma（200 SMA） —— …").
 _MC_LEFT = {"align": Align.L}
 
+_FOOTER_GRAY = (120, 135, 160)
+
+
+class _ReportPDF(FPDF):
+    """PDF with an optional low-emphasis legal footer."""
+
+    def __init__(self, *, legal_footer: str = "") -> None:
+        super().__init__()
+        self.legal_footer = (legal_footer or "").strip()
+        self.footer_family: str | None = None
+
+    def footer(self) -> None:
+        # Make it ultra-subtle: cover page only.
+        if self.page_no() != 1:
+            return
+        text = (self.legal_footer or "").strip()
+        if not text:
+            return
+        family = self.footer_family or "Helvetica"
+        self.set_y(-12)
+        try:
+            self.set_font(family, "", 6)
+        except Exception:
+            self.set_font("Helvetica", "", 6)
+        self.set_text_color(*_FOOTER_GRAY)
+        self.multi_cell(0, 4, text, align="C")
+        self.set_text_color(0, 0, 0)
+
 
 def _multicell_body_kwargs(body_language: str | None) -> dict:
     """Left-aligned body text; character wrap for CJK, word wrap for Latin scripts."""
@@ -192,7 +220,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "Ticker",
         "label_date": "Report generation date (US Eastern)",
         "label_analysts": "Analysts",
-        "label_decision": "Decision",
+        "label_decision": "Simulated label",
         "label_report": "Report",
         "note": (
             "Note: Quoted OHLCV and indicators use this calendar date as the analysis "
@@ -207,6 +235,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
             "is not investment, legal, or tax advice. Incorporates the open-source "
             "TradingAgents framework (Tauric Research), licensed under Apache-2.0."
         ),
+        "legal_footer_short": "Research/education only. Built on TradingAgents (Apache-2.0). See NOTICE.",
         "empty_body": "No report content.",
     },
     "zh": {
@@ -214,7 +243,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "股票代码",
         "label_date": "报告生成日期（美国东部）",
         "label_analysts": "分析师",
-        "label_decision": "决策",
+        "label_decision": "模拟标签",
         "label_report": "报告",
         "note": "注：引用的 OHLCV 与指标在适用情况下以此公历日为分析截止日。",
         "tz_note": (
@@ -224,6 +253,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
             "仅供研究与教育。本报告为 AI 生成模拟，不构成投资、法律或税务建议。"
             "使用开源 TradingAgents 框架（Tauric Research），Apache-2.0 许可。"
         ),
+        "legal_footer_short": "仅供研究与教育。基于 TradingAgents（Apache-2.0）。见 NOTICE。",
         "empty_body": "没有报告内容。",
     },
     "zh-hant": {
@@ -231,7 +261,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "股票代號",
         "label_date": "報告生成日期（美國東部）",
         "label_analysts": "分析師",
-        "label_decision": "決策",
+        "label_decision": "模擬標籤",
         "label_report": "報告",
         "note": "註：引用的 OHLCV 與指標在適用情況下以此曆日為分析截止日。",
         "tz_note": (
@@ -241,6 +271,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
             "僅供研究與教育。本報告為 AI 生成模擬，不構成投資、法律或稅務建議。"
             "使用開源 TradingAgents 框架（Tauric Research），Apache-2.0 許可。"
         ),
+        "legal_footer_short": "僅供研究與教育。基於 TradingAgents（Apache-2.0）。見 NOTICE。",
         "empty_body": "沒有報告內容。",
     },
     "es": {
@@ -248,7 +279,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "Ticker",
         "label_date": "Fecha de generación del informe (Este de EE. UU.)",
         "label_analysts": "Analistas",
-        "label_decision": "Decisión",
+        "label_decision": "Etiqueta simulada",
         "label_report": "Informe",
         "note": (
             "Nota: los OHLCV e indicadores citados usan esta fecha calendario como horizonte "
@@ -263,6 +294,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
             "no constituye asesoramiento de inversión, legal ni fiscal. Incluye el framework "
             "open source TradingAgents (Tauric Research), bajo licencia Apache-2.0."
         ),
+        "legal_footer_short": "Solo investigación/educación. Basado en TradingAgents (Apache-2.0). Ver NOTICE.",
         "empty_body": "Sin contenido del informe.",
     },
     "ja": {
@@ -270,7 +302,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "ティッカー",
         "label_date": "レポート生成日（米東部）",
         "label_analysts": "アナリスト",
-        "label_decision": "結論",
+        "label_decision": "シミュレーション・ラベル",
         "label_report": "レポート",
         "note": (
             "注: 引用する OHLCV や指標は、必要に応じてこの暦日を分析の基準日として使用します。"
@@ -283,6 +315,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
             "投資・法務・税務のアドバイスではありません。オープンソースの "
             "TradingAgents フレームワーク（Tauric Research）を利用、Apache-2.0 ライセンス。"
         ),
+        "legal_footer_short": "研究/教育目的のみ。TradingAgents（Apache-2.0）ベース。NOTICE参照。",
         "empty_body": "レポートの内容がありません。",
     },
 }
@@ -390,13 +423,17 @@ def write_analysis_pdf(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=18)
     lang_key = (language or "en").strip().lower()
+    cov = _PDF_COVER.get(lang_key, _PDF_COVER["en"])
+    legal_disclaimer = cov.get("legal_footer_short") or cov.get("legal_disclaimer") or _PDF_COVER["en"]["legal_disclaimer"]
+
+    pdf = _ReportPDF(legal_footer=legal_disclaimer)
+    pdf.set_auto_page_break(auto=True, margin=18)
     if _language_uses_cjk_font(lang_key):
         family = _require_cjk(pdf)
     else:
         family = _register_font(pdf)
+    pdf.footer_family = family
     pdf.add_page()
 
     lm = rm = 18
@@ -404,7 +441,6 @@ def write_analysis_pdf(
     pdf.set_left_margin(lm)
     usable_w = pdf.w - lm - rm
 
-    cov = _PDF_COVER.get(lang_key, _PDF_COVER["en"])
     title = cov["title"]
     label_ticker = cov["label_ticker"]
     label_date = cov["label_date"]
@@ -413,7 +449,6 @@ def write_analysis_pdf(
     label_report = cov["label_report"]
     note = cov["note"]
     tz_note = cov["tz_note"]
-    legal_disclaimer = cov.get("legal_disclaimer", _PDF_COVER["en"]["legal_disclaimer"])
     empty_body = cov["empty_body"]
 
     pdf.set_font(family, "B", 16)
@@ -428,7 +463,6 @@ def write_analysis_pdf(
         f"{label_decision}: {decision or 'N/A'}",
         note,
         tz_note,
-        legal_disclaimer,
     ]
     pdf.multi_cell(usable_w, 6, "\n".join(meta_lines), **_MC_LEFT)
     pdf.ln(6)

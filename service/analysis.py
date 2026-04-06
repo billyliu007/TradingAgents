@@ -147,17 +147,68 @@ class DataFeedCallback(BaseCallbackHandler):
         })
 
 
-def build_report(state: dict[str, Any]) -> tuple[str, dict[str, str]]:
+def build_report(state: dict[str, Any], *, language: str = "en") -> tuple[str, dict[str, str]]:
     sections: dict[str, str] = {}
 
+    lk = (language or "en").strip().lower()
+    # Keep headings localized; body content is already language-controlled by the graph prompts.
+    titles: dict[str, dict[str, str]] = {
+        "en": {
+            "market": "Market Analysis",
+            "social": "Social Sentiment Analysis",
+            "news": "News Analysis",
+            "fundamentals": "Fundamentals Analysis",
+            "research_decision": "Research Team Summary",
+            "trader_plan": "Trader Plan",
+            "final_label": "Model summary (illustrative)",
+        },
+        "zh": {
+            "market": "市场分析",
+            "social": "情绪分析",
+            "news": "新闻分析",
+            "fundamentals": "基本面分析",
+            "research_decision": "研究团队摘要",
+            "trader_plan": "交易计划",
+            "final_label": "模型摘要（示意）",
+        },
+        "zh-hant": {
+            "market": "市場分析",
+            "social": "情緒分析",
+            "news": "新聞分析",
+            "fundamentals": "基本面分析",
+            "research_decision": "研究團隊摘要",
+            "trader_plan": "交易計畫",
+            "final_label": "模型摘要（示意）",
+        },
+        "es": {
+            "market": "Análisis de mercado",
+            "social": "Análisis de sentimiento",
+            "news": "Análisis de noticias",
+            "fundamentals": "Análisis fundamental",
+            "research_decision": "Resumen del equipo de investigación",
+            "trader_plan": "Plan del trader",
+            "final_label": "Resumen del modelo (ilustrativo)",
+        },
+        "ja": {
+            "market": "マーケット分析",
+            "social": "センチメント分析",
+            "news": "ニュース分析",
+            "fundamentals": "ファンダメンタルズ分析",
+            "research_decision": "リサーチチーム要約",
+            "trader_plan": "取引プラン",
+            "final_label": "モデル要約（示意）",
+        },
+    }
+    t = titles.get(lk, titles["en"])
+
     mapping = {
-        "Market Analysis": state.get("market_report"),
-        "Social Sentiment Analysis": state.get("sentiment_report"),
-        "News Analysis": state.get("news_report"),
-        "Fundamentals Analysis": state.get("fundamentals_report"),
-        "Research Team Decision": state.get("investment_plan"),
-        "Trader Plan": state.get("trader_investment_plan"),
-        "Final Portfolio Decision": state.get("final_trade_decision"),
+        t["market"]: state.get("market_report"),
+        t["social"]: state.get("sentiment_report"),
+        t["news"]: state.get("news_report"),
+        t["fundamentals"]: state.get("fundamentals_report"),
+        t["research_decision"]: state.get("investment_plan"),
+        t["trader_plan"]: state.get("trader_investment_plan"),
+        t["final_label"]: state.get("final_trade_decision"),
     }
 
     for title, content in mapping.items():
@@ -244,11 +295,11 @@ def execute_analysis(
                 if new_text:
                     emit_event(job_id, "risk_message", {"role": role, "content": new_text})
 
-        # ── Portfolio Manager final decision
+        # ── Portfolio Manager simulated label / summary
         if not prev.get("final_trade_decision") and curr_state.get("final_trade_decision"):
             emit_event(job_id, "analyst_complete", {
                 "analyst": "portfolio",
-                "title": "Portfolio Manager Decision",
+                "title": "Model summary (illustrative)",
                 "content": as_text(curr_state["final_trade_decision"]),
             })
 
@@ -277,7 +328,7 @@ def execute_analysis(
         emit_event(job_id, "phase_update", {"phase": "analysis_complete", "message": "Analysis complete"})
 
     # Build report from the requested language state (for display to user)
-    human_report, sections = build_report(final_state_requested)
+    human_report, sections = build_report(final_state_requested, language=payload.language)
     log_message(
         "Analyze completed "
         f"ticker={payload.ticker} decision={as_text(decision_requested) or 'N/A'} "
