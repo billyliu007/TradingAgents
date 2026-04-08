@@ -491,12 +491,13 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 11px;
       line-height: 1.55;
-      /* Avoid breaking tokens character-by-character (hurts financial tables). */
+      /* Let wide tables scroll horizontally; avoid breaking every character in narrow cols */
       word-break: normal;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
       max-height: min(52vh, 420px);
       overflow-y: auto;
-      overflow-x: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       border-top: 1px solid var(--border);
       margin-top: 6px;
       padding-top: 8px;
@@ -521,9 +522,12 @@
       overflow-x: auto; margin: 6px 0 10px;
       border-radius: 6px; border: 1px solid var(--border);
       background: rgba(0,0,0,.22);
+      max-width: 100%;
     }
     .data-preview-grid {
-      width: 100%; border-collapse: collapse;
+      width: max(100%, max-content); min-width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
       font-family: ui-monospace, "SF Mono", "Fira Code", monospace;
       font-size: 9.5px;
     }
@@ -535,6 +539,22 @@
     .data-preview-grid th {
       background: rgba(79,143,255,.12); color: var(--txt);
       font-weight: 700; white-space: nowrap;
+    }
+    .data-preview-grid td.data-col-metric,
+    .data-preview-grid th.data-col-metric {
+      min-width: 10rem;
+      max-width: 22rem;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: anywhere;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 10px;
+    }
+    .data-preview-grid td.data-col-num,
+    .data-preview-grid th.data-col-num {
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
     }
     .data-preview-grid tbody tr:nth-child(even) { background: rgba(0,0,0,.14); }
     .data-preview-grid tbody tr:last-child td { border-bottom: none; }
@@ -2369,18 +2389,79 @@ function rowColumnInfo(line) {
   return null;
 }
 
+/** Unescape literal \\n / \\t from tool payloads (LangChain, logs, JSON-in-string). */
+function normalizeToolOutputString(s) {
+  s = String(s || "");
+  if (s.includes("\\n") || s.includes("\\t") || s.includes("\\r")) {
+    s = s.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\r/g, "\n");
+  }
+  return s.replace(/\r\n/g, "\n");
+}
+
+function isNumericColumnHeader(h) {
+  const x = String(h || "").trim().toLowerCase();
+  if (!x) return false;
+  if (/^\d{4}-\d{2}-\d{2}/.test(x)) return true;
+  if (/^(date|datetime|time|symbol|ticker|url|link|text|insider|position|transaction|name|description|title)$/i.test(x)) return false;
+  if (/\b(date|time|url)\b/i.test(x) && !/\b(update|value)\b/i.test(x)) return false;
+  if (/\b(volume|shares|open|high|low|close|adj|split|dividend|revenue|income|expense|ebit|ebt|tax|asset|liabilit|cash|flow|debt|equity|eps|margin|profit|loss|growth|diluted|basic|value|amount|balance|total)\b/i.test(x)) return true;
+  return false;
+}
+
+function inferNumericColumnByValues(rows, colIdx) {
+  const body = rows.slice(1, Math.min(15, rows.length));
+  const sample = body.map((r) => (r[colIdx] != null ? String(r[colIdx]).trim() : "")).filter(Boolean);
+  if (sample.length < 2) return false;
+  const numLike = (s) => /^-?\d[\d,]*\.?\d*([eE][+-]?\d+)?$/.test(s.replace(/,/g, ""));
+  const ok = sample.filter(numLike);
+  return ok.length >= sample.length * 0.8;
+}
+
+function formatPreviewNumberCell(raw, header) {
+  const s0 = String(raw ?? "").trim();
+  if (s0 === "" || s0 === "—" || s0 === "-") return s0;
+  const n = Number(s0.replace(/,/g, ""));
+  if (!Number.isFinite(n)) return s0;
+  const h = String(header || "").toLowerCase();
+  if (/volume|shares/i.test(h) || (Number.isInteger(n) && Math.abs(n) >= 1e6 && !/\./.test(s0)))
+    return Math.round(n).toLocaleString();
+  if (/open|high|low|close|adj|price|value$/i.test(h))
+    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (Math.abs(n) >= 1e6 || (/\./.test(s0) && Math.abs(n) >= 1000))
+    return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (Number.isInteger(n) || Math.abs(n) >= 1000)
+    return Math.abs(n) >= 1000 ? n.toLocaleString() : String(n);
+  return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+
 function renderPreviewTable(rows) {
   const use = rows.slice(0, DATA_PREVIEW.MAX_TABLE_ROWS);
-  const head = use[0].map(c => escHtml(c));
-  const body = use.slice(1).map(row =>
-    `<tr>${row.map(c => `<td>${escHtml(c)}</td>`).join("")}</tr>`
+  const headers = use[0] || [];
+  const numericFlags = headers.map((h, j) => {
+    if (isNumericColumnHeader(h)) return true;
+    if (j > 0 && inferNumericColumnByValues(use, j)) return true;
+    return false;
+  });
+  const head = headers.map((h, j) => {
+    const metric = j === 0 && !numericFlags[j];
+    const cls = metric ? "data-col-metric" : (numericFlags[j] ? "data-col-num" : "");
+    return `<th${cls ? ` class="${cls}"` : ""}>${escHtml(h)}</th>`;
+  }).join("");
+  const body = use.slice(1).map((row) =>
+    `<tr>${row.map((c, j) => {
+      const h = headers[j] || "";
+      const display = numericFlags[j] ? formatPreviewNumberCell(c, h) : String(c ?? "");
+      const metric = j === 0 && !numericFlags[j];
+      const cls = metric ? "data-col-metric" : (numericFlags[j] ? "data-col-num" : "");
+      return `<td${cls ? ` class="${cls}"` : ""}>${escHtml(display)}</td>`;
+    }).join("")}</tr>`
   ).join("");
   let foot = "";
   if (rows.length > DATA_PREVIEW.MAX_TABLE_ROWS) {
     const note = t("data_rows_truncated").replace("{n}", String(rows.length - DATA_PREVIEW.MAX_TABLE_ROWS));
     foot = `<div class="data-trunc-note">${escHtml(note)}</div>`;
   }
-  return `<div class="data-preview-table-wrap"><table class="data-preview-grid"><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>${foot}</div>`;
+  return `<div class="data-preview-table-wrap"><table class="data-preview-grid"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${foot}</div>`;
 }
 
 // ── DATA PREVIEW BLOCK PARSERS ────────────────────────────────────────────────
@@ -2400,6 +2481,14 @@ function _parseH3Block(lines, i) {
   const trim = lines[i].trim();
   if (!trim.startsWith("## ")) return null;
   return { html: `<div class="data-h3">${escHtml(trim.slice(3).trim())}</div>`, newI: i + 1 };
+}
+
+function _parsePipeMarkdownTableBlock(lines, i) {
+  const trim = lines[i].trim();
+  if (!trim.startsWith("|")) return null;
+  const consumed = consumePipeTableBlock(lines, i);
+  if (!consumed || !consumed.rows || consumed.rows.length < 2) return null;
+  return { html: renderPreviewTable(consumed.rows), newI: consumed.end };
 }
 
 function _parseTableBlock(lines, i) {
@@ -2513,7 +2602,15 @@ function _parseParagraph(lines, i) {
   return { html: `<p class="data-para">${escHtml(para.join("\n"))}</p>`, newI: i };
 }
 
-const _BLOCK_PARSERS = [_parseMetaBlock, _parseH3Block, _parseTableBlock, _parseDateKvBlock, _parseKvBlock, _parseParagraph];
+const _BLOCK_PARSERS = [
+  _parseMetaBlock,
+  _parseH3Block,
+  _parsePipeMarkdownTableBlock,
+  _parseTableBlock,
+  _parseDateKvBlock,
+  _parseKvBlock,
+  _parseParagraph,
+];
 
 function jsonScalarPreview(v) {
   if (v === null || v === undefined) return "";
@@ -2602,13 +2699,7 @@ function formatDataFeedPreview(raw) {
     else if (m2 && m2[1]) s = m2[1];
   }
 
-  // If the payload still contains escaped newlines, unescape the common ones.
-  // (We only do this when it looks like a single-line escaped blob.)
-  if (!s.includes("\n") && /\\n/.test(s)) {
-    s = s.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\t/g, "  ");
-  }
-
-  s = s.replace(/\r\n/g, "\n");
+  s = normalizeToolOutputString(s);
   if (!s.trim()) return "";
   const trimmed = s.trim();
   if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
