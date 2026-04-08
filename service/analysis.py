@@ -64,11 +64,43 @@ def format_tool_output_for_feed(output: Any, max_len: int = 4500) -> str:
     else:
         try:
             if isinstance(output, (dict, list)):
-                s = json.dumps(output, indent=2, default=str, ensure_ascii=False)
+                # Important: keep JSON valid even when truncating.
+                # The UI prefers JSON it can parse/render vs. a cut-off string.
+                obj: Any = output
+                s = json.dumps(obj, indent=2, default=str, ensure_ascii=False)
+                if len(s) > max_len:
+                    if isinstance(obj, list):
+                        original_len = len(obj)
+                        # progressively shrink until it fits (keep JSON valid)
+                        cap = min(original_len, 50)
+                        while cap > 1:
+                            preview = obj[:cap] + ["… (truncated)"]
+                            s2 = json.dumps(preview, indent=2, default=str, ensure_ascii=False)
+                            if len(s2) <= max_len:
+                                s = s2
+                                break
+                            cap = cap // 2
+                        else:
+                            s = json.dumps(["… (truncated)"], indent=2, ensure_ascii=False)
+                    else:
+                        original_len = len(obj)
+                        items = list(obj.items())
+                        cap = min(original_len, 50)
+                        while cap > 1:
+                            preview = dict(items[:cap])
+                            preview["…"] = f"(truncated: showing {cap} of {original_len} fields)"
+                            s2 = json.dumps(preview, indent=2, default=str, ensure_ascii=False)
+                            if len(s2) <= max_len:
+                                s = s2
+                                break
+                            cap = cap // 2
+                        else:
+                            s = json.dumps({"…": "(truncated)"}, indent=2, ensure_ascii=False)
             else:
                 s = str(output).strip()
         except Exception:
             s = str(output).strip()
+    # For non-JSON strings, truncation is fine.
     if len(s) > max_len:
         s = s[: max_len - 40].rstrip() + "\n\n… (truncated)"
     return s

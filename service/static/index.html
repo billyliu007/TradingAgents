@@ -2499,6 +2499,67 @@ function _parseParagraph(lines, i) {
 
 const _BLOCK_PARSERS = [_parseMetaBlock, _parseH3Block, _parseTableBlock, _parseDateKvBlock, _parseKvBlock, _parseParagraph];
 
+function jsonScalarPreview(v) {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "number") return Number.isFinite(v) ? (Math.abs(v) >= 1e6 ? v.toLocaleString() : String(Math.round(v * 100) / 100)) : String(v);
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "string") {
+    const s = v.replace(/\s+/g, " ").trim();
+    return s.length > 180 ? s.slice(0, 177) + "…" : s;
+  }
+  if (Array.isArray(v)) return `[${v.length} items]`;
+  if (typeof v === "object") return "{…}";
+  return String(v);
+}
+
+function renderJsonPreview(obj, rawJson) {
+  const RAW_MAX = 18000;
+  const raw = String(rawJson || "");
+  const rawBlock = raw
+    ? `
+      <details class="data-details">
+        <summary class="data-details-sum">Show raw JSON</summary>
+        <pre class="data-pre-json" style="margin-top:8px">${escHtml(raw.length > RAW_MAX ? (raw.slice(0, RAW_MAX) + "\n\n… (truncated)") : raw)}</pre>
+      </details>
+    `
+    : "";
+
+  if (Array.isArray(obj)) {
+    const arr = obj;
+    if (!arr.length) return `<p class="data-para">(empty)</p>` + rawBlock;
+    const allObjects = arr.slice(0, 20).every(x => x && typeof x === "object" && !Array.isArray(x));
+    if (allObjects) {
+      const priority = ["date", "datetime", "published", "time", "ticker", "symbol", "source", "publisher", "provider", "title", "headline", "summary", "sentiment", "score", "url", "link"];
+      const firstKeys = Object.keys(arr[0] || {});
+      const keys = [...priority.filter(k => firstKeys.includes(k)), ...firstKeys.filter(k => !priority.includes(k))].slice(0, 7);
+      const rows = [
+        keys.map(k => k),
+        ...arr.slice(0, 12).map(item => keys.map(k => jsonScalarPreview(item?.[k])))
+      ];
+      const table = renderPreviewTable(rows);
+      if (arr.length <= 12) return table + rawBlock;
+      return table + `<div class="data-trunc-note">Showing 12 of ${arr.length} items</div>` + rawBlock;
+    }
+    const items = arr.slice(0, 20).map(v => `<li>${escHtml(jsonScalarPreview(v))}</li>`).join("");
+    const note = arr.length > 20 ? `<div class="data-trunc-note">Showing 20 of ${arr.length} items</div>` : "";
+    return `<ul class="data-meta">${items}</ul>` + note + rawBlock;
+  }
+
+  if (obj && typeof obj === "object") {
+    const entries = Object.entries(obj);
+    if (!entries.length) return `<p class="data-para">(empty)</p>` + rawBlock;
+    const MAX = 22;
+    const shown = entries.slice(0, MAX).map(([k, v]) =>
+      `<div class="data-kv-row"><span class="data-kv-k">${escHtml(k)}</span><span class="data-kv-v">${escHtml(jsonScalarPreview(v))}</span></div>`
+    ).join("");
+    const main = `<div class="data-kv-block">${shown}</div>`;
+    if (entries.length <= MAX) return main + rawBlock;
+    return main + `<div class="data-trunc-note">Showing ${MAX} of ${entries.length} fields</div>` + rawBlock;
+  }
+
+  return `<pre class="data-pre-json">${escHtml(String(obj))}</pre>` + rawBlock;
+}
+
 /** Turn raw provider strings into readable HTML (safe: escaped text, our tags only). */
 function formatDataFeedPreview(raw) {
   let s = String(raw || "");
@@ -2506,10 +2567,24 @@ function formatDataFeedPreview(raw) {
   // Some tool layers stringify messages like:
   //   content='...\\n...' name='get_indicators' tool_call_id='...'
   // Extract the actual content payload so the feed is readable.
-  const m1 = s.match(/content='([\s\S]*?)'\s+name='/);
-  const m2 = s.match(/content="([\s\S]*?)"\s+name="/);
-  if (m1 && m1[1]) s = m1[1];
-  else if (m2 && m2[1]) s = m2[1];
+  // Note: previews may be truncated, so the trailing " name='...'" may be missing.
+  // We handle both "content='...'" and "content="..."" and strip optional trailing fields.
+  const trim0 = s.trim();
+  if (trim0.startsWith("content='")) {
+    s = trim0.slice("content='".length);
+    // if we have the canonical suffix, remove it; otherwise just strip a final quote
+    s = s.replace(/'\s+name='[\s\S]*$/,"");
+    if (s.endsWith("'")) s = s.slice(0, -1);
+  } else if (trim0.startsWith('content="')) {
+    s = trim0.slice('content="'.length);
+    s = s.replace(/"\s+name="[\s\S]*$/,"");
+    if (s.endsWith('"')) s = s.slice(0, -1);
+  } else {
+    const m1 = s.match(/content='([\s\S]*?)'\s+(?:name=|tool_call_id=)/);
+    const m2 = s.match(/content="([\s\S]*?)"\s+(?:name=|tool_call_id=)/);
+    if (m1 && m1[1]) s = m1[1];
+    else if (m2 && m2[1]) s = m2[1];
+  }
 
   // If the payload still contains escaped newlines, unescape the common ones.
   // (We only do this when it looks like a single-line escaped blob.)
@@ -2521,7 +2596,12 @@ function formatDataFeedPreview(raw) {
   if (!s.trim()) return "";
   const trimmed = s.trim();
   if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
-    return `<pre class="data-pre-json">${escHtml(trimmed)}</pre>`;
+    try {
+      const obj = JSON.parse(trimmed);
+      return renderJsonPreview(obj, trimmed);
+    } catch (e) {
+      return `<pre class="data-pre-json">${escHtml(trimmed)}</pre>`;
+    }
   }
 
   const lines = s.split("\n");
