@@ -491,7 +491,9 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 11px;
       line-height: 1.55;
-      word-break: break-word;
+      /* Avoid breaking tokens character-by-character (hurts financial tables). */
+      word-break: normal;
+      overflow-wrap: anywhere;
       max-height: min(52vh, 420px);
       overflow-y: auto;
       overflow-x: hidden;
@@ -539,15 +541,28 @@
     .data-preview .data-kv-block {
       margin: 6px 0 10px; font-size: 10px;
       border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+      /* Statements can be wider than the panel; allow horizontal scroll. */
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .data-preview .data-kv-row {
-      display: grid; grid-template-columns: minmax(88px, 34%) 1fr; gap: 8px;
+      display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px;
       padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.06);
       align-items: start;
+      min-width: 520px; /* keeps labels readable; scrolls instead of vertical wrap */
     }
     .data-preview .data-kv-row:last-child { border-bottom: none; }
-    .data-preview .data-kv-k { color: var(--txt2); font-weight: 600; }
-    .data-preview .data-kv-v { color: var(--txt); word-break: break-word; }
+    .data-preview .data-kv-k {
+      color: var(--txt2);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .data-preview .data-kv-v {
+      color: var(--txt);
+      font-family: ui-monospace, "SF Mono", monospace;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
     .data-preview .data-para {
       margin: 0 0 10px; white-space: pre-wrap; color: var(--txt2);
       font-size: 10.5px; line-height: 1.5;
@@ -737,7 +752,8 @@
       /* Chat panel fills the screen */
       .mid-col  { overflow: hidden; }
       .chat-feed { padding-bottom: 72px; }
-      .data-col  { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px 72px; }
+      /* Keep the last entries clickable above the fixed tab bar. */
+      .data-col  { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(92px + env(safe-area-inset-bottom, 0px)); }
 
       /* Larger touch targets for form elements */
       input, select { font-size: 16px !important; padding: 11px 12px; min-height: 44px; }
