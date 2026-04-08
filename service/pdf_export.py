@@ -220,7 +220,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "Ticker",
         "label_date": "Report generation date (US Eastern)",
         "label_analysts": "Analysts",
-        "label_decision": "Simulated label",
+        "label_decision": "Portfolio decision — not financial advice",
         "label_report": "Report",
         "note": (
             "Note: Quoted OHLCV and indicators use this calendar date as the analysis "
@@ -243,7 +243,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "股票代码",
         "label_date": "报告生成日期（美国东部）",
         "label_analysts": "分析师",
-        "label_decision": "模拟标签",
+        "label_decision": "投资组合决策 — 非投资建议",
         "label_report": "报告",
         "note": "注：引用的 OHLCV 与指标在适用情况下以此公历日为分析截止日。",
         "tz_note": (
@@ -261,7 +261,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "股票代號",
         "label_date": "報告生成日期（美國東部）",
         "label_analysts": "分析師",
-        "label_decision": "模擬標籤",
+        "label_decision": "投資組合決策 — 非投資建議",
         "label_report": "報告",
         "note": "註：引用的 OHLCV 與指標在適用情況下以此曆日為分析截止日。",
         "tz_note": (
@@ -279,7 +279,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "Ticker",
         "label_date": "Fecha de generación del informe (Este de EE. UU.)",
         "label_analysts": "Analistas",
-        "label_decision": "Etiqueta simulada",
+        "label_decision": "Decisión de cartera — no es asesoramiento financiero",
         "label_report": "Informe",
         "note": (
             "Nota: los OHLCV e indicadores citados usan esta fecha calendario como horizonte "
@@ -302,7 +302,7 @@ _PDF_COVER: dict[str, dict[str, str]] = {
         "label_ticker": "ティッカー",
         "label_date": "レポート生成日（米東部）",
         "label_analysts": "アナリスト",
-        "label_decision": "シミュレーション・ラベル",
+        "label_decision": "ポートフォリオ判断 — 投資助言ではありません",
         "label_report": "レポート",
         "note": (
             "注: 引用する OHLCV や指標は、必要に応じてこの暦日を分析の基準日として使用します。"

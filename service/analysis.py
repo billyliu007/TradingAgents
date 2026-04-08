@@ -49,6 +49,19 @@ def as_text(value: Any) -> str:
     return str(value).strip()
 
 
+def _portfolio_section_heading(language: str) -> str:
+    """Markdown section title for final decision + WebSocket `title` (matches UI / PDF)."""
+    lk = (language or "en").strip().lower()
+    by_lang = {
+        "en": "Portfolio decision — not financial advice",
+        "zh": "投资组合决策 — 非投资建议",
+        "zh-hant": "投資組合決策 — 非投資建議",
+        "es": "Decisión de cartera — no es asesoramiento financiero",
+        "ja": "ポートフォリオ判断 — 投資助言ではありません",
+    }
+    return by_lang.get(lk, by_lang["en"])
+
+
 def format_tool_output_for_feed(output: Any, max_len: int = 4500) -> str:
     """Normalize tool return values for the UI data feed (pretty JSON, sane truncation)."""
     if output is None:
@@ -192,7 +205,6 @@ def build_report(state: dict[str, Any], *, language: str = "en") -> tuple[str, d
             "fundamentals": "Fundamentals Analysis",
             "research_decision": "Research Team Summary",
             "trader_plan": "Trader Plan",
-            "final_label": "Model summary (illustrative)",
         },
         "zh": {
             "market": "市场分析",
@@ -201,7 +213,6 @@ def build_report(state: dict[str, Any], *, language: str = "en") -> tuple[str, d
             "fundamentals": "基本面分析",
             "research_decision": "研究团队摘要",
             "trader_plan": "交易计划",
-            "final_label": "模型摘要（示意）",
         },
         "zh-hant": {
             "market": "市場分析",
@@ -210,7 +221,6 @@ def build_report(state: dict[str, Any], *, language: str = "en") -> tuple[str, d
             "fundamentals": "基本面分析",
             "research_decision": "研究團隊摘要",
             "trader_plan": "交易計畫",
-            "final_label": "模型摘要（示意）",
         },
         "es": {
             "market": "Análisis de mercado",
@@ -219,7 +229,6 @@ def build_report(state: dict[str, Any], *, language: str = "en") -> tuple[str, d
             "fundamentals": "Análisis fundamental",
             "research_decision": "Resumen del equipo de investigación",
             "trader_plan": "Plan del trader",
-            "final_label": "Resumen del modelo (ilustrativo)",
         },
         "ja": {
             "market": "マーケット分析",
@@ -228,10 +237,9 @@ def build_report(state: dict[str, Any], *, language: str = "en") -> tuple[str, d
             "fundamentals": "ファンダメンタルズ分析",
             "research_decision": "リサーチチーム要約",
             "trader_plan": "取引プラン",
-            "final_label": "モデル要約（示意）",
         },
     }
-    t = titles.get(lk, titles["en"])
+    t = {**(titles.get(lk, titles["en"])), "final_label": _portfolio_section_heading(lk)}
 
     mapping = {
         t["market"]: state.get("market_report"),
@@ -331,7 +339,7 @@ def execute_analysis(
         if not prev.get("final_trade_decision") and curr_state.get("final_trade_decision"):
             emit_event(job_id, "analyst_complete", {
                 "analyst": "portfolio",
-                "title": "Model summary (illustrative)",
+                "title": _portfolio_section_heading(payload.language),
                 "content": as_text(curr_state["final_trade_decision"]),
             })
 
