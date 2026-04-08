@@ -243,7 +243,8 @@ The tab bar (`<nav class="mobile-tabs">`) has 3 tabs: Setup (📋), Research (�
 | `TRADINGAGENTS_RESULTS_DIR` | No | Where raw agent results are saved (default: `./results`) |
 | `TRADINGAGENTS_EXPORTS_DIR` | No | Where PDF exports are saved (default: `./exports`) |
 | `TRADINGAGENTS_SERVICE_HOST` | No | Uvicorn bind host (default: `0.0.0.0`) |
-| `DATABASE_URL` | No | PostgreSQL connection string (e.g. Neon pooler URL). When set, completed analyses are cached; duplicate requests are replayed from DB without LLM calls. |
+| `DATABASE_URL` | No | PostgreSQL connection string (e.g. Neon pooler URL). When set, completed analyses are cached; duplicate requests are replayed from DB without LLM calls. Does **not** store the US ticker autocomplete list (that is bundled JSON, see `service/data/`). |
+| `TRADINGAGENTS_TICKERS_FILE` | No | Optional path to `us_tickers.json`. Default: `service/data/us_tickers.json`. If missing or invalid, the app fetches from SEC EDGAR and rewrites the file (best-effort). |
 
 Copy `.env.example` to `.env` and fill in at least one LLM provider key.
 
@@ -279,7 +280,7 @@ pytest tests/
 ```
 pip install . && python migrate.py
 ```
-`migrate.py` uses `CREATE TABLE IF NOT EXISTS` so it is fully idempotent — safe to run on every deployment. If `DATABASE_URL` is not set, it exits cleanly without error.
+`migrate.py` creates `analysis_cache`, `analysis_events`, and `app_settings` only (idempotent). It does not create a `tickers` table — symbol autocomplete uses `service/data/us_tickers.json`. If `DATABASE_URL` is not set, migration exits cleanly without error.
 
 To enable caching, set `DATABASE_URL` in the Render dashboard (Environment → Secret vars) to your Neon pooler connection string.
 

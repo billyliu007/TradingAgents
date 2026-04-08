@@ -1,9 +1,9 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
 # After push: https://dashboard.render.com/blueprint/new?repo=<your-repo-https-url>
 #
-# DATABASE_URL (Postgres, e.g. Neon): required for analysis caching and for
-# global LLM/API settings stored via /admin (app_settings table). migrate.py
-# runs on every build and is idempotent.
+# DATABASE_URL (Postgres, e.g. Neon): optional; used for analysis caching and
+# global LLM/API settings via /admin (app_settings). US ticker autocomplete is
+# file-based (bundled JSON), not Postgres. migrate.py runs on every build.
 #
 # Provider keys can live in the Dashboard and/or in DB after saving /admin.
 

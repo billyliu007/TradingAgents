@@ -2,17 +2,11 @@
 US stock ticker index — in-memory store populated at startup.
 
 Load order (``force_refresh=False``):
-  1. **Local JSON file** (bundled under ``service/data/us_tickers.json`` or
-     ``TRADINGAGENTS_TICKERS_FILE``) — no database or network; best for cold
-     starts on hosts like Render’s free tier (read from the deployed image).
-  2. **PostgreSQL** ``tickers`` table when ``DATABASE_URL`` is set (previous behaviour).
-  3. **SEC EDGAR** ``company_tickers.json`` — then persist to **both** file (if
-     writable) and DB (if available) so you can fall back to either.
+  1. **Local JSON file** (``service/data/us_tickers.json`` or
+     ``TRADINGAGENTS_TICKERS_FILE``) — no network; best for cold starts.
+  2. **SEC EDGAR** ``company_tickers.json`` — then write the JSON file (best-effort).
 
-Search / validation are always in-memory after load (no per-request DB access).
-
-Revert: unset ``TRADINGAGENTS_TICKERS_FILE`` or remove the JSON file to use DB
-again; DB schema and writes are unchanged.
+Search / validation are in-memory after load. The symbol list is never read from PostgreSQL.
 """
 
 from __future__ import annotations
@@ -210,15 +204,11 @@ def load(force_refresh: bool = False) -> None:
 
     Order of preference (unless ``force_refresh``):
       1. Local JSON file (``tickers_file_path()``).
-      2. PostgreSQL ``tickers`` table.
-      3. SEC EDGAR download → save to file (best-effort) and DB (best-effort).
+      2. SEC EDGAR download → write JSON file (best-effort).
 
-    Pass ``force_refresh=True`` to re-download from SEC even when file/DB are
-    populated.
+    Pass ``force_refresh=True`` to re-download from SEC even when the file exists.
     """
     global _loaded
-
-    from service import db  # local import — avoids circular imports at module level
 
     cache_path = tickers_file_path()
 
@@ -228,16 +218,6 @@ def load(force_refresh: bool = False) -> None:
         if file_pairs:
             _set_index(file_pairs)
             return
-
-    # ── Try loading from DB ─────────────────────────────────────────────────
-    if not force_refresh:
-        try:
-            db_rows = db.load_tickers_from_db()
-            if db_rows:
-                _set_index(db_rows)
-                return
-        except Exception as exc:
-            logger.warning("Could not load tickers from DB: %s", exc)
 
     # ── Fetch from SEC EDGAR ─────────────────────────────────────────────────
     logger.info("Downloading ticker list from SEC EDGAR…")
@@ -254,13 +234,4 @@ def load(force_refresh: bool = False) -> None:
         return
 
     _set_index(pairs)
-
     _save_tickers_file(cache_path, pairs)
-
-    # ── Persist to DB if available ───────────────────────────────────────────
-    try:
-        saved = db.save_tickers_to_db(pairs)
-        if saved:
-            logger.info("Persisted %d tickers to DB", len(pairs))
-    except Exception as exc:
-        logger.warning("Could not persist tickers to DB (non-fatal): %s", exc)
