@@ -560,6 +560,16 @@
       white-space: pre-wrap; word-break: break-word;
       color: var(--txt2); line-height: 1.45;
     }
+    .data-preview .data-details { margin: 6px 0 10px; }
+    .data-preview .data-details-sum {
+      cursor: pointer;
+      color: var(--blue);
+      font-size: 10px;
+      font-weight: 700;
+      user-select: none;
+      outline: none;
+    }
+    .data-preview .data-details-sum:hover { filter: brightness(1.12); }
     .data-preview .data-trunc-note {
       padding: 6px 8px; font-size: 9px; color: var(--warn);
       font-style: italic; background: rgba(224,150,42,.08);
@@ -2398,17 +2408,47 @@ function _parseTableBlock(lines, i) {
 
 function _parseDateKvBlock(lines, i) {
   if (!/^\d{4}-\d{2}-\d{2}:/.test(lines[i].trim())) return null;
-  const kvs = [];
+  const kvs = []; // array of { date, value }
   let j = i;
   while (j < lines.length) {
     const L = lines[j].trim();
     if (!/^\d{4}-\d{2}-\d{2}:/.test(L)) break;
     const m = L.match(/^(\d{4}-\d{2}-\d{2}):\s*(.*)$/);
-    if (m) kvs.push(`<div class="data-kv-row"><span class="data-kv-k">${escHtml(m[1])}</span><span class="data-kv-v">${escHtml(m[2])}</span></div>`);
+    if (m) kvs.push({ date: m[1], value: m[2] });
     j++;
   }
   if (!kvs.length) return null;
-  return { html: `<div class="data-kv-block">${kvs.join("")}</div>`, newI: j };
+
+  const MAX_INLINE = 14;
+  const inline = kvs.slice(0, MAX_INLINE);
+  const overflow = kvs.slice(MAX_INLINE);
+
+  function fmtValue(v) {
+    const s = String(v || "").trim();
+    if (!s) return "";
+    if (/^N\/A:/i.test(s)) return "N/A (market closed)";
+    // round common float-y outputs; keep non-numeric text as-is
+    const num = Number(s);
+    if (Number.isFinite(num) && /[.eE]/.test(s)) return num.toFixed(2);
+    return s;
+  }
+
+  function renderRows(rows) {
+    return rows.map(({ date, value }) =>
+      `<div class="data-kv-row"><span class="data-kv-k">${escHtml(date)}</span><span class="data-kv-v">${escHtml(fmtValue(value))}</span></div>`
+    ).join("");
+  }
+
+  const mainBlock = `<div class="data-kv-block">${renderRows(inline)}</div>`;
+  if (!overflow.length) return { html: mainBlock, newI: j };
+
+  const moreBlock = `
+    <details class="data-details">
+      <summary class="data-details-sum">Show full series (${kvs.length} rows)</summary>
+      <div class="data-kv-block" style="margin-top:8px">${renderRows(kvs)}</div>
+    </details>
+  `;
+  return { html: mainBlock + moreBlock, newI: j };
 }
 
 function _parseKvBlock(lines, i) {
@@ -2461,7 +2501,23 @@ const _BLOCK_PARSERS = [_parseMetaBlock, _parseH3Block, _parseTableBlock, _parse
 
 /** Turn raw provider strings into readable HTML (safe: escaped text, our tags only). */
 function formatDataFeedPreview(raw) {
-  const s = String(raw || "").replace(/\r\n/g, "\n");
+  let s = String(raw || "");
+
+  // Some tool layers stringify messages like:
+  //   content='...\\n...' name='get_indicators' tool_call_id='...'
+  // Extract the actual content payload so the feed is readable.
+  const m1 = s.match(/content='([\s\S]*?)'\s+name='/);
+  const m2 = s.match(/content="([\s\S]*?)"\s+name="/);
+  if (m1 && m1[1]) s = m1[1];
+  else if (m2 && m2[1]) s = m2[1];
+
+  // If the payload still contains escaped newlines, unescape the common ones.
+  // (We only do this when it looks like a single-line escaped blob.)
+  if (!s.includes("\n") && /\\n/.test(s)) {
+    s = s.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\t/g, "  ");
+  }
+
+  s = s.replace(/\r\n/g, "\n");
   if (!s.trim()) return "";
   const trimmed = s.trim();
   if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
