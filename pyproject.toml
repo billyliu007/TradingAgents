@@ -45,4 +45,4 @@ include = ["tradingagents*", "cli*", "service*"]
 
 [tool.setuptools.package-data]
 cli = ["static/*"]
-service = ["static/*", "fonts/*.ttf", "fonts/README.txt"]
+service = ["static/*", "fonts/*.ttf", "fonts/README.txt", "data/*.json"]

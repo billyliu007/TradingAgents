@@ -1,22 +1,29 @@
 """
-US stock ticker index — in-memory store populated from SEC EDGAR on startup.
+US stock ticker index — in-memory store populated at startup.
 
-Works with or without a database:
-  - With DATABASE_URL: loads from DB on first hit (fast), refreshes from SEC if
-    empty, persists new data back to DB.
-  - Without DATABASE_URL: fetches directly from SEC EDGAR every startup (~1-2 s).
+Load order (``force_refresh=False``):
+  1. **Local JSON file** (bundled under ``service/data/us_tickers.json`` or
+     ``TRADINGAGENTS_TICKERS_FILE``) — no database or network; best for cold
+     starts on hosts like Render’s free tier (read from the deployed image).
+  2. **PostgreSQL** ``tickers`` table when ``DATABASE_URL`` is set (previous behaviour).
+  3. **SEC EDGAR** ``company_tickers.json`` — then persist to **both** file (if
+     writable) and DB (if available) so you can fall back to either.
 
-The module-level list is the authoritative source for search and validation while
-the process is running.  All searches are in-memory (no DB query per request).
+Search / validation are always in-memory after load (no per-request DB access).
+
+Revert: unset ``TRADINGAGENTS_TICKERS_FILE`` or remove the JSON file to use DB
+again; DB schema and writes are unchanged.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.request
 from bisect import bisect_left
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -27,10 +34,13 @@ logger = logging.getLogger(__name__)
 _SEC_URL = "https://www.sec.gov/files/company_tickers.json"
 _UA = "TradingAgents/1.0 (contact: admin@tradingagents.local)"
 
-# ── In-memory index ───────────────────────────────────────────────────────────
+# Reject tiny / corrupt files (SEC feed is ~10k+ symbols).
+_MIN_FILE_PAIRS = 500
+
+# ── In-memory index ─────────────────────────────────────────────────────────
 # Two parallel lists, kept sorted by symbol for O(log n) prefix lookup.
 _symbols: list[str] = []          # uppercase: "AAPL", "MSFT", …
-_names:   list[str] = []          # "Apple Inc.", "Microsoft Corp.", …
+_names: list[str] = []             # "Apple Inc.", "Microsoft Corp.", …
 
 _loaded = False   # True once the lists are populated
 
@@ -43,7 +53,83 @@ def count() -> int:
     return len(_symbols)
 
 
+def tickers_file_path() -> Path:
+    """Resolved path to the on-disk ticker cache (may not exist yet)."""
+    raw = (os.environ.get("TRADINGAGENTS_TICKERS_FILE") or "").strip()
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return Path(__file__).resolve().parent / "data" / "us_tickers.json"
+
+
+def read_tickers_file(path: Path) -> list[tuple[str, str]] | None:
+    """Parse *path* into ``(symbol, name)`` pairs, or ``None`` if missing/invalid.
+
+    Accepts ``{"version":1,"pairs":[["SYM","Name"],...]}`` or a bare JSON array
+    of pairs. Symbols are uppercased; rows must pass a minimum count check.
+    """
+    if not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+        data: Any = json.loads(text)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        logger.warning("Ticker file unreadable %s: %s", path, exc)
+        return None
+
+    pairs_raw: list[Any]
+    if isinstance(data, dict) and isinstance(data.get("pairs"), list):
+        pairs_raw = data["pairs"]
+    elif isinstance(data, list):
+        pairs_raw = data
+    else:
+        logger.warning("Ticker file has unknown shape: %s", path)
+        return None
+
+    out: list[tuple[str, str]] = []
+    for row in pairs_raw:
+        if not isinstance(row, (list, tuple)) or len(row) != 2:
+            continue
+        sym = str(row[0]).strip().upper()
+        name = str(row[1]).strip()
+        if sym and name:
+            out.append((sym, name))
+
+    if len(out) < _MIN_FILE_PAIRS:
+        logger.warning(
+            "Ticker file %s has only %d pairs (need >= %d); ignoring",
+            path,
+            len(out),
+            _MIN_FILE_PAIRS,
+        )
+        return None
+    return out
+
+
+def _save_tickers_file(path: Path, pairs: list[tuple[str, str]]) -> bool:
+    """Atomically write ticker pairs to *path*."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "version": 1,
+            "source": "sec_edgar_company_tickers",
+            "count": len(pairs),
+            "pairs": [[s, n] for s, n in pairs],
+        }
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(
+            json.dumps(payload, separators=(",", ":"), ensure_ascii=False),
+            encoding="utf-8",
+        )
+        os.replace(tmp, path)
+        logger.info("Wrote %d tickers to %s", len(pairs), path)
+        return True
+    except OSError as exc:
+        logger.warning("Could not write ticker file %s (non-fatal): %s", path, exc)
+        return False
+
+
 # ── Search ────────────────────────────────────────────────────────────────────
+
 
 def search(q: str, limit: int = 10) -> list[dict[str, str]]:
     """Return up to *limit* tickers matching *q*.
@@ -53,7 +139,7 @@ def search(q: str, limit: int = 10) -> list[dict[str, str]]:
     """
     if not _loaded or not q:
         return []
-    q_up    = q.strip().upper()
+    q_up = q.strip().upper()
     q_lower = q_up.lower()
     if not q_up:
         return []
@@ -93,12 +179,13 @@ def exists(symbol: str) -> bool | None:
 
 # ── Load ──────────────────────────────────────────────────────────────────────
 
+
 def _set_index(pairs: list[tuple[str, str]]) -> None:
     global _symbols, _names, _loaded
     pairs_sorted = sorted(pairs, key=lambda x: x[0])
     _symbols = [p[0] for p in pairs_sorted]
-    _names   = [p[1] for p in pairs_sorted]
-    _loaded  = True
+    _names = [p[1] for p in pairs_sorted]
+    _loaded = True
     logger.info("Ticker index ready: %d symbols", len(_symbols))
 
 
@@ -111,7 +198,7 @@ def _fetch_from_sec() -> list[tuple[str, str]]:
         raw = json.loads(resp.read())
     pairs: list[tuple[str, str]] = []
     for entry in raw.values():
-        sym  = str(entry.get("ticker", "")).strip().upper()
+        sym = str(entry.get("ticker", "")).strip().upper()
         name = str(entry.get("title", "")).strip()
         if sym and name:
             pairs.append((sym, name))
@@ -121,18 +208,28 @@ def _fetch_from_sec() -> list[tuple[str, str]]:
 def load(force_refresh: bool = False) -> None:
     """Populate the in-memory index.  Call once at app startup.
 
-    Order of preference:
-      1. If DB available and table has data → load from DB (fast).
-      2. Otherwise → fetch from SEC EDGAR and persist to DB if available.
+    Order of preference (unless ``force_refresh``):
+      1. Local JSON file (``tickers_file_path()``).
+      2. PostgreSQL ``tickers`` table.
+      3. SEC EDGAR download → save to file (best-effort) and DB (best-effort).
 
-    Pass ``force_refresh=True`` to re-download from SEC even when DB is
-    populated (useful for periodic refresh).
+    Pass ``force_refresh=True`` to re-download from SEC even when file/DB are
+    populated.
     """
     global _loaded
 
     from service import db  # local import — avoids circular imports at module level
 
-    # ── Try loading from DB ───────────────────────────────────────────────────
+    cache_path = tickers_file_path()
+
+    # ── Try local file ────────────────────────────────────────────────────────
+    if not force_refresh:
+        file_pairs = read_tickers_file(cache_path)
+        if file_pairs:
+            _set_index(file_pairs)
+            return
+
+    # ── Try loading from DB ─────────────────────────────────────────────────
     if not force_refresh:
         try:
             db_rows = db.load_tickers_from_db()
@@ -142,13 +239,13 @@ def load(force_refresh: bool = False) -> None:
         except Exception as exc:
             logger.warning("Could not load tickers from DB: %s", exc)
 
-    # ── Fetch from SEC EDGAR ──────────────────────────────────────────────────
+    # ── Fetch from SEC EDGAR ─────────────────────────────────────────────────
     logger.info("Downloading ticker list from SEC EDGAR…")
     try:
         pairs = _fetch_from_sec()
     except Exception as exc:
         logger.error("SEC EDGAR fetch failed: %s", exc)
-        _loaded = True   # mark loaded (empty) so the app still starts
+        _loaded = True  # mark loaded (empty) so the app still starts
         return
 
     if not pairs:
@@ -158,7 +255,9 @@ def load(force_refresh: bool = False) -> None:
 
     _set_index(pairs)
 
-    # ── Persist to DB if available ────────────────────────────────────────────
+    _save_tickers_file(cache_path, pairs)
+
+    # ── Persist to DB if available ───────────────────────────────────────────
     try:
         saved = db.save_tickers_to_db(pairs)
         if saved:
