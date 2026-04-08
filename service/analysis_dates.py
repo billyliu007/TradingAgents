@@ -35,9 +35,10 @@ def analysis_cache_is_stale(
     *,
     server_now: datetime | None = None,
 ) -> bool:
-    """True if a cache row for ``analysis_date`` should not be served (Eastern midnight cut).
+    """True if a cache row for ``analysis_date`` should not be served (US cash close + buffer).
 
-    Valid until (exclusive) the start of ``analysis_date + 1`` at 00:00 America/New_York.
+    Valid until (exclusive) **20 minutes after** the regular US equities cash close
+    on ``analysis_date`` (16:20 America/New_York).
     Rows for dates more than :data:`_CACHE_STALE_LOOKBACK_DAYS` before today ET are never stale,
     so historical analyses remain cacheable.
     """
@@ -47,9 +48,7 @@ def analysis_cache_is_stale(
     now_et_date = now.astimezone(US_EASTERN).date()
     if (now_et_date - analysis_date).days > _CACHE_STALE_LOOKBACK_DAYS:
         return False
-    expiry = datetime.combine(
-        analysis_date + timedelta(days=1),
-        time.min,
-        tzinfo=US_EASTERN,
-    )
+    # DST-safe: use America/New_York tzinfo.
+    market_close_buffer = timedelta(minutes=20)
+    expiry = datetime.combine(analysis_date, time(16, 0), tzinfo=US_EASTERN) + market_close_buffer
     return now >= expiry

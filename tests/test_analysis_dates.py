@@ -43,17 +43,18 @@ def test_normalize_explicit_historical_unchanged() -> None:
     assert normalize_analysis_date(date(2020, 6, 1), server_now=now) == date(2020, 6, 1)
 
 
-def test_cache_not_stale_before_eastern_midnight_next_day() -> None:
+def test_cache_not_stale_before_eastern_close_buffer() -> None:
     d = date(2024, 7, 14)
-    # Last instant before July 15 00:00 Eastern (summer: EDT = UTC-4)
-    # July 15 00:00 EDT = July 15 04:00 UTC
-    now = datetime(2024, 7, 15, 3, 59, 0, tzinfo=timezone.utc)
+    # July 14 16:20 EDT = July 14 20:20 UTC (EDT = UTC-4).
+    # Just before the 20-minute post-close buffer expires, cache should still be valid.
+    now = datetime(2024, 7, 14, 20, 19, 0, tzinfo=timezone.utc)
     assert not analysis_cache_is_stale(d, server_now=now)
 
 
-def test_cache_stale_at_eastern_midnight_next_day() -> None:
+def test_cache_stale_at_eastern_close_buffer() -> None:
     d = date(2024, 7, 14)
-    now = datetime(2024, 7, 15, 4, 0, 0, tzinfo=timezone.utc)
+    # At (or after) 16:20 EDT on the session date, cache becomes stale.
+    now = datetime(2024, 7, 14, 20, 20, 0, tzinfo=timezone.utc)
     assert analysis_cache_is_stale(d, server_now=now)
 
 

@@ -7,10 +7,23 @@ from yfinance.exceptions import YFRateLimitError
 from stockstats import wrap
 from typing import Annotated
 import os
+from datetime import timedelta
+from datetime import datetime as _dt
+from zoneinfo import ZoneInfo
 from .config import get_config
 
 logger = logging.getLogger(__name__)
 
+US_EASTERN = ZoneInfo("America/New_York")
+_CASH_CLOSE_BUFFER_MIN = 20
+
+def _effective_last_close_day(session_day):
+    """Return last completed US cash session day relative to session_day."""
+    now_et = _dt.now(US_EASTERN)
+    if now_et.date() != session_day:
+        return session_day
+    close_cutoff = _dt.combine(session_day, _dt.min.time().replace(hour=16, minute=0), tzinfo=US_EASTERN) + timedelta(minutes=_CASH_CLOSE_BUFFER_MIN)
+    return session_day if now_et >= close_cutoff else (session_day - timedelta(days=1))
 
 def yf_retry(func, max_retries=3, base_delay=2.0):
     """Execute a yfinance call with exponential backoff on rate limits.
@@ -57,11 +70,11 @@ class StockstatsUtils:
     ):
         config = get_config()
 
-        today_date = pd.Timestamp.today()
         curr_date_dt = pd.to_datetime(curr_date)
-
-        end_date = today_date
-        start_date = today_date - pd.DateOffset(years=15)
+        # Anchor the fetch window to the session date (US/Eastern calendar day provided by the service/UI),
+        # not the server's local wall-clock date.
+        end_date = curr_date_dt + pd.Timedelta(days=1)  # yfinance end is exclusive
+        start_date = curr_date_dt - pd.DateOffset(years=15)
         start_date_str = start_date.strftime("%Y-%m-%d")
         end_date_str = end_date.strftime("%Y-%m-%d")
 
@@ -84,13 +97,37 @@ class StockstatsUtils:
                 progress=False,
                 auto_adjust=True,
             ))
+            # Patch last-day NaN bar (wide query) by re-fetching the single session day.
+            try:
+                if isinstance(data.index, pd.DatetimeIndex):
+                    idx_dates = data.index.date
+                    target_day = _effective_last_close_day(curr_date_dt.date())
+                    if target_day in idx_dates:
+                        day_rows = data.loc[idx_dates == target_day]
+                        if not day_rows.empty and ("Close" in day_rows.columns) and day_rows["Close"].isna().all():
+                            day_start = target_day.strftime("%Y-%m-%d")
+                            day_end_excl = (target_day + timedelta(days=1)).strftime("%Y-%m-%d")
+                            day_data = yf_retry(lambda: yf.download(
+                                symbol,
+                                start=day_start,
+                                end=day_end_excl,
+                                multi_level_index=False,
+                                progress=False,
+                                auto_adjust=True,
+                            ))
+                            if not day_data.empty:
+                                data = pd.concat([data, day_data])
+                                data = data[~data.index.duplicated(keep="last")].sort_index()
+            except Exception:
+                pass
             data = data.reset_index()
             data.to_csv(data_file, index=False)
 
         data = _clean_dataframe(data)
         df = wrap(data)
         df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
-        curr_date_str = curr_date_dt.strftime("%Y-%m-%d")
+        target_day = _effective_last_close_day(curr_date_dt.date())
+        curr_date_str = target_day.strftime("%Y-%m-%d")
 
         df[indicator]  # trigger stockstats to calculate the indicator
         matching_rows = df[df["Date"].str.startswith(curr_date_str)]

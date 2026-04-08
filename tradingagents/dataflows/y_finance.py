@@ -4,6 +4,30 @@ from dateutil.relativedelta import relativedelta
 import yfinance as yf
 import os
 from .stockstats_utils import StockstatsUtils, _clean_dataframe, yf_retry
+import pandas as pd
+from zoneinfo import ZoneInfo
+
+US_EASTERN = ZoneInfo("America/New_York")
+_CASH_CLOSE_ET = (16, 0)
+_CASH_CLOSE_BUFFER_MIN = 20
+
+def _effective_last_close_day(session_day):
+    """Return the last *completed* US cash session day relative to session_day.
+
+    If now is before 16:20 ET on session_day, use session_day - 1.
+    Otherwise use session_day.
+    """
+    now_et = datetime.now(US_EASTERN)
+    if now_et.date() < session_day:
+        return session_day
+    if now_et.date() > session_day:
+        return session_day
+    close_cutoff = datetime.combine(
+        session_day,
+        datetime.min.time().replace(hour=_CASH_CLOSE_ET[0], minute=_CASH_CLOSE_ET[1]),
+        tzinfo=US_EASTERN,
+    ) + timedelta(minutes=_CASH_CLOSE_BUFFER_MIN)
+    return session_day if now_et >= close_cutoff else (session_day - timedelta(days=1))
 
 def get_YFin_data_online(
     symbol: Annotated[str, "ticker symbol of the company"],
@@ -32,6 +56,28 @@ def get_YFin_data_online(
     # Remove timezone info from index for cleaner output
     if data.index.tz is not None:
         data.index = data.index.tz_localize(None)
+
+    # yfinance/Yahoo occasionally returns the last session day row with NaN OHLC in wide queries,
+    # even though a single-day query returns valid values. Patch by refetching that day only.
+    end_day = end_dt.date()
+    target_day = _effective_last_close_day(end_day)
+    try:
+        if not data.empty:
+            idx_dates = data.index.date
+            if target_day in idx_dates:
+                day_rows = data.loc[idx_dates == target_day]
+                if not day_rows.empty and ("Close" in day_rows.columns) and day_rows["Close"].isna().all():
+                    day_start = target_day.strftime("%Y-%m-%d")
+                    day_end_excl = (target_day + timedelta(days=1)).strftime("%Y-%m-%d")
+                    day_data = yf_retry(lambda: ticker.history(start=day_start, end=day_end_excl))
+                    if not day_data.empty:
+                        if day_data.index.tz is not None:
+                            day_data.index = day_data.index.tz_localize(None)
+                        data = pd.concat([data, day_data])
+                        data = data[~data.index.duplicated(keep="last")].sort_index()
+    except Exception:
+        # Best-effort patching only — fall back to original wide fetch.
+        pass
 
     # Round numerical values to 2 decimal places for cleaner display
     numeric_columns = ["Open", "High", "Low", "Close", "Adj Close"]
@@ -226,11 +272,12 @@ def _get_stock_stats_bulk(
             raise Exception("Stockstats fail: Yahoo Finance data not fetched yet!")
     else:
         # Online data fetching with caching
-        today_date = pd.Timestamp.today()
         curr_date_dt = pd.to_datetime(curr_date)
 
-        end_date = today_date
-        start_date = today_date - pd.DateOffset(years=15)
+        # Anchor the cache window to the requested session date, not wall-clock "today".
+        # yfinance end is exclusive, so use curr_date + 1 day to include that session if available.
+        end_date = curr_date_dt + pd.Timedelta(days=1)
+        start_date = curr_date_dt - pd.DateOffset(years=15)
         start_date_str = start_date.strftime("%Y-%m-%d")
         end_date_str = end_date.strftime("%Y-%m-%d")
 
@@ -252,6 +299,29 @@ def _get_stock_stats_bulk(
                 progress=False,
                 auto_adjust=True,
             ))
+            # Patch last-day NaN bar for the target session date by re-fetching that day only.
+            try:
+                if isinstance(data.index, pd.DatetimeIndex):
+                    idx_dates = data.index.date
+                    target_day = _effective_last_close_day(curr_date_dt.date())
+                    if target_day in idx_dates:
+                        day_rows = data.loc[idx_dates == target_day]
+                        if not day_rows.empty and ("Close" in day_rows.columns) and day_rows["Close"].isna().all():
+                            day_start = target_day.strftime("%Y-%m-%d")
+                            day_end_excl = (target_day + timedelta(days=1)).strftime("%Y-%m-%d")
+                            day_data = yf_retry(lambda: yf.download(
+                                symbol,
+                                start=day_start,
+                                end=day_end_excl,
+                                multi_level_index=False,
+                                progress=False,
+                                auto_adjust=True,
+                            ))
+                            if not day_data.empty:
+                                data = pd.concat([data, day_data])
+                                data = data[~data.index.duplicated(keep="last")].sort_index()
+            except Exception:
+                pass
             data = data.reset_index()
             data.to_csv(data_file, index=False)
 
