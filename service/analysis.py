@@ -63,7 +63,8 @@ def _portfolio_section_heading(language: str) -> str:
 
 
 _TOOL_FEED_TRUNCATION_DISCLAIMER = (
-    "Abbreviated for display only. For research and education — not investment, legal, or tax advice."
+    "Abbreviated for display in this feed only. The complete data returned by tools is still "
+    "used to produce your research results. For research and education — not investment, legal, or tax advice."
 )
 
 
