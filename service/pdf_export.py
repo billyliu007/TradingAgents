@@ -411,8 +411,7 @@ def _write_body(
             )
 
 
-def write_analysis_pdf(
-    path: Path,
+def _compose_analysis_pdf(
     *,
     ticker: str,
     analysis_date: date,
@@ -420,9 +419,7 @@ def write_analysis_pdf(
     decision: str,
     human_readable_report: str,
     language: str = "en",
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
+) -> FPDF:
     lang_key = (language or "en").strip().lower()
     cov = _PDF_COVER.get(lang_key, _PDF_COVER["en"])
     legal_disclaimer = cov.get("legal_footer_short") or cov.get("legal_disclaimer") or _PDF_COVER["en"]["legal_disclaimer"]
@@ -479,8 +476,53 @@ def write_analysis_pdf(
         5,
         body_language=lang_key,
     )
+    return pdf
 
+
+def write_analysis_pdf(
+    path: Path,
+    *,
+    ticker: str,
+    analysis_date: date,
+    analysts: list[str],
+    decision: str,
+    human_readable_report: str,
+    language: str = "en",
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pdf = _compose_analysis_pdf(
+        ticker=ticker,
+        analysis_date=analysis_date,
+        analysts=analysts,
+        decision=decision,
+        human_readable_report=human_readable_report,
+        language=language,
+    )
     pdf.output(str(path))
+
+
+def render_analysis_pdf_bytes(
+    *,
+    ticker: str,
+    analysis_date: date,
+    analysts: list[str],
+    decision: str,
+    human_readable_report: str,
+    language: str = "en",
+) -> bytes:
+    """Build PDF in memory (no disk write)."""
+    pdf = _compose_analysis_pdf(
+        ticker=ticker,
+        analysis_date=analysis_date,
+        analysts=analysts,
+        decision=decision,
+        human_readable_report=human_readable_report,
+        language=language,
+    )
+    data = pdf.output(dest="S")
+    if isinstance(data, (bytes, bytearray)):
+        return bytes(data)
+    return str(data).encode("latin-1")
 
 
 def unique_path(directory: Path, filename: str) -> Path:

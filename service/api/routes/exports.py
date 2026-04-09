@@ -6,14 +6,21 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from service.api.handlers.exports_zip import pdf_zip_response
+from service.app_config import is_ephemeral_deploy
 from service.export_paths import exports_dir, paths_for_export_filenames, resolve_export_file
 from service.schemas import ExportZipRequest
 
 router = APIRouter(prefix="/api/exports", tags=["exports"])
 
 
+def _exports_unavailable() -> None:
+    if is_ephemeral_deploy():
+        raise HTTPException(status_code=404, detail="Exports are not available on this deployment")
+
+
 @router.get("")
 def list_exports() -> dict[str, Any]:
+    _exports_unavailable()
     d = exports_dir()
     if not d.is_dir():
         return {"files": []}
@@ -32,6 +39,7 @@ def list_exports() -> dict[str, Any]:
 
 @router.get("/download/{filename}")
 def download_export(filename: str) -> FileResponse:
+    _exports_unavailable()
     path = resolve_export_file(filename)
     return FileResponse(
         path,
@@ -43,6 +51,7 @@ def download_export(filename: str) -> FileResponse:
 
 @router.post("/zip")
 def download_selected_exports_zip(body: ExportZipRequest):
+    _exports_unavailable()
     if not body.filenames:
         raise HTTPException(status_code=400, detail="No filenames provided")
     paths = paths_for_export_filenames(body.filenames)
@@ -53,6 +62,7 @@ def download_selected_exports_zip(body: ExportZipRequest):
 
 @router.get("/all.zip")
 def download_all_exports_zip():
+    _exports_unavailable()
     exports = exports_dir()
     pdfs = sorted(exports.glob("*.pdf")) if exports.is_dir() else []
     if not pdfs:

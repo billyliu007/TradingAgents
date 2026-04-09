@@ -69,6 +69,7 @@ class OpenAIClient(BaseLLMClient):
     def get_llm(self) -> Any:
         """Return configured ChatOpenAI instance."""
         llm_kwargs = {"model": self.model}
+        forbid_env = bool(self.kwargs.get("forbid_llm_env_keys"))
 
         # Provider-specific base URL and auth (optional backend_url overrides default)
         if self.provider in _PROVIDER_CONFIG:
@@ -83,9 +84,10 @@ class OpenAIClient(BaseLLMClient):
             else:
                 llm_kwargs["base_url"] = default_url
             if api_key_env:
-                api_key = os.environ.get(api_key_env)
-                if api_key:
-                    llm_kwargs["api_key"] = api_key
+                if not forbid_env:
+                    api_key = os.environ.get(api_key_env)
+                    if api_key:
+                        llm_kwargs["api_key"] = api_key
             else:
                 llm_kwargs["api_key"] = "ollama"
         elif self.base_url:

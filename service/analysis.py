@@ -11,6 +11,7 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 from service import db
 from service.analysis_dates import normalize_analysis_date
+from service.app_config import is_ephemeral_deploy
 from service.content_sanitize import (
     sanitize_event_payload,
     sanitize_log_event,
@@ -19,7 +20,7 @@ from service.content_sanitize import (
 from service.constants import ANALYST_OPTIONS
 from service.export_paths import exports_dir
 from service.job_store import jobs, jobs_lock
-from service.pdf_export import export_filename, unique_path, write_analysis_pdf
+from service.pdf_export import export_filename, render_analysis_pdf_bytes, unique_path, write_analysis_pdf
 from service.schemas import AnalyzeRequest
 from service.server_logging import log_message
 from service.settings_ops import build_graph_config, llm_cache_profile_from_config
@@ -399,6 +400,7 @@ def execute_analysis(
 
     pdf_filenames: list[str] = []
     pdf_download_urls: list[str] = []
+    pdf_bytes: bytes | None = None
 
     try:
         fname = export_filename(
@@ -406,24 +408,38 @@ def execute_analysis(
             pdf_filename_calendar_date(payload),
             language=payload.language,
         )
-        out_path = unique_path(exports_dir(), fname)
-        write_analysis_pdf(
-            out_path,
-            ticker=payload.ticker,
-            analysis_date=payload.analysis_date,
-            analysts=list(payload.selected_analysts),
-            decision=as_text(decision_requested),
-            human_readable_report=human_report,
-            language=payload.language,
-        )
-        log_message(f"✔ PDF saved locally ({payload.language.upper()}): {out_path.name}")
-        pdf_filenames.append(out_path.name)
-        pdf_download_urls.append(f"/api/exports/download/{out_path.name}")
+        if is_ephemeral_deploy():
+            pdf_bytes = render_analysis_pdf_bytes(
+                ticker=payload.ticker,
+                analysis_date=payload.analysis_date,
+                analysts=list(payload.selected_analysts),
+                decision=as_text(decision_requested),
+                human_readable_report=human_report,
+                language=payload.language,
+            )
+            pdf_filenames.append(fname)
+            if job_id:
+                pdf_download_urls.append(f"/api/jobs/{job_id}/pdf")
+            log_message(f"✔ PDF generated in memory ({payload.language.upper()}): {fname}")
+        else:
+            out_path = unique_path(exports_dir(), fname)
+            write_analysis_pdf(
+                out_path,
+                ticker=payload.ticker,
+                analysis_date=payload.analysis_date,
+                analysts=list(payload.selected_analysts),
+                decision=as_text(decision_requested),
+                human_readable_report=human_report,
+                language=payload.language,
+            )
+            log_message(f"✔ PDF saved locally ({payload.language.upper()}): {out_path.name}")
+            pdf_filenames.append(out_path.name)
+            pdf_download_urls.append(f"/api/exports/download/{out_path.name}")
     except Exception as pdf_exc:
         log_message(f"✘ PDF export failed: {pdf_exc}")
 
     primary_pdf = pdf_filenames[0] if pdf_filenames else None
-    return {
+    out: dict[str, Any] = {
         "decision": as_text(decision_requested),
         "final_trade_decision": as_text(final_state_requested.get("final_trade_decision")),
         "human_readable_report": human_report,
@@ -433,6 +449,9 @@ def execute_analysis(
         "pdf_filenames": pdf_filenames if pdf_filenames else None,
         "pdf_download_urls": pdf_download_urls if pdf_download_urls else None,
     }
+    if pdf_bytes is not None:
+        out["pdf_bytes"] = pdf_bytes
+    return out
 
 
 def cache_lookup(payload: AnalyzeRequest, label: str = "") -> dict[str, Any] | None:
@@ -586,6 +605,7 @@ def run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
     # ── Cache miss: run full analysis ───────────────────────────────────────
     try:
         result = execute_analysis(payload, job_id=job_id, cancel_event=cancel_event)
+        ephemeral_pdf = result.pop("pdf_bytes", None)
 
         # Emit completion event (include pdf_filename — UI listens for singular key)
         _urls = result.get("pdf_download_urls") or []
@@ -598,19 +618,24 @@ def run_analysis_job(job_id: str, payload: AnalyzeRequest) -> None:
         })
 
         with jobs_lock:
-            jobs[job_id].update(
-                status="done",
-                completed_at=datetime.now(timezone.utc).isoformat(),
-                decision=result["decision"],
-                pdf_filenames=result["pdf_filenames"],
-                pdf_download_urls=result["pdf_download_urls"],
-                sections=result.get("sections"),
-            )
+            ju: dict[str, Any] = {
+                "status": "done",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "decision": result["decision"],
+                "pdf_filenames": result["pdf_filenames"],
+                "pdf_download_urls": result["pdf_download_urls"],
+                "sections": result.get("sections"),
+            }
+            if ephemeral_pdf is not None:
+                ju["ephemeral_pdf"] = ephemeral_pdf
+                ju["ephemeral_pdf_filename"] = result.get("pdf_filename")
+            jobs[job_id].update(ju)
             events_snapshot = list(jobs[job_id]["event_log"])
         log_message(f"[Job {job_id[:8]}] Done ticker={payload.ticker}")
 
-        # Save result for the requested language
-        cache_save(payload, result, events_snapshot, label=job_id[:8])
+        # Save result for the requested language (hosted / DB-backed deploy only)
+        if not is_ephemeral_deploy():
+            cache_save(payload, result, events_snapshot, label=job_id[:8])
 
     except InterruptedError:
         log_message(f"[Job {job_id[:8]}] Cancelled ticker={payload.ticker}")

@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from service import db
 from service import tickers as _ticker_svc
 from service.api import register_routes
+from service.app_config import get_deploy_mode
 from service.constants import STATIC_DIR
 from service.server_logging import log_message
 
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def _startup() -> None:
+        log_message(f"Deploy mode: {get_deploy_mode()}")
         try:
             db.init_db()
             log_message("DB cache initialised")

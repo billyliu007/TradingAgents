@@ -1,11 +1,15 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
 # After push: https://dashboard.render.com/blueprint/new?repo=<your-repo-https-url>
 #
-# DATABASE_URL (Postgres, e.g. Neon): optional; used for analysis caching and
-# global LLM/API settings via /admin (app_settings). US ticker autocomplete is
-# file-based (bundled JSON), not Postgres. migrate.py runs on every build.
+# Two web services by default:
+# - tradingagents-service: TRADINGAGENTS_DEPLOY_MODE=hosted (centralized; DATABASE_URL + /admin).
+# - Alphalens-Agent: TRADINGAGENTS_DEPLOY_MODE=ephemeral (BYOK in browser session; omit DATABASE_URL).
 #
-# Provider keys can live in the Dashboard and/or in DB after saving /admin.
+# DATABASE_URL (Postgres, e.g. Neon): optional on hosted; used for analysis caching and
+# app_settings. US ticker autocomplete is file-based (bundled JSON), not Postgres.
+# migrate.py runs on every build and exits cleanly when DATABASE_URL is unset.
+#
+# Provider keys: hosted Dashboard and/or DB; ephemeral — user Settings only (not .env LLM keys).
 
 services:
   - type: web
@@ -18,6 +22,8 @@ services:
     startCommand: uvicorn service.app:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/options
     envVars:
+      - key: TRADINGAGENTS_DEPLOY_MODE
+        value: hosted
       # Python version: see runtime.txt in repo root (Render-native).
       # At least one working LLM credential is required at runtime unless all
       # providers used are configured in /admin with DATABASE_URL set.
@@ -53,3 +59,27 @@ services:
         value: /tmp/tradingagents-exports
       - key: TRADINGAGENTS_SERVICE_HOST
         value: "0.0.0.0"
+
+  # Ephemeral BYOK: no DATABASE_URL, no server LLM keys; users paste keys in Settings (session).
+  - type: web
+    name: Alphalens-Agent
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: pip install --upgrade pip && pip install . && python migrate.py
+    startCommand: uvicorn service.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/options
+    envVars:
+      - key: TRADINGAGENTS_DEPLOY_MODE
+        value: ephemeral
+      - key: TRADINGAGENTS_RESULTS_DIR
+        value: /tmp/tradingagents-results
+      - key: TRADINGAGENTS_EXPORTS_DIR
+        value: /tmp/tradingagents-exports
+      - key: TRADINGAGENTS_SERVICE_HOST
+        value: "0.0.0.0"
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: TRADINGAGENTS_CORS_ORIGINS
+        sync: false

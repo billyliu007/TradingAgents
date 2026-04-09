@@ -9,7 +9,10 @@ from fastapi import HTTPException
 
 from service import tickers as _ticker_svc
 from service.analysis import normalize_analyze_request, run_analysis_job
+from service.app_config import is_ephemeral_deploy
 from service.constants import MAX_JOBS_STORE
+from service.llm_config_validate import assert_ephemeral_llm_keys
+from service.settings_ops import build_graph_config
 from service.job_store import executor, jobs, jobs_lock
 from service.schemas import AnalyzeRequest, JobStatusResponse, JobSubmitResponse
 from service.server_logging import log_message
@@ -17,6 +20,8 @@ from service.server_logging import log_message
 
 def submit_job(payload: AnalyzeRequest) -> JobSubmitResponse:
     payload = normalize_analyze_request(payload)
+    if is_ephemeral_deploy():
+        assert_ephemeral_llm_keys(build_graph_config(payload))
     valid = _ticker_svc.exists(payload.ticker)
     if valid is False:
         raise HTTPException(
@@ -62,7 +67,11 @@ def job_status(job_id: str) -> JobStatusResponse:
             status_code=404,
             detail="Job not found. The server may have restarted — check the exports list for your PDF.",
         )
-    job_data = {k: v for k, v in job.items() if k not in ("event_log", "error_notes", "cancel_event")}
+    job_data = {
+        k: v
+        for k, v in job.items()
+        if k not in ("event_log", "error_notes", "cancel_event", "ephemeral_pdf")
+    }
     return JobStatusResponse(job_id=job_id, **job_data)
 
 
@@ -82,4 +91,10 @@ def list_recent_jobs() -> dict[str, Any]:
     with jobs_lock:
         snapshot = [(jid, dict(j)) for jid, j in jobs.items()]
     snapshot.sort(key=lambda x: x[1]["created_at"], reverse=True)
-    return {"jobs": [{"job_id": jid, **job} for jid, job in snapshot[:20]]}
+    scrub = ("event_log", "error_notes", "cancel_event", "ephemeral_pdf")
+    return {
+        "jobs": [
+            {"job_id": jid, **{k: v for k, v in job.items() if k not in scrub}}
+            for jid, job in snapshot[:20]
+        ]
+    }

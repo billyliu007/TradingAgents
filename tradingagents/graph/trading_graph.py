@@ -95,6 +95,9 @@ class TradingAgentsGraph:
 
         quick_kw = self._get_provider_kwargs_for(quick_provider)
         deep_kw = self._get_provider_kwargs_for(deep_provider)
+        if self.config.get("forbid_llm_env_keys"):
+            quick_kw["forbid_llm_env_keys"] = True
+            deep_kw["forbid_llm_env_keys"] = True
         if self.callbacks:
             quick_kw = {**quick_kw, "callbacks": self.callbacks}
             deep_kw = {**deep_kw, "callbacks": self.callbacks}

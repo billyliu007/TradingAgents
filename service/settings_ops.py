@@ -8,6 +8,8 @@ from fastapi import HTTPException
 from tradingagents.default_config import DEFAULT_CONFIG
 
 from service import db
+from service.admin_auth import admin_password_configured
+from service.app_config import get_deploy_mode, is_ephemeral_deploy
 from service.constants import ANALYST_OPTIONS
 from service.schemas import AnalyzeRequest, LlmProvider
 
@@ -128,13 +130,12 @@ def apply_kimi_custom_models(config: dict[str, Any]) -> None:
 
 
 def build_graph_config(payload: AnalyzeRequest) -> dict[str, Any]:
-    """Merge DEFAULT_CONFIG with Postgres app_settings (if any) or request payload."""
+    """Merge DEFAULT_CONFIG with Postgres app_settings (if any), then request payload."""
     config = DEFAULT_CONFIG.copy()
     stored = db.get_app_settings()
     if stored:
         apply_map_from_stored(config, stored)
-    else:
-        apply_map_from_payload(config, payload)
+    apply_map_from_payload(config, payload)
 
     apply_kimi_custom_models(config)
 
@@ -150,6 +151,9 @@ def build_graph_config(payload: AnalyzeRequest) -> dict[str, Any]:
     config["quick_backend_url"] = str(qb).strip() if qb else None
     dbu = config.get("deep_backend_url")
     config["deep_backend_url"] = str(dbu).strip() if dbu else None
+
+    if is_ephemeral_deploy():
+        config["forbid_llm_env_keys"] = True
 
     return config
 
@@ -289,6 +293,7 @@ def ui_options_response() -> dict[str, Any]:
     apply_kimi_custom_models(cfg)
     qp = cfg.get("quick_llm_provider") or cfg.get("llm_provider")
     dp = cfg.get("deep_llm_provider") or cfg.get("llm_provider")
+    mode = get_deploy_mode()
     return {
         "analysts": ANALYST_OPTIONS,
         "llm_provider_default": cfg.get("llm_provider"),
@@ -305,4 +310,8 @@ def ui_options_response() -> dict[str, Any]:
         ),
         "backend_url_default": cfg.get("backend_url") or "",
         "global_settings_from_db": bool(stored),
+        "deploy_mode": mode,
+        "exports_enabled": mode == "hosted",
+        "ephemeral_requires_session_keys": mode == "ephemeral",
+        "admin_password_configured": admin_password_configured(),
     }

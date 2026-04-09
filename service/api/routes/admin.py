@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Request, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
 
 from service import db
+from service.app_config import is_ephemeral_deploy
 from service.admin_auth import (
     admin_cookie_max_age,
     admin_cookie_name,
@@ -18,7 +19,17 @@ from service.api.deps import CurrentAdmin
 from service.schemas import AdminLoginRequest
 from service.settings_ops import admin_sanitize_put_body, admin_settings_get_payload
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+def _reject_ephemeral_admin() -> None:
+    if is_ephemeral_deploy():
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+router = APIRouter(
+    prefix="/api/admin",
+    tags=["admin"],
+    dependencies=[Depends(_reject_ephemeral_admin)],
+)
 
 
 @router.post("/login")
