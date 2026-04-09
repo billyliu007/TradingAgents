@@ -20,10 +20,7 @@ def admin_password_configured() -> bool:
     return bool((os.getenv("TRADINGAGENTS_ADMIN_PASSWORD") or "").strip())
 
 
-def _admin_session_secret() -> bytes:
-    s = (os.getenv("TRADINGAGENTS_ADMIN_SESSION_SECRET") or "").strip()
-    if s:
-        return s.encode("utf-8")
+def _admin_signing_secret() -> bytes:
     p = (os.getenv("TRADINGAGENTS_ADMIN_PASSWORD") or "").strip()
     return p.encode("utf-8") if p else b""
 
@@ -38,7 +35,7 @@ def admin_verify_credentials(username: str, password: str) -> bool:
 
 
 def admin_issue_token() -> str:
-    secret = _admin_session_secret()
+    secret = _admin_signing_secret()
     if not secret:
         return ""
     user = admin_username()
@@ -51,7 +48,7 @@ def admin_issue_token() -> str:
 def admin_verify_token(raw: str | None) -> bool:
     if not raw:
         return False
-    secret = _admin_session_secret()
+    secret = _admin_signing_secret()
     if not secret:
         return False
     try:

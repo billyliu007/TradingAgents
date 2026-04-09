@@ -50,8 +50,6 @@ services:
         sync: false
       - key: TRADINGAGENTS_ADMIN_PASSWORD
         sync: false
-      - key: TRADINGAGENTS_ADMIN_SESSION_SECRET
-        sync: false
       # Optional overrides
       - key: TRADINGAGENTS_RESULTS_DIR
         value: /tmp/tradingagents-results
