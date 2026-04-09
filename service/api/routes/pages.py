@@ -9,12 +9,12 @@ from service.constants import STATIC_DIR
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("/", response_model=None)
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
-@router.get("/admin")
+@router.get("/admin", response_model=None)
 def admin_page() -> FileResponse | RedirectResponse:
     if is_ephemeral_deploy():
         return RedirectResponse(url="/?settings=1", status_code=307)
