@@ -94,11 +94,24 @@
       font-size: 11px;
     }
     .hdr-settings-btn {
-      font-size: 11px; font-weight: 700; color: var(--txt2);
-      padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; white-space: nowrap;
-      background: rgba(0,0,0,.25); cursor: pointer; font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--txt2);
+      background: rgba(0,0,0,.25);
+      cursor: pointer;
+      font-family: inherit;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
     }
     .hdr-settings-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .hdr-settings-btn svg { display: block; flex-shrink: 0; }
     .settings-modal {
       display: none; position: fixed; inset: 0; z-index: 20000;
       align-items: flex-start; justify-content: center; padding: 24px 12px; overflow-y: auto;
@@ -981,7 +994,12 @@
   <div class="logo">🔭 AlphaLens</div>
   <div class="hdr-tools">
     <div class="hdr-status" id="hdrStatus">Ready</div>
-    <button type="button" class="hdr-settings-btn" id="settingsBtn">Settings</button>
+    <button type="button" class="hdr-settings-btn" id="settingsBtn" aria-label="Settings" title="Settings">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+      </svg>
+    </button>
     <div class="hdr-lang-wrap" aria-label="Language" id="hdrLangWrap">
       <select class="hdr-lang-select" id="hdrLangSelect" aria-label="Language"></select>
     </div>
@@ -997,6 +1015,19 @@
     <div class="settings-err" id="settingsErr"></div>
     <div class="settings-ok" id="settingsOk">Saved.</div>
 
+    <p class="settings-sub" id="settingsLockedMsg" style="display:none;margin-bottom:12px;"></p>
+
+    <div id="stHostedLogin" class="settings-login-box" style="display:none;">
+      <div class="s-section-title" id="stLoginTitle">Server login</div>
+      <div class="form-group"><label for="st_adm_user">Username</label><input id="st_adm_user" autocomplete="username" /></div>
+      <div class="form-group"><label for="st_adm_pass">Password</label><input id="st_adm_pass" type="password" autocomplete="current-password" /></div>
+      <div class="btn-row">
+        <button type="button" class="btn-g" id="stLoginBtn">Sign in</button>
+        <button type="button" class="btn-g" id="stLogoutBtn">Log out</button>
+      </div>
+    </div>
+
+    <div id="settingsFormWrap">
     <div class="s-section-title" id="stSecQuickProv">Quick LLM provider</div>
     <select id="st_quick_llm_provider"></select>
     <div class="s-section-title" id="stSecDeepProv">Deep LLM provider</div>
@@ -1044,20 +1075,11 @@
       <div class="form-group"><label for="st_moonshot_api_key">Kimi (Moonshot)</label><input id="st_moonshot_api_key" type="password" autocomplete="off" /></div>
     </div>
 
-    <div id="stHostedLogin" class="settings-login-box" style="display:none;">
-      <div class="s-section-title" id="stLoginTitle">Server login</div>
-      <div class="form-group"><label for="st_adm_user">Username</label><input id="st_adm_user" autocomplete="username" /></div>
-      <div class="form-group"><label for="st_adm_pass">Password</label><input id="st_adm_pass" type="password" autocomplete="current-password" /></div>
-      <div class="btn-row">
-        <button type="button" class="btn-g" id="stLoginBtn">Sign in</button>
-        <button type="button" class="btn-g" id="stLogoutBtn">Log out</button>
-      </div>
-    </div>
-
     <div class="btn-row">
       <button type="button" class="btn-p" id="stSaveSessionBtn">Apply for this browser</button>
       <button type="button" class="btn-p" id="stSaveServerBtn" style="display:none;">Save to server</button>
     </div>
+    </div><!-- /settingsFormWrap -->
   </div>
 </div>
 
@@ -1189,15 +1211,18 @@ const TRANSLATIONS = {
     "settings_btn": "Settings",
     "settings_title": "Settings",
     "settings_sub_hosted":
-      "Server defaults apply to all users when signed in and saved. “Apply for this browser” stores overrides in session only (sent with each run).",
+      "Analysis uses the server’s saved settings (database). Sign in below to view or change them. Browser-only overrides are not used in hosted mode.",
     "settings_sub_ephemeral":
       "API keys and models are kept in this browser session only and sent with each analysis. Nothing is stored on the server.",
+    "settings_hosted_signin_prompt": "Sign in with your server admin account to open settings.",
+    "settings_hosted_no_admin":
+      "Settings are managed on the server. Ask your operator to set TRADINGAGENTS_ADMIN_PASSWORD and DATABASE_URL so admins can sign in here.",
     "settings_apply_session": "Apply for this browser",
     "settings_save_server": "Save to server",
     "settings_server_login": "Server login",
     "settings_sign_in": "Sign in",
     "settings_log_out": "Log out",
-    "settings_keys_hint_hosted": "Leave blank to keep using the server-stored key. Type a new value to override for this browser session.",
+    "settings_keys_hint_hosted": "Leave blank to keep the current server-stored key. Type a new value and click Save to server to update it.",
     "settings_keys_hint_ephemeral": "Required for your selected providers. Keys stay in sessionStorage.",
     "err_missing_api_keys": "Add API keys in Settings for your selected LLM providers. Missing:",
     "footer_disclaimer": "For research and education only. Outputs are AI-generated simulations, not investment, legal, or tax advice.",
@@ -2055,7 +2080,10 @@ function updateUIText() {
     adjustHdrLangSelectWidth();
   }
   const stb = _el("settingsBtn");
-  if (stb) stb.textContent = t("settings_btn");
+  if (stb) {
+    stb.setAttribute("aria-label", t("settings_btn"));
+    stb.title = t("settings_btn");
+  }
 
   // Rebuild team cards with translated role/focus text
   populateTeamShowcase();
@@ -2243,20 +2271,22 @@ function applyMergedToSettingsForm(merged) {
 }
 
 function mergeBootSessionAndServer(serverSettings, apiKeysSet) {
-  const ses = parseSessionSettings();
   const b = __bootOptions;
+  const ephemeral = deployMode() === "ephemeral";
+  const ses = ephemeral ? parseSessionSettings() : {};
+  const srv = serverSettings && typeof serverSettings === "object" ? serverSettings : {};
   const out = {
-    quick_llm_provider: ses.quick_llm_provider || serverSettings?.quick_llm_provider || b.quick_llm_provider_default || b.llm_provider_default,
-    deep_llm_provider: ses.deep_llm_provider || serverSettings?.deep_llm_provider || b.deep_llm_provider_default || b.llm_provider_default,
-    quick_think_llm: ses.quick_think_llm || serverSettings?.quick_think_llm || b.quick_think_default,
-    deep_think_llm: ses.deep_think_llm || serverSettings?.deep_think_llm || b.deep_think_default,
-    max_debate_rounds: ses.max_debate_rounds ?? serverSettings?.max_debate_rounds ?? b.max_debate_rounds_default,
-    max_risk_discuss_rounds: ses.max_risk_discuss_rounds ?? serverSettings?.max_risk_discuss_rounds ?? b.max_risk_discuss_rounds_default,
-    backend_url: ses.backend_url ?? serverSettings?.backend_url ?? b.backend_url_default,
-    quick_backend_url: ses.quick_backend_url ?? serverSettings?.quick_backend_url ?? "",
-    deep_backend_url: ses.deep_backend_url ?? serverSettings?.deep_backend_url ?? "",
-    kimi_quick_model_custom: ses.kimi_quick_model_custom ?? serverSettings?.kimi_quick_model_custom ?? "",
-    kimi_deep_model_custom: ses.kimi_deep_model_custom ?? serverSettings?.kimi_deep_model_custom ?? "",
+    quick_llm_provider: ses.quick_llm_provider || srv.quick_llm_provider || b.quick_llm_provider_default || b.llm_provider_default,
+    deep_llm_provider: ses.deep_llm_provider || srv.deep_llm_provider || b.deep_llm_provider_default || b.llm_provider_default,
+    quick_think_llm: ses.quick_think_llm || srv.quick_think_llm || b.quick_think_default,
+    deep_think_llm: ses.deep_think_llm || srv.deep_think_llm || b.deep_think_default,
+    max_debate_rounds: ses.max_debate_rounds ?? srv.max_debate_rounds ?? b.max_debate_rounds_default,
+    max_risk_discuss_rounds: ses.max_risk_discuss_rounds ?? srv.max_risk_discuss_rounds ?? b.max_risk_discuss_rounds_default,
+    backend_url: ses.backend_url ?? srv.backend_url ?? b.backend_url_default,
+    quick_backend_url: ses.quick_backend_url ?? srv.quick_backend_url ?? "",
+    deep_backend_url: ses.deep_backend_url ?? srv.deep_backend_url ?? "",
+    kimi_quick_model_custom: ses.kimi_quick_model_custom ?? srv.kimi_quick_model_custom ?? "",
+    kimi_deep_model_custom: ses.kimi_deep_model_custom ?? srv.kimi_deep_model_custom ?? "",
   };
   const keyIds = ["openai_api_key", "anthropic_api_key", "google_api_key", "xai_api_key", "openrouter_api_key", "moonshot_api_key"];
   for (const k of keyIds) {
@@ -2298,6 +2328,7 @@ function stCollectBodyForServer() {
 }
 
 function jobPayloadFromSession() {
+  if (deployMode() !== "ephemeral") return {};
   const c = parseSessionSettings();
   const body = {};
   const fields = [
@@ -2366,14 +2397,79 @@ async function loadBootOptions() {
     if (!r.ok) return;
     const j = await r.json();
     __bootOptions = { ...__bootOptions, ...j };
+    const mode = (__bootOptions.deploy_mode || "hosted").toLowerCase();
+    if (mode !== "ephemeral") {
+      try {
+        sessionStorage.removeItem(TA_SESSION_SETTINGS);
+      } catch (_) { /* ignore */ }
+    }
   } catch (_) { /* ignore */ }
 }
 
 async function refreshSettingsFormFromSources() {
   stPopulateProviderSelectsOnce();
-  let serverS = null;
-  let apiSet = {};
-  if (deployMode() === "hosted" && __bootOptions.admin_password_configured) {
+  const sub = _el("settingsModalSub");
+  const hint = _el("stKeysHint");
+  const hostedLogin = _el("stHostedLogin");
+  const saveSrv = _el("stSaveServerBtn");
+  const saveSess = _el("stSaveSessionBtn");
+  const formWrap = _el("settingsFormWrap");
+  const lockedMsg = _el("settingsLockedMsg");
+
+  if (lockedMsg) {
+    lockedMsg.style.display = "none";
+    lockedMsg.textContent = "";
+  }
+  if (formWrap) formWrap.style.display = "block";
+  if (hostedLogin) hostedLogin.style.display = "none";
+  if (saveSrv) saveSrv.style.display = "none";
+  if (saveSess) saveSess.style.display = "none";
+
+  const isEphemeral = deployMode() === "ephemeral";
+  const isHosted = !isEphemeral;
+  const adminOn = !!__bootOptions.admin_password_configured;
+
+  if (isHosted && !adminOn) {
+    if (formWrap) formWrap.style.display = "none";
+    if (lockedMsg) {
+      lockedMsg.textContent = t("settings_hosted_no_admin");
+      lockedMsg.style.display = "block";
+    }
+    if (sub) sub.textContent = t("settings_sub_hosted");
+    if (hint) hint.textContent = "";
+    _el("settingsModalTitle").textContent = t("settings_title");
+    _el("stSaveSessionBtn").textContent = t("settings_apply_session");
+    _el("stSaveServerBtn").textContent = t("settings_save_server");
+    _el("stLoginTitle").textContent = t("settings_server_login");
+    _el("stLoginBtn").textContent = t("settings_sign_in");
+    _el("stLogoutBtn").textContent = t("settings_log_out");
+    return;
+  }
+
+  if (isHosted && adminOn) {
+    if (hostedLogin) hostedLogin.style.display = "block";
+    let loggedIn = false;
+    try {
+      const me = await fetch(apiUrl("/api/admin/me"), { credentials: "same-origin" });
+      loggedIn = me.ok;
+    } catch (_) { /* ignore */ }
+
+    if (!loggedIn) {
+      if (formWrap) formWrap.style.display = "none";
+      if (sub) sub.textContent = t("settings_hosted_signin_prompt");
+      if (hint) hint.textContent = "";
+      _el("settingsModalTitle").textContent = t("settings_title");
+      _el("stSaveSessionBtn").textContent = t("settings_apply_session");
+      _el("stSaveServerBtn").textContent = t("settings_save_server");
+      _el("stLoginTitle").textContent = t("settings_server_login");
+      _el("stLoginBtn").textContent = t("settings_sign_in");
+      _el("stLogoutBtn").textContent = t("settings_log_out");
+      _el("stLogoutBtn").style.display = "none";
+      return;
+    }
+
+    let serverS = null;
+    let apiSet = {};
     try {
       const r = await fetch(apiUrl("/api/admin/settings"), { credentials: "same-origin" });
       if (r.ok) {
@@ -2382,25 +2478,29 @@ async function refreshSettingsFormFromSources() {
         apiSet = data.api_keys_set || {};
       }
     } catch (_) { /* ignore */ }
-  }
-  const merged = mergeBootSessionAndServer(serverS, apiSet);
-  applyMergedToSettingsForm(merged);
-
-  const sub = _el("settingsModalSub");
-  if (sub) sub.textContent = deployMode() === "ephemeral" ? t("settings_sub_ephemeral") : t("settings_sub_hosted");
-  const hint = _el("stKeysHint");
-  if (hint) {
-    hint.textContent = deployMode() === "ephemeral" ? t("settings_keys_hint_ephemeral") : t("settings_keys_hint_hosted");
-  }
-  const hostedLogin = _el("stHostedLogin");
-  const saveSrv = _el("stSaveServerBtn");
-  if (deployMode() === "hosted" && __bootOptions.admin_password_configured) {
-    if (hostedLogin) hostedLogin.style.display = "block";
+    if (formWrap) formWrap.style.display = "block";
     if (saveSrv) saveSrv.style.display = "inline-block";
-  } else {
-    if (hostedLogin) hostedLogin.style.display = "none";
-    if (saveSrv) saveSrv.style.display = "none";
+    _el("stLogoutBtn").style.display = "";
+    const merged = mergeBootSessionAndServer(serverS, apiSet);
+    applyMergedToSettingsForm(merged);
+    if (sub) sub.textContent = t("settings_sub_hosted");
+    if (hint) hint.textContent = t("settings_keys_hint_hosted");
+    _el("settingsModalTitle").textContent = t("settings_title");
+    _el("stSaveSessionBtn").textContent = t("settings_apply_session");
+    _el("stSaveServerBtn").textContent = t("settings_save_server");
+    _el("stLoginTitle").textContent = t("settings_server_login");
+    _el("stLoginBtn").textContent = t("settings_sign_in");
+    _el("stLogoutBtn").textContent = t("settings_log_out");
+    return;
   }
+
+  /* ephemeral */
+  if (hostedLogin) hostedLogin.style.display = "none";
+  if (saveSess) saveSess.style.display = "inline-block";
+  const merged = mergeBootSessionAndServer(null, {});
+  applyMergedToSettingsForm(merged);
+  if (sub) sub.textContent = t("settings_sub_ephemeral");
+  if (hint) hint.textContent = t("settings_keys_hint_ephemeral");
   _el("settingsModalTitle").textContent = t("settings_title");
   _el("stSaveSessionBtn").textContent = t("settings_apply_session");
   _el("stSaveServerBtn").textContent = t("settings_save_server");
@@ -2439,6 +2539,7 @@ function wireSettingsModal() {
   _el("settingsModalClose").addEventListener("click", () => closeSettingsModal());
   _el("settingsModalBackdrop").addEventListener("click", () => closeSettingsModal());
   _el("stSaveSessionBtn").addEventListener("click", () => {
+    if (deployMode() !== "ephemeral") return;
     _el("settingsErr").classList.remove("show");
     saveSessionSettings(collectSettingsFromForm());
     _el("settingsOk").classList.add("show");
