@@ -118,6 +118,7 @@
     /* ── LAYOUT ────────────────────────────────────────────── */
     .layout {
       flex: 1;
+      min-height: 0;
       display: grid;
       grid-template-columns: 1fr 44px;
       gap: 0;
@@ -222,7 +223,13 @@
       }
     }
     @media (max-width: 767px) {
-      .layout { grid-template-columns: 1fr !important; transition: none; }
+      /* One row fills space below header so columns can shrink and scroll inside */
+      .layout {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: minmax(0, 1fr);
+        min-height: 0;
+        transition: none;
+      }
       .data-panel-toggle { display: none !important; }
       .data-col-inner {
         display: flex !important;
@@ -230,6 +237,7 @@
         flex: 1;
         min-height: 0;
         gap: 10px;
+        overflow: hidden;
       }
     }
 
@@ -767,13 +775,30 @@
         border: none !important;
       }
       .mid-col.mobile-active,
-      .data-col.mobile-active { display: flex !important; }
+      .data-col.mobile-active {
+        display: flex !important;
+        min-height: 0;
+      }
 
       /* Chat panel fills the screen */
       .mid-col  { overflow: hidden; }
       .chat-feed { padding-bottom: 72px; }
-      /* Keep the last entries clickable above the fixed tab bar. */
-      .data-col  { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(92px + env(safe-area-inset-bottom, 0px)); }
+      /*
+        Data tab: scroll inside #dataFeed with bottom inset for the fixed tab bar
+        (56px bar + safe-area + margin). Outer column does not scroll — avoids last
+        cards sitting under the nav when grid row height was wrong.
+      */
+      .data-col {
+        overflow: hidden;
+        padding: 12px;
+      }
+      #dataFeed {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 28px);
+      }
 
       /* Larger touch targets for form elements */
       input, select { font-size: 16px !important; padding: 11px 12px; min-height: 44px; }
@@ -1146,6 +1171,10 @@ const TRANSLATIONS = {
     "data_placeholder": "Raw data from providers will appear here...",
     "data_raw_placeholder": "Raw data from providers will appear here...",
     "data_rows_truncated": "{n} more rows not shown",
+    "data_truncation_disclaimer":
+      "Abbreviated for display only. For research and education — not investment, legal, or tax advice.",
+    "data_preview_shown_items": "Showing {shown} of {total} items",
+    "data_preview_shown_fields": "Showing {shown} of {total} fields",
 
     // Team Showcase
     "team_title": "Your Research Team",
@@ -1287,6 +1316,10 @@ const TRANSLATIONS = {
     "data_placeholder": "来自数据提供商的原始数据将显示在这里...",
     "data_raw_placeholder": "来自数据提供商的原始数据将显示在这里...",
     "data_rows_truncated": "还有 {n} 行未显示",
+    "data_truncation_disclaimer":
+      "仅为界面节选展示，非完整数据。仅供研究与教育，不构成投资、法律或税务建议。",
+    "data_preview_shown_items": "仅显示 {shown} / 共 {total} 条",
+    "data_preview_shown_fields": "仅显示 {shown} / 共 {total} 个字段",
 
     // Team Showcase
     "team_title": "您的研究团队",
@@ -1419,6 +1452,10 @@ const TRANSLATIONS = {
     "data_placeholder": "Los datos en bruto de los proveedores aparecerán aquí...",
     "data_raw_placeholder": "Los datos en bruto de los proveedores aparecerán aquí...",
     "data_rows_truncated": "{n} filas más no mostradas",
+    "data_truncation_disclaimer":
+      "Vista resumida solo para la interfaz; no son datos completos. Solo investigación y educación; no es asesoramiento de inversión, legal ni fiscal.",
+    "data_preview_shown_items": "Mostrando {shown} de {total} elementos",
+    "data_preview_shown_fields": "Mostrando {shown} de {total} campos",
 
     "team_title": "Tu equipo de investigación",
     "team_subtitle": "Conoce a los 12 especialistas en IA que analizan acciones juntos",
@@ -1549,6 +1586,10 @@ const TRANSLATIONS = {
     "data_placeholder": "プロバイダーからの生データがここに表示されます...",
     "data_raw_placeholder": "プロバイダーからの生データがここに表示されます...",
     "data_rows_truncated": "他 {n} 行は省略",
+    "data_truncation_disclaimer":
+      "表示用の抜粋であり、データ全体ではありません。研究・教育目的のみ。投資・法務・税務のアドバイスではありません。",
+    "data_preview_shown_items": "{total} 件中 {shown} 件を表示",
+    "data_preview_shown_fields": "{total} 個のフィールド中 {shown} 個を表示",
 
     "team_title": "あなたのリサーチチーム",
     "team_subtitle": "銘柄分析に協働する12名のAIスペシャリスト",
@@ -1692,6 +1733,10 @@ TRANSLATIONS["zh-hant"] = {
   "data_placeholder": "來自數據提供商的原始數據將顯示在這裡...",
   "data_raw_placeholder": "來自數據提供商的原始數據將顯示在這裡...",
   "data_rows_truncated": "還有 {n} 行未顯示",
+  "data_truncation_disclaimer":
+    "僅為介面節選展示，非完整資料。僅供研究與教育，不構成投資、法律或稅務建議。",
+  "data_preview_shown_items": "僅顯示 {shown} / 共 {total} 筆",
+  "data_preview_shown_fields": "僅顯示 {shown} / 共 {total} 個欄位",
 
   // Team Showcase
   "team_title": "您的研究團隊",
@@ -2439,6 +2484,12 @@ function formatPreviewNumberCell(raw, header) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
 
+/** Truncation callout in the live data feed — includes the standard disclaimer. */
+function dataTruncNoteHtml(mainText) {
+  const full = `${mainText} ${t("data_truncation_disclaimer")}`;
+  return `<div class="data-trunc-note">${escHtml(full)}</div>`;
+}
+
 function renderPreviewTable(rows) {
   const use = rows.slice(0, DATA_PREVIEW.MAX_TABLE_ROWS);
   const headers = use[0] || [];
@@ -2464,7 +2515,7 @@ function renderPreviewTable(rows) {
   let foot = "";
   if (rows.length > DATA_PREVIEW.MAX_TABLE_ROWS) {
     const note = t("data_rows_truncated").replace("{n}", String(rows.length - DATA_PREVIEW.MAX_TABLE_ROWS));
-    foot = `<div class="data-trunc-note">${escHtml(note)}</div>`;
+    foot = dataTruncNoteHtml(note);
   }
   return `<div class="data-preview-table-wrap"><table class="data-preview-grid"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${foot}</div>`;
 }
@@ -2637,7 +2688,7 @@ function renderJsonPreview(obj, rawJson) {
     ? `
       <details class="data-details">
         <summary class="data-details-sum">Show raw JSON</summary>
-        <pre class="data-pre-json" style="margin-top:8px">${escHtml(raw.length > RAW_MAX ? (raw.slice(0, RAW_MAX) + "\n\n… (truncated)") : raw)}</pre>
+        <pre class="data-pre-json" style="margin-top:8px">${escHtml(raw.length > RAW_MAX ? (raw.slice(0, RAW_MAX) + "\n\n… (truncated)\n\n" + t("data_truncation_disclaimer")) : raw)}</pre>
       </details>
     `
     : "";
@@ -2656,10 +2707,16 @@ function renderJsonPreview(obj, rawJson) {
       ];
       const table = renderPreviewTable(rows);
       if (arr.length <= 12) return table + rawBlock;
-      return table + `<div class="data-trunc-note">Showing 12 of ${arr.length} items</div>` + rawBlock;
+      const note12 = t("data_preview_shown_items").replace("{shown}", "12").replace("{total}", String(arr.length));
+      return table + dataTruncNoteHtml(note12) + rawBlock;
     }
     const items = arr.slice(0, 20).map(v => `<li>${escHtml(jsonScalarPreview(v))}</li>`).join("");
-    const note = arr.length > 20 ? `<div class="data-trunc-note">Showing 20 of ${arr.length} items</div>` : "";
+    const note =
+      arr.length > 20
+        ? dataTruncNoteHtml(
+            t("data_preview_shown_items").replace("{shown}", "20").replace("{total}", String(arr.length))
+          )
+        : "";
     return `<ul class="data-meta">${items}</ul>` + note + rawBlock;
   }
 
@@ -2672,7 +2729,10 @@ function renderJsonPreview(obj, rawJson) {
     ).join("");
     const main = `<div class="data-kv-block">${shown}</div>`;
     if (entries.length <= MAX) return main + rawBlock;
-    return main + `<div class="data-trunc-note">Showing ${MAX} of ${entries.length} fields</div>` + rawBlock;
+    const noteFields = t("data_preview_shown_fields")
+      .replace("{shown}", String(MAX))
+      .replace("{total}", String(entries.length));
+    return main + dataTruncNoteHtml(noteFields) + rawBlock;
   }
 
   return `<pre class="data-pre-json">${escHtml(String(obj))}</pre>` + rawBlock;

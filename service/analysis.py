@@ -62,6 +62,11 @@ def _portfolio_section_heading(language: str) -> str:
     return by_lang.get(lk, by_lang["en"])
 
 
+_TOOL_FEED_TRUNCATION_DISCLAIMER = (
+    "Abbreviated for display only. For research and education — not investment, legal, or tax advice."
+)
+
+
 def format_tool_output_for_feed(output: Any, max_len: int = 4500) -> str:
     """Normalize tool return values for the UI data feed (pretty JSON, sane truncation)."""
     if output is None:
@@ -87,35 +92,50 @@ def format_tool_output_for_feed(output: Any, max_len: int = 4500) -> str:
                         # progressively shrink until it fits (keep JSON valid)
                         cap = min(original_len, 50)
                         while cap > 1:
-                            preview = obj[:cap] + ["… (truncated)"]
+                            preview = obj[:cap] + [f"… (truncated). {_TOOL_FEED_TRUNCATION_DISCLAIMER}"]
                             s2 = json.dumps(preview, indent=2, default=str, ensure_ascii=False)
                             if len(s2) <= max_len:
                                 s = s2
                                 break
                             cap = cap // 2
                         else:
-                            s = json.dumps(["… (truncated)"], indent=2, ensure_ascii=False)
+                            s = json.dumps(
+                                [f"… (truncated). {_TOOL_FEED_TRUNCATION_DISCLAIMER}"],
+                                indent=2,
+                                ensure_ascii=False,
+                            )
                     else:
                         original_len = len(obj)
                         items = list(obj.items())
                         cap = min(original_len, 50)
                         while cap > 1:
                             preview = dict(items[:cap])
-                            preview["…"] = f"(truncated: showing {cap} of {original_len} fields)"
+                            preview["…"] = (
+                                f"(truncated: showing {cap} of {original_len} fields). "
+                                f"{_TOOL_FEED_TRUNCATION_DISCLAIMER}"
+                            )
                             s2 = json.dumps(preview, indent=2, default=str, ensure_ascii=False)
                             if len(s2) <= max_len:
                                 s = s2
                                 break
                             cap = cap // 2
                         else:
-                            s = json.dumps({"…": "(truncated)"}, indent=2, ensure_ascii=False)
+                            s = json.dumps(
+                                {"…": f"(truncated). {_TOOL_FEED_TRUNCATION_DISCLAIMER}"},
+                                indent=2,
+                                ensure_ascii=False,
+                            )
             else:
                 s = str(output).strip()
         except Exception:
             s = str(output).strip()
     # For non-JSON strings, truncation is fine.
     if len(s) > max_len:
-        s = s[: max_len - 40].rstrip() + "\n\n… (truncated)"
+        s = (
+            s[: max_len - 40].rstrip()
+            + "\n\n… (truncated)\n\n"
+            + _TOOL_FEED_TRUNCATION_DISCLAIMER
+        )
     return s
 
 
