@@ -160,7 +160,7 @@ def build_graph_config(payload: AnalyzeRequest) -> dict[str, Any]:
 
 def llm_cache_profile_from_config(config: dict[str, Any]) -> str:
     """Stable string so analysis_cache keys differ when LLM routing changes."""
-    lp = config.get("llm_provider") or "kimi_cn"
+    lp = config.get("llm_provider") or "openai"
     qp = config.get("quick_llm_provider") or lp
     dp = config.get("deep_llm_provider") or lp
     blob = {

@@ -7,13 +7,13 @@ DEFAULT_CONFIG = {
         os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
         "dataflows/data_cache",
     ),
-    # LLM settings (default Kimi China — use MOONSHOT_API_KEY + MOONSHOT_API_BASE in .env)
-    "llm_provider": "kimi_cn",
-    # When None, quick/deep use llm_provider. Set to mix vendors (e.g. OpenAI quick + Kimi deep).
+    # LLM settings (default OpenAI — set OPENAI_API_KEY or store keys in app_settings)
+    "llm_provider": "openai",
+    # When None, quick/deep use llm_provider. Set to mix vendors (e.g. OpenAI quick + Anthropic deep).
     "quick_llm_provider": None,
     "deep_llm_provider": None,
-    "deep_think_llm": "kimi-k2.5",
-    "quick_think_llm": "kimi-k2.5",
+    "deep_think_llm": "gpt-5.2",
+    "quick_think_llm": "gpt-5-mini",
     "backend_url": "https://api.openai.com/v1",
     # Optional per-track API base; when None, backend_url is used.
     "quick_backend_url": None,

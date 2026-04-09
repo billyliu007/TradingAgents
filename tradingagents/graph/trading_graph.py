@@ -211,7 +211,7 @@ class TradingAgentsGraph:
         specific = self.config.get(key)
         if specific is not None and str(specific).strip():
             return str(specific).strip().lower()
-        return (self.config.get("llm_provider") or "kimi_cn").lower()
+        return (self.config.get("llm_provider") or "openai").lower()
 
     def _resolve_backend_url_for(self, track: str) -> Optional[str]:
         """API base for this track: per-track override, else global backend_url."""

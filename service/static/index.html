@@ -159,6 +159,22 @@
     .settings-err.show { display: block; }
     .settings-ok { color: var(--green); font-size: 13px; margin-top: 10px; display: none; }
     .settings-ok.show { display: block; }
+    .settings-field-hint {
+      font-size: 11px; color: var(--txt2); line-height: 1.45; margin: 0 0 10px;
+    }
+    .settings-apply-col {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+    }
+    .settings-apply-msg { font-size: 12px; color: var(--green); min-height: 1.2em; }
+    .settings-server-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .settings-inline-ok { font-size: 12px; color: var(--green); white-space: nowrap; }
+    .settings-action-row { align-items: flex-start; }
+    .settings-hosted-foot { margin-top: 14px; text-align: right; }
+    .settings-text-link {
+      background: none; border: none; color: var(--blue); font-size: 12px; cursor: pointer;
+      text-decoration: underline; padding: 4px 0; font-family: inherit;
+    }
+    .settings-text-link:hover { color: var(--txt); }
     .settings-login-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.2); }
 
     /* Legal attribution — subtle, low-key, inside Team Showcase (not floating) */
@@ -1023,7 +1039,6 @@
       <div class="form-group"><label for="st_adm_pass">Password</label><input id="st_adm_pass" type="password" autocomplete="current-password" /></div>
       <div class="btn-row">
         <button type="button" class="btn-g" id="stLoginBtn">Sign in</button>
-        <button type="button" class="btn-g" id="stLogoutBtn">Log out</button>
       </div>
     </div>
 
@@ -1034,8 +1049,10 @@
     <select id="st_deep_llm_provider"></select>
 
     <div class="s-section-title" id="stSecModels">Models</div>
+    <p class="settings-field-hint" id="stHintQuickTrack"></p>
     <div style="font-size:10px;color:var(--txt2);margin-bottom:4px;text-transform:uppercase;" id="stLblQuickModel">Quick</div>
     <select id="st_quick_think_llm" style="margin-bottom:10px;"></select>
+    <p class="settings-field-hint" id="stHintDeepTrack"></p>
     <div style="font-size:10px;color:var(--txt2);margin-bottom:4px;text-transform:uppercase;" id="stLblDeepModel">Deep</div>
     <select id="st_deep_think_llm"></select>
     <div id="st_kimi_wrap" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
@@ -1075,10 +1092,20 @@
       <div class="form-group"><label for="st_moonshot_api_key">Kimi (Moonshot)</label><input id="st_moonshot_api_key" type="password" autocomplete="off" /></div>
     </div>
 
-    <div class="btn-row">
-      <button type="button" class="btn-p" id="stSaveSessionBtn">Apply for this browser</button>
-      <button type="button" class="btn-p" id="stSaveServerBtn" style="display:none;">Save to server</button>
+    <div class="btn-row settings-action-row" id="settingsActionRow">
+      <div class="settings-apply-col" id="stSessionApplyWrap" style="display:none;">
+        <button type="button" class="btn-p" id="stSaveSessionBtn">Apply for this browser</button>
+        <span class="settings-apply-msg" id="stSessionSaveNote" aria-live="polite"></span>
+      </div>
+      <div class="settings-server-inline" id="stServerSaveRow" style="display:none;">
+        <button type="button" class="btn-p" id="stSaveServerBtn">Save to server</button>
+        <span class="settings-inline-ok" id="stServerSaveOk" aria-live="polite"></span>
+      </div>
     </div>
+
+    <p class="settings-hosted-foot" id="stHostedSignOutWrap" style="display:none;">
+      <button type="button" class="settings-text-link" id="stHostedSignOutBtn">Sign out</button>
+    </p>
     </div><!-- /settingsFormWrap -->
   </div>
 </div>
@@ -1224,6 +1251,13 @@ const TRANSLATIONS = {
     "settings_log_out": "Log out",
     "settings_keys_hint_hosted": "Leave blank to keep the current server-stored key. Type a new value and click Save to server to update it.",
     "settings_keys_hint_ephemeral": "Required for your selected providers. Keys stay in sessionStorage.",
+    "settings_track_hint_quick":
+      "Quick model: market & fundamentals analysts, news, sentiment/social, and other parallel data steps — faster, tool-heavy work.",
+    "settings_track_hint_deep":
+      "Deep model: bull/bear debate, research manager, trader, risk-team discussion, and final portfolio decision — heavier reasoning.",
+    "settings_apply_saved": "Saved for this browser.",
+    "settings_save_server_ok": "Save successful.",
+    "settings_sign_out": "Sign out",
     "err_missing_api_keys": "Add API keys in Settings for your selected LLM providers. Missing:",
     "footer_disclaimer": "For research and education only. Outputs are AI-generated simulations, not investment, legal, or tax advice.",
     "footer_see_notice": "See NOTICE in the source repository.",
@@ -2093,6 +2127,17 @@ function updateUIText() {
   syncHdrStatusForLanguage();
 
   syncDataPanelToggleUi();
+
+  syncSettingsHintsAndSignOutI18n();
+}
+
+function syncSettingsHintsAndSignOutI18n() {
+  const q = _el("stHintQuickTrack");
+  if (q) q.textContent = t("settings_track_hint_quick");
+  const d = _el("stHintDeepTrack");
+  if (d) d.textContent = t("settings_track_hint_deep");
+  const so = _el("stHostedSignOutBtn");
+  if (so) so.textContent = t("settings_sign_out");
 }
 
 // ── SETTINGS (header) + deploy mode / session LLM keys ───────────────────────
@@ -2102,9 +2147,9 @@ let __bootOptions = {
   exports_enabled: true,
   ephemeral_requires_session_keys: false,
   admin_password_configured: false,
-  llm_provider_default: "kimi_cn",
-  quick_llm_provider_default: "kimi_cn",
-  deep_llm_provider_default: "kimi_cn",
+  llm_provider_default: "openai",
+  quick_llm_provider_default: "openai",
+  deep_llm_provider_default: "openai",
   quick_think_default: "",
   deep_think_default: "",
   max_debate_rounds_default: 1,
@@ -2148,12 +2193,12 @@ const ST_PROVIDER_MODELS = {
 };
 
 const ST_PROV_OPTS = [
-  ["kimi_cn", "Kimi"],
   ["openai", "OpenAI"],
   ["anthropic", "Anthropic"],
   ["google", "Google"],
   ["xai", "xAI (Grok)"],
   ["openrouter", "OpenRouter"],
+  ["kimi_cn", "Kimi"],
 ];
 
 function stRead(id) {
@@ -2248,8 +2293,8 @@ function stEnsureModelOption(selectId, value) {
 }
 
 function applyMergedToSettingsForm(merged) {
-  stSet("st_quick_llm_provider", merged.quick_llm_provider || "kimi_cn");
-  stSet("st_deep_llm_provider", merged.deep_llm_provider || "kimi_cn");
+  stSet("st_quick_llm_provider", merged.quick_llm_provider || "openai");
+  stSet("st_deep_llm_provider", merged.deep_llm_provider || "openai");
   stPopulateQuickModels();
   stPopulateDeepModels();
   stEnsureModelOption("st_quick_think_llm", merged.quick_think_llm);
@@ -2378,7 +2423,7 @@ function validateEphemeralKeysOrNull() {
   if (deployMode() !== "ephemeral") return null;
   const ses = parseSessionSettings();
   const b = __bootOptions;
-  const defP = b.llm_provider_default || "kimi_cn";
+  const defP = b.llm_provider_default || "openai";
   const qp = ses.quick_llm_provider || b.quick_llm_provider_default || defP;
   const dp = ses.deep_llm_provider || b.deep_llm_provider_default || defP;
   const need = new Set();
@@ -2411,102 +2456,106 @@ async function refreshSettingsFormFromSources() {
   const sub = _el("settingsModalSub");
   const hint = _el("stKeysHint");
   const hostedLogin = _el("stHostedLogin");
-  const saveSrv = _el("stSaveServerBtn");
-  const saveSess = _el("stSaveSessionBtn");
   const formWrap = _el("settingsFormWrap");
   const lockedMsg = _el("settingsLockedMsg");
+  const sessWrap = _el("stSessionApplyWrap");
+  const srvRow = _el("stServerSaveRow");
+  const signOutFoot = _el("stHostedSignOutWrap");
+  const noteSess = _el("stSessionSaveNote");
+  const noteSrv = _el("stServerSaveOk");
 
-  if (lockedMsg) {
-    lockedMsg.style.display = "none";
-    lockedMsg.textContent = "";
-  }
-  if (formWrap) formWrap.style.display = "block";
-  if (hostedLogin) hostedLogin.style.display = "none";
-  if (saveSrv) saveSrv.style.display = "none";
-  if (saveSess) saveSess.style.display = "none";
+  if (noteSess) noteSess.textContent = "";
+  if (noteSrv) noteSrv.textContent = "";
 
-  const isEphemeral = deployMode() === "ephemeral";
-  const isHosted = !isEphemeral;
-  const adminOn = !!__bootOptions.admin_password_configured;
-
-  if (isHosted && !adminOn) {
-    if (formWrap) formWrap.style.display = "none";
+  try {
     if (lockedMsg) {
-      lockedMsg.textContent = t("settings_hosted_no_admin");
-      lockedMsg.style.display = "block";
+      lockedMsg.style.display = "none";
+      lockedMsg.textContent = "";
     }
-    if (sub) sub.textContent = t("settings_sub_hosted");
-    if (hint) hint.textContent = "";
-    _el("settingsModalTitle").textContent = t("settings_title");
-    _el("stSaveSessionBtn").textContent = t("settings_apply_session");
-    _el("stSaveServerBtn").textContent = t("settings_save_server");
-    _el("stLoginTitle").textContent = t("settings_server_login");
-    _el("stLoginBtn").textContent = t("settings_sign_in");
-    _el("stLogoutBtn").textContent = t("settings_log_out");
-    return;
-  }
+    if (formWrap) formWrap.style.display = "block";
+    if (hostedLogin) hostedLogin.style.display = "none";
+    if (sessWrap) sessWrap.style.display = "none";
+    if (srvRow) srvRow.style.display = "none";
+    if (signOutFoot) signOutFoot.style.display = "none";
 
-  if (isHosted && adminOn) {
-    if (hostedLogin) hostedLogin.style.display = "block";
-    let loggedIn = false;
-    try {
-      const me = await fetch(apiUrl("/api/admin/me"), { credentials: "same-origin" });
-      loggedIn = me.ok;
-    } catch (_) { /* ignore */ }
+    const isEphemeral = deployMode() === "ephemeral";
+    const adminOn = !!__bootOptions.admin_password_configured;
 
-    if (!loggedIn) {
+    if (!isEphemeral && !adminOn) {
       if (formWrap) formWrap.style.display = "none";
-      if (sub) sub.textContent = t("settings_hosted_signin_prompt");
+      if (lockedMsg) {
+        lockedMsg.textContent = t("settings_hosted_no_admin");
+        lockedMsg.style.display = "block";
+      }
+      if (sub) sub.textContent = t("settings_sub_hosted");
       if (hint) hint.textContent = "";
-      _el("settingsModalTitle").textContent = t("settings_title");
-      _el("stSaveSessionBtn").textContent = t("settings_apply_session");
-      _el("stSaveServerBtn").textContent = t("settings_save_server");
-      _el("stLoginTitle").textContent = t("settings_server_login");
-      _el("stLoginBtn").textContent = t("settings_sign_in");
-      _el("stLogoutBtn").textContent = t("settings_log_out");
-      _el("stLogoutBtn").style.display = "none";
       return;
     }
 
-    let serverS = null;
-    let apiSet = {};
-    try {
-      const r = await fetch(apiUrl("/api/admin/settings"), { credentials: "same-origin" });
-      if (r.ok) {
-        const data = await r.json();
-        serverS = data.settings || {};
-        apiSet = data.api_keys_set || {};
-      }
-    } catch (_) { /* ignore */ }
-    if (formWrap) formWrap.style.display = "block";
-    if (saveSrv) saveSrv.style.display = "inline-block";
-    _el("stLogoutBtn").style.display = "";
-    const merged = mergeBootSessionAndServer(serverS, apiSet);
-    applyMergedToSettingsForm(merged);
-    if (sub) sub.textContent = t("settings_sub_hosted");
-    if (hint) hint.textContent = t("settings_keys_hint_hosted");
-    _el("settingsModalTitle").textContent = t("settings_title");
-    _el("stSaveSessionBtn").textContent = t("settings_apply_session");
-    _el("stSaveServerBtn").textContent = t("settings_save_server");
-    _el("stLoginTitle").textContent = t("settings_server_login");
-    _el("stLoginBtn").textContent = t("settings_sign_in");
-    _el("stLogoutBtn").textContent = t("settings_log_out");
-    return;
-  }
+    if (!isEphemeral && adminOn) {
+      if (hostedLogin) hostedLogin.style.display = "block";
 
-  /* ephemeral */
-  if (hostedLogin) hostedLogin.style.display = "none";
-  if (saveSess) saveSess.style.display = "inline-block";
-  const merged = mergeBootSessionAndServer(null, {});
-  applyMergedToSettingsForm(merged);
-  if (sub) sub.textContent = t("settings_sub_ephemeral");
-  if (hint) hint.textContent = t("settings_keys_hint_ephemeral");
-  _el("settingsModalTitle").textContent = t("settings_title");
-  _el("stSaveSessionBtn").textContent = t("settings_apply_session");
-  _el("stSaveServerBtn").textContent = t("settings_save_server");
-  _el("stLoginTitle").textContent = t("settings_server_login");
-  _el("stLoginBtn").textContent = t("settings_sign_in");
-  _el("stLogoutBtn").textContent = t("settings_log_out");
+      let loggedIn = false;
+      try {
+        const me = await fetch(apiUrl("/api/admin/me"), { credentials: "same-origin" });
+        loggedIn = me.ok;
+      } catch (_) { /* ignore */ }
+
+      if (!loggedIn) {
+        if (formWrap) formWrap.style.display = "none";
+        if (sub) sub.textContent = t("settings_hosted_signin_prompt");
+        if (hint) hint.textContent = "";
+        return;
+      }
+
+      if (hostedLogin) hostedLogin.style.display = "none";
+      if (signOutFoot) signOutFoot.style.display = "block";
+
+      let serverS = null;
+      let apiSet = {};
+      try {
+        const r = await fetch(apiUrl("/api/admin/settings"), { credentials: "same-origin" });
+        if (r.ok) {
+          const data = await r.json();
+          serverS = data.settings || {};
+          apiSet = data.api_keys_set || {};
+        }
+      } catch (_) { /* ignore */ }
+
+      if (formWrap) formWrap.style.display = "block";
+      if (sessWrap) sessWrap.style.display = "none";
+      if (srvRow) srvRow.style.display = "inline-flex";
+
+      const merged = mergeBootSessionAndServer(serverS, apiSet);
+      applyMergedToSettingsForm(merged);
+      if (sub) sub.textContent = t("settings_sub_hosted");
+      if (hint) hint.textContent = t("settings_keys_hint_hosted");
+      return;
+    }
+
+    /* ephemeral */
+    if (hostedLogin) hostedLogin.style.display = "none";
+    if (signOutFoot) signOutFoot.style.display = "none";
+    if (srvRow) srvRow.style.display = "none";
+    if (sessWrap) sessWrap.style.display = "flex";
+
+    const merged = mergeBootSessionAndServer(null, {});
+    applyMergedToSettingsForm(merged);
+    if (sub) sub.textContent = t("settings_sub_ephemeral");
+    if (hint) hint.textContent = t("settings_keys_hint_ephemeral");
+  } finally {
+    syncSettingsHintsAndSignOutI18n();
+    const mt = _el("settingsModalTitle");
+    if (mt) mt.textContent = t("settings_title");
+    const ss = _el("stSaveSessionBtn");
+    if (ss) ss.textContent = t("settings_apply_session");
+    const sv = _el("stSaveServerBtn");
+    if (sv) sv.textContent = t("settings_save_server");
+    const lt = _el("stLoginTitle");
+    if (lt) lt.textContent = t("settings_server_login");
+    const lb = _el("stLoginBtn");
+    if (lb) lb.textContent = t("settings_sign_in");
+  }
 }
 
 function openSettingsModal() {
@@ -2542,12 +2591,15 @@ function wireSettingsModal() {
     if (deployMode() !== "ephemeral") return;
     _el("settingsErr").classList.remove("show");
     saveSessionSettings(collectSettingsFromForm());
-    _el("settingsOk").classList.add("show");
-    setTimeout(() => _el("settingsOk").classList.remove("show"), 2000);
+    const note = _el("stSessionSaveNote");
+    if (note) note.textContent = t("settings_apply_saved");
+    setTimeout(() => closeSettingsModal(), 700);
   });
   _el("stSaveServerBtn").addEventListener("click", async () => {
     const err = _el("settingsErr");
+    const okSpan = _el("stServerSaveOk");
     err.classList.remove("show");
+    if (okSpan) okSpan.textContent = "";
     try {
       const r = await fetch(apiUrl("/api/admin/settings"), {
         method: "PUT",
@@ -2561,9 +2613,12 @@ function wireSettingsModal() {
         err.classList.add("show");
         return;
       }
-      _el("settingsOk").classList.add("show");
-      setTimeout(() => _el("settingsOk").classList.remove("show"), 2000);
       await refreshSettingsFormFromSources();
+      const okAfter = _el("stServerSaveOk");
+      if (okAfter) {
+        okAfter.textContent = t("settings_save_server_ok");
+        setTimeout(() => { if (okAfter) okAfter.textContent = ""; }, 4000);
+      }
     } catch (e) {
       err.textContent = String(e.message || e);
       err.classList.add("show");
@@ -2591,7 +2646,7 @@ function wireSettingsModal() {
       err.classList.add("show");
     }
   });
-  _el("stLogoutBtn").addEventListener("click", async () => {
+  _el("stHostedSignOutBtn").addEventListener("click", async () => {
     try {
       await fetch(apiUrl("/api/admin/logout"), { method: "POST", credentials: "same-origin" });
     } catch (_) { /* ignore */ }
