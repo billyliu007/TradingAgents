@@ -176,6 +176,15 @@
     }
     .settings-text-link:hover { color: var(--txt); }
     .settings-login-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,.2); }
+    .settings-adv-details {
+      margin-top: 6px; margin-bottom: 4px; padding: 8px 0 4px;
+      border-top: 1px solid var(--border);
+    }
+    .settings-adv-details > summary {
+      cursor: pointer; list-style: none; font-size: 12px; font-weight: 600; color: var(--blue);
+      margin-bottom: 8px; user-select: none;
+    }
+    .settings-adv-details > summary::-webkit-details-marker { display: none; }
 
     /* Legal attribution — subtle, low-key, inside Team Showcase (not floating) */
     .legal-corner {
@@ -1025,7 +1034,7 @@
 <div id="settingsModal" class="settings-modal" aria-hidden="true">
   <div class="settings-modal-backdrop" id="settingsModalBackdrop"></div>
   <div class="settings-modal-card" role="dialog" aria-labelledby="settingsModalTitle">
-    <button type="button" class="settings-modal-close" id="settingsModalClose" aria-label="Close">×</button>
+    <button type="button" class="settings-modal-close" id="settingsModalClose" aria-label="">×</button>
     <h2 id="settingsModalTitle">Settings</h2>
     <p class="settings-sub" id="settingsModalSub"></p>
     <div class="settings-err" id="settingsErr"></div>
@@ -1035,8 +1044,8 @@
 
     <div id="stHostedLogin" class="settings-login-box" style="display:none;">
       <div class="s-section-title" id="stLoginTitle">Server login</div>
-      <div class="form-group"><label for="st_adm_user">Username</label><input id="st_adm_user" autocomplete="username" /></div>
-      <div class="form-group"><label for="st_adm_pass">Password</label><input id="st_adm_pass" type="password" autocomplete="current-password" /></div>
+      <div class="form-group"><label for="st_adm_user" id="stLblAdmUser">Username</label><input id="st_adm_user" autocomplete="username" /></div>
+      <div class="form-group"><label for="st_adm_pass" id="stLblAdmPass">Password</label><input id="st_adm_pass" type="password" autocomplete="current-password" /></div>
       <div class="btn-row">
         <button type="button" class="btn-g" id="stLoginBtn">Sign in</button>
       </div>
@@ -1074,22 +1083,27 @@
     <div class="s-section-title" id="stSecRisk">Risk rounds</div>
     <input id="st_max_risk_discuss_rounds" type="number" min="1" max="5" value="1" />
 
-    <div class="s-section-title" id="stSecBackend">Backend URL</div>
-    <input id="st_backend_url" type="text" autocomplete="off" />
-    <div class="s-section-title" id="stSecQbu">Quick backend override</div>
-    <input id="st_quick_backend_url" type="text" autocomplete="off" />
-    <div class="s-section-title" id="stSecDbu">Deep backend override</div>
-    <input id="st_deep_backend_url" type="text" autocomplete="off" />
+    <details class="settings-adv-details" id="stAdvBackend">
+      <summary id="stAdvBackendSum">Connection (optional)</summary>
+      <div class="s-section-title" id="stSecBackend">Backend URL</div>
+      <input id="st_backend_url" type="text" autocomplete="off" />
+      <div class="s-section-title" id="stSecQbu">Quick backend override</div>
+      <input id="st_quick_backend_url" type="text" autocomplete="off" />
+      <div class="s-section-title" id="stSecDbu">Deep backend override</div>
+      <input id="st_deep_backend_url" type="text" autocomplete="off" />
+    </details>
 
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);" id="stKeysBlock">
       <div class="s-section-title" id="stSecKeys">API keys</div>
       <p class="settings-sub" style="margin-bottom:10px;font-style:italic;" id="stKeysHint"></p>
-      <div class="form-group"><label for="st_openai_api_key">OpenAI</label><input id="st_openai_api_key" type="password" autocomplete="off" /></div>
-      <div class="form-group"><label for="st_anthropic_api_key">Anthropic</label><input id="st_anthropic_api_key" type="password" autocomplete="off" /></div>
-      <div class="form-group"><label for="st_google_api_key">Google</label><input id="st_google_api_key" type="password" autocomplete="off" /></div>
-      <div class="form-group"><label for="st_xai_api_key">xAI</label><input id="st_xai_api_key" type="password" autocomplete="off" /></div>
-      <div class="form-group"><label for="st_openrouter_api_key">OpenRouter</label><input id="st_openrouter_api_key" type="password" autocomplete="off" /></div>
-      <div class="form-group"><label for="st_moonshot_api_key">Kimi (Moonshot)</label><input id="st_moonshot_api_key" type="password" autocomplete="off" /></div>
+      <div id="st_key_rows">
+      <div class="form-group st-api-key-row" data-api-key-field="openai_api_key"><label for="st_openai_api_key">OpenAI</label><input id="st_openai_api_key" type="password" autocomplete="off" /></div>
+      <div class="form-group st-api-key-row" data-api-key-field="anthropic_api_key"><label for="st_anthropic_api_key">Anthropic</label><input id="st_anthropic_api_key" type="password" autocomplete="off" /></div>
+      <div class="form-group st-api-key-row" data-api-key-field="google_api_key"><label for="st_google_api_key">Google</label><input id="st_google_api_key" type="password" autocomplete="off" /></div>
+      <div class="form-group st-api-key-row" data-api-key-field="xai_api_key"><label for="st_xai_api_key">xAI</label><input id="st_xai_api_key" type="password" autocomplete="off" /></div>
+      <div class="form-group st-api-key-row" data-api-key-field="openrouter_api_key"><label for="st_openrouter_api_key">OpenRouter</label><input id="st_openrouter_api_key" type="password" autocomplete="off" /></div>
+      <div class="form-group st-api-key-row" data-api-key-field="moonshot_api_key"><label for="st_moonshot_api_key">Kimi (Moonshot)</label><input id="st_moonshot_api_key" type="password" autocomplete="off" /></div>
+      </div>
     </div>
 
     <div class="btn-row settings-action-row" id="settingsActionRow">
@@ -1391,6 +1405,24 @@ const TRANSLATIONS = {
     "moonshot_key_lbl": "Kimi API key",
     "moonshot_key_ph": "From platform.moonshot.cn",
     "backend_url_ph": "Usually leave empty. Advanced: custom API address.",
+    "settings_quick_llm_provider": "Quick LLM provider",
+    "settings_deep_llm_provider": "Deep LLM provider",
+    "settings_row_quick": "Quick",
+    "settings_row_deep": "Deep",
+    "settings_quick_backend": "Quick backend override",
+    "settings_deep_backend": "Deep backend override",
+    "settings_adv_connection": "Connection (optional)",
+    "settings_close": "Close",
+    "settings_saved_toast": "Saved.",
+    "settings_username": "Username",
+    "settings_password": "Password",
+    "settings_key_placeholder_saved": "•••• saved — type to replace",
+    "prov_openai": "OpenAI",
+    "prov_anthropic": "Anthropic",
+    "prov_google": "Google",
+    "prov_xai": "xAI (Grok)",
+    "prov_openrouter": "OpenRouter",
+    "prov_kimi_cn": "Kimi",
   },
 
   zh: {
@@ -1536,6 +1568,43 @@ const TRANSLATIONS = {
     "moonshot_key_lbl": "Kimi API 密钥",
     "moonshot_key_ph": "来自 platform.moonshot.cn",
     "backend_url_ph": "通常留空。高阶用户可填写自定义接口地址。",
+    "settings_btn": "设置",
+    "settings_title": "设置",
+    "settings_sub_hosted": "分析使用服务器保存的设置（数据库）。请在下方登录以查看或修改。托管模式下不使用仅浏览器覆盖。",
+    "settings_sub_ephemeral": "API 密钥与模型仅保存在本浏览器会话中，并随每次分析请求发送。服务器不存储这些内容。",
+    "settings_hosted_signin_prompt": "请使用服务器管理员账号登录以打开设置。",
+    "settings_hosted_no_admin": "设置由服务器管理。请运维配置 TRADINGAGENTS_ADMIN_PASSWORD 与 DATABASE_URL，以便管理员在此登录。",
+    "settings_apply_session": "应用到此浏览器",
+    "settings_save_server": "保存到服务器",
+    "settings_server_login": "服务器登录",
+    "settings_sign_in": "登录",
+    "settings_log_out": "退出登录",
+    "settings_keys_hint_hosted": "留空则保留服务器已保存的密钥。填写新值并点击「保存到服务器」以更新。",
+    "settings_keys_hint_ephemeral": "所选提供商需要填写对应密钥。密钥保存在 sessionStorage。",
+    "settings_track_hint_quick": "快速模型：市场与基本面分析师、新闻、情绪/社交及其他并行数据步骤 — 偏快、工具调用多。",
+    "settings_track_hint_deep": "深度模型：看涨/看跌辩论、研究经理、交易员、风险团队讨论与最终组合决策 — 推理更重。",
+    "settings_apply_saved": "已保存到此浏览器。",
+    "settings_save_server_ok": "保存成功。",
+    "settings_sign_out": "退出登录",
+    "err_missing_api_keys": "请在设置中为所选 LLM 提供商添加 API 密钥。缺少：",
+    "settings_quick_llm_provider": "快速 LLM 提供商",
+    "settings_deep_llm_provider": "深度 LLM 提供商",
+    "settings_row_quick": "快速",
+    "settings_row_deep": "深度",
+    "settings_quick_backend": "快速通道后端覆盖",
+    "settings_deep_backend": "深度通道后端覆盖",
+    "settings_adv_connection": "连接选项（可选）",
+    "settings_close": "关闭",
+    "settings_saved_toast": "已保存。",
+    "settings_username": "用户名",
+    "settings_password": "密码",
+    "settings_key_placeholder_saved": "•••• 已保存 — 输入以替换",
+    "prov_openai": "OpenAI",
+    "prov_anthropic": "Anthropic",
+    "prov_google": "Google",
+    "prov_xai": "xAI (Grok)",
+    "prov_openrouter": "OpenRouter",
+    "prov_kimi_cn": "Kimi",
   },
 
   es: {
@@ -1670,6 +1739,48 @@ const TRANSLATIONS = {
     "moonshot_key_lbl": "Clave API Kimi",
     "moonshot_key_ph": "De platform.moonshot.cn",
     "backend_url_ph": "Normalmente vacío. Avanzado: URL de API personalizada.",
+    "settings_btn": "Ajustes",
+    "settings_title": "Ajustes",
+    "settings_sub_hosted":
+      "El análisis usa la configuración guardada en el servidor (base de datos). Inicia sesión abajo para verla o cambiarla. En modo alojado no se usan ajustes solo del navegador.",
+    "settings_sub_ephemeral":
+      "Las claves API y los modelos se guardan solo en esta sesión del navegador y se envían con cada análisis. El servidor no las almacena.",
+    "settings_hosted_signin_prompt": "Inicia sesión con la cuenta de administrador del servidor para abrir los ajustes.",
+    "settings_hosted_no_admin":
+      "La configuración la gestiona el servidor. Pide al operador que configure TRADINGAGENTS_ADMIN_PASSWORD y DATABASE_URL para que los administradores puedan iniciar sesión aquí.",
+    "settings_apply_session": "Aplicar en este navegador",
+    "settings_save_server": "Guardar en el servidor",
+    "settings_server_login": "Acceso al servidor",
+    "settings_sign_in": "Iniciar sesión",
+    "settings_log_out": "Cerrar sesión",
+    "settings_keys_hint_hosted": "Déjalo en blanco para conservar la clave guardada en el servidor. Escribe un valor nuevo y pulsa Guardar en el servidor para actualizarla.",
+    "settings_keys_hint_ephemeral": "Obligatorio para los proveedores seleccionados. Las claves permanecen en sessionStorage.",
+    "settings_track_hint_quick":
+      "Modelo rápido: analistas de mercado y fundamentales, noticias, sentimiento/redes y otros pasos de datos en paralelo — trabajo más rápido y con muchas herramientas.",
+    "settings_track_hint_deep":
+      "Modelo profundo: debate alcista/bajista, director de investigación, trader, debate del equipo de riesgo y decisión final de cartera — razonamiento más pesado.",
+    "settings_apply_saved": "Guardado en este navegador.",
+    "settings_save_server_ok": "Guardado correctamente.",
+    "settings_sign_out": "Cerrar sesión",
+    "err_missing_api_keys": "Añade claves API en Ajustes para los proveedores LLM seleccionados. Faltan:",
+    "settings_quick_llm_provider": "Proveedor LLM rápido",
+    "settings_deep_llm_provider": "Proveedor LLM profundo",
+    "settings_row_quick": "Rápido",
+    "settings_row_deep": "Profundo",
+    "settings_quick_backend": "URL de backend (pista rápida)",
+    "settings_deep_backend": "URL de backend (pista profunda)",
+    "settings_adv_connection": "Conexión (opcional)",
+    "settings_close": "Cerrar",
+    "settings_saved_toast": "Guardado.",
+    "settings_username": "Usuario",
+    "settings_password": "Contraseña",
+    "settings_key_placeholder_saved": "•••• guardada — escribe para reemplazar",
+    "prov_openai": "OpenAI",
+    "prov_anthropic": "Anthropic",
+    "prov_google": "Google",
+    "prov_xai": "xAI (Grok)",
+    "prov_openrouter": "OpenRouter",
+    "prov_kimi_cn": "Kimi",
   },
 
   ja: {
@@ -1804,6 +1915,48 @@ const TRANSLATIONS = {
     "moonshot_key_lbl": "Kimi APIキー",
     "moonshot_key_ph": "platform.moonshot.cn から",
     "backend_url_ph": "通常は空欄。上級: カスタムAPIアドレス。",
+    "settings_btn": "設定",
+    "settings_title": "設定",
+    "settings_sub_hosted":
+      "分析にはサーバー保存の設定（データベース）が使われます。下からログインして表示・変更してください。ホストモードではブラウザのみの上書きは使われません。",
+    "settings_sub_ephemeral":
+      "APIキーとモデルはこのブラウザセッションにのみ保持され、各分析リクエストとともに送信されます。サーバーには保存されません。",
+    "settings_hosted_signin_prompt": "設定を開くにはサーバー管理者アカウントでサインインしてください。",
+    "settings_hosted_no_admin":
+      "設定はサーバー側で管理されています。運用者に TRADINGAGENTS_ADMIN_PASSWORD と DATABASE_URL の設定を依頼し、管理者がここでサインインできるようにしてください。",
+    "settings_apply_session": "このブラウザに適用",
+    "settings_save_server": "サーバーに保存",
+    "settings_server_login": "サーバーログイン",
+    "settings_sign_in": "サインイン",
+    "settings_log_out": "ログアウト",
+    "settings_keys_hint_hosted": "空欄のままにするとサーバーに保存済みのキーを維持します。新しい値を入力し「サーバーに保存」で更新します。",
+    "settings_keys_hint_ephemeral": "選択したプロバイダーには必須です。キーは sessionStorage に保存されます。",
+    "settings_track_hint_quick":
+      "クイックモデル: 市場・ファンダメンタルズアナリスト、ニュース、センチメント/SNS など並列のデータ工程 — 速くツール中心の処理。",
+    "settings_track_hint_deep":
+      "ディープモデル: 強気・弱気の討論、リサーチマネージャー、トレーダー、リスクチームの議論、最終ポートフォリオ判断 — 重い推論。",
+    "settings_apply_saved": "このブラウザに保存しました。",
+    "settings_save_server_ok": "保存しました。",
+    "settings_sign_out": "サインアウト",
+    "err_missing_api_keys": "選択した LLM プロバイダー用の API キーを設定に追加してください。不足:",
+    "settings_quick_llm_provider": "クイック用 LLM プロバイダー",
+    "settings_deep_llm_provider": "ディープ用 LLM プロバイダー",
+    "settings_row_quick": "クイック",
+    "settings_row_deep": "ディープ",
+    "settings_quick_backend": "クイック用バックエンド URL 上書き",
+    "settings_deep_backend": "ディープ用バックエンド URL 上書き",
+    "settings_adv_connection": "接続オプション（任意）",
+    "settings_close": "閉じる",
+    "settings_saved_toast": "保存しました。",
+    "settings_username": "ユーザー名",
+    "settings_password": "パスワード",
+    "settings_key_placeholder_saved": "•••• 保存済み — 入力で置換",
+    "prov_openai": "OpenAI",
+    "prov_anthropic": "Anthropic",
+    "prov_google": "Google",
+    "prov_xai": "xAI (Grok)",
+    "prov_openrouter": "OpenRouter",
+    "prov_kimi_cn": "Kimi",
   },
 };
 
@@ -1953,6 +2106,43 @@ TRANSLATIONS["zh-hant"] = {
   "moonshot_key_lbl": "Kimi API 密鑰",
   "moonshot_key_ph": "來自 platform.moonshot.cn",
   "backend_url_ph": "通常留空。高階用戶可填寫自定義接口地址。",
+  "settings_btn": "設定",
+  "settings_title": "設定",
+  "settings_sub_hosted": "分析使用伺服器儲存的設定（資料庫）。請在下方登入以檢視或變更。託管模式下不使用僅瀏覽器覆寫。",
+  "settings_sub_ephemeral": "API 金鑰與模型僅保存在本瀏覽器工作階段中，並隨每次分析請求傳送。伺服器不儲存這些內容。",
+  "settings_hosted_signin_prompt": "請使用伺服器管理員帳號登入以開啟設定。",
+  "settings_hosted_no_admin": "設定由伺服器管理。請維運設定 TRADINGAGENTS_ADMIN_PASSWORD 與 DATABASE_URL，以便管理員在此登入。",
+  "settings_apply_session": "套用至此瀏覽器",
+  "settings_save_server": "儲存到伺服器",
+  "settings_server_login": "伺服器登入",
+  "settings_sign_in": "登入",
+  "settings_log_out": "登出",
+  "settings_keys_hint_hosted": "留空則保留伺服器已儲存的金鑰。填寫新值並按「儲存到伺服器」以更新。",
+  "settings_keys_hint_ephemeral": "所選供應商需要填寫對應金鑰。金鑰保存在 sessionStorage。",
+  "settings_track_hint_quick": "快速模型：市場與基本面分析師、新聞、情緒/社群及其他並行資料步驟 — 偏快、工具呼叫多。",
+  "settings_track_hint_deep": "深度模型：看漲/看跌辯論、研究經理、交易員、風險團隊討論與最終投組決策 — 推理更重。",
+  "settings_apply_saved": "已儲存至此瀏覽器。",
+  "settings_save_server_ok": "儲存成功。",
+  "settings_sign_out": "登出",
+  "err_missing_api_keys": "請在設定中為所選 LLM 供應商新增 API 金鑰。缺少：",
+  "settings_quick_llm_provider": "快速 LLM 供應商",
+  "settings_deep_llm_provider": "深度 LLM 供應商",
+  "settings_row_quick": "快速",
+  "settings_row_deep": "深度",
+  "settings_quick_backend": "快速通道後端覆寫",
+  "settings_deep_backend": "深度通道後端覆寫",
+  "settings_adv_connection": "連線選項（可選）",
+  "settings_close": "關閉",
+  "settings_saved_toast": "已儲存。",
+  "settings_username": "使用者名稱",
+  "settings_password": "密碼",
+  "settings_key_placeholder_saved": "•••• 已儲存 — 輸入以取代",
+  "prov_openai": "OpenAI",
+  "prov_anthropic": "Anthropic",
+  "prov_google": "Google",
+  "prov_xai": "xAI (Grok)",
+  "prov_openrouter": "OpenRouter",
+  "prov_kimi_cn": "Kimi",
 };
 
 /**
@@ -2128,16 +2318,85 @@ function updateUIText() {
 
   syncDataPanelToggleUi();
 
-  syncSettingsHintsAndSignOutI18n();
+  syncSettingsFormLabelsI18n();
 }
 
-function syncSettingsHintsAndSignOutI18n() {
+const ALL_ST_API_KEY_FIELDS = ["openai_api_key", "anthropic_api_key", "google_api_key", "xai_api_key", "openrouter_api_key", "moonshot_api_key"];
+
+function stSyncApiKeyVisibility() {
+  const qp = _el("st_quick_llm_provider")?.value;
+  const dp = _el("st_deep_llm_provider")?.value;
+  const need = new Set();
+  for (const p of [qp, dp]) {
+    const f = providerKeyField(p);
+    if (f) need.add(f);
+  }
+  const rows = _el("st_key_rows");
+  if (!rows) return;
+  for (const field of ALL_ST_API_KEY_FIELDS) {
+    const row = rows.querySelector(`[data-api-key-field="${field}"]`);
+    if (row) row.style.display = need.has(field) ? "" : "none";
+  }
+}
+
+function stRefreshProviderOptionLabels() {
+  for (const selId of ["st_quick_llm_provider", "st_deep_llm_provider"]) {
+    const sel = _el(selId);
+    if (!sel || !sel.options.length) continue;
+    const v = sel.value;
+    for (const opt of sel.options) {
+      const tk = "prov_" + opt.value;
+      const tx = t(tk);
+      opt.textContent = tx !== tk ? tx : opt.value;
+    }
+    if (v && [...sel.options].some((o) => o.value === v)) sel.value = v;
+  }
+}
+
+function syncSettingsFormLabelsI18n() {
+  const setTxt = (id, key) => { const el = _el(id); if (el) el.textContent = t(key); };
   const q = _el("stHintQuickTrack");
   if (q) q.textContent = t("settings_track_hint_quick");
   const d = _el("stHintDeepTrack");
   if (d) d.textContent = t("settings_track_hint_deep");
   const so = _el("stHostedSignOutBtn");
   if (so) so.textContent = t("settings_sign_out");
+
+  const closeBtn = _el("settingsModalClose");
+  if (closeBtn) closeBtn.setAttribute("aria-label", t("settings_close"));
+  const okToast = _el("settingsOk");
+  if (okToast) okToast.textContent = t("settings_saved_toast");
+
+  setTxt("settingsModalTitle", "settings_title");
+  setTxt("stSecQuickProv", "settings_quick_llm_provider");
+  setTxt("stSecDeepProv", "settings_deep_llm_provider");
+  setTxt("stSecModels", "models");
+  setTxt("stLblQuickModel", "settings_row_quick");
+  setTxt("stLblDeepModel", "settings_row_deep");
+  setTxt("stSecDebate", "debate_rounds");
+  setTxt("stSecRisk", "risk_rounds");
+  setTxt("stSecBackend", "backend_url");
+  setTxt("stSecQbu", "settings_quick_backend");
+  setTxt("stSecDbu", "settings_deep_backend");
+  setTxt("stSecKeys", "api_keys_section");
+  setTxt("stAdvBackendSum", "settings_adv_connection");
+  setTxt("stKimiSum", "kimi_adv_summary");
+  setTxt("stKimiQLbl", "kimi_lbl_quick");
+  setTxt("stKimiDLbl", "kimi_lbl_deep");
+  setTxt("stLblAdmUser", "settings_username");
+  setTxt("stLblAdmPass", "settings_password");
+
+  const ss = _el("stSaveSessionBtn");
+  if (ss) ss.textContent = t("settings_apply_session");
+  const sv = _el("stSaveServerBtn");
+  if (sv) sv.textContent = t("settings_save_server");
+  const lt = _el("stLoginTitle");
+  if (lt) lt.textContent = t("settings_server_login");
+  const lb = _el("stLoginBtn");
+  if (lb) lb.textContent = t("settings_sign_in");
+
+  stRefreshProviderOptionLabels();
+  stSyncApiKeyVisibility();
 }
 
 // ── SETTINGS (header) + deploy mode / session LLM keys ───────────────────────
@@ -2311,8 +2570,9 @@ function applyMergedToSettingsForm(merged) {
   for (const k of keys) {
     stSet(`st_${k}`, merged[k] || "");
     const inp = _el(`st_${k}`);
-    if (inp) inp.placeholder = merged[`_${k}_server`] ? "•••• saved — type to replace" : "";
+    if (inp) inp.placeholder = merged[`_${k}_server`] ? t("settings_key_placeholder_saved") : "";
   }
+  stSyncApiKeyVisibility();
 }
 
 function mergeBootSessionAndServer(serverSettings, apiKeysSet) {
@@ -2544,17 +2804,7 @@ async function refreshSettingsFormFromSources() {
     if (sub) sub.textContent = t("settings_sub_ephemeral");
     if (hint) hint.textContent = t("settings_keys_hint_ephemeral");
   } finally {
-    syncSettingsHintsAndSignOutI18n();
-    const mt = _el("settingsModalTitle");
-    if (mt) mt.textContent = t("settings_title");
-    const ss = _el("stSaveSessionBtn");
-    if (ss) ss.textContent = t("settings_apply_session");
-    const sv = _el("stSaveServerBtn");
-    if (sv) sv.textContent = t("settings_save_server");
-    const lt = _el("stLoginTitle");
-    if (lt) lt.textContent = t("settings_server_login");
-    const lb = _el("stLoginBtn");
-    if (lb) lb.textContent = t("settings_sign_in");
+    syncSettingsFormLabelsI18n();
   }
 }
 
@@ -2579,10 +2829,12 @@ function wireSettingsModal() {
   _el("st_quick_llm_provider").addEventListener("change", () => {
     stPopulateQuickModels();
     stSyncKimiWrap();
+    stSyncApiKeyVisibility();
   });
   _el("st_deep_llm_provider").addEventListener("change", () => {
     stPopulateDeepModels();
     stSyncKimiWrap();
+    stSyncApiKeyVisibility();
   });
   _el("settingsBtn").addEventListener("click", () => openSettingsModal());
   _el("settingsModalClose").addEventListener("click", () => closeSettingsModal());
