@@ -1,9 +1,14 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
-# After push: https://dashboard.render.com/blueprint/new?repo=<your-repo-https-url>
+#
+# Canonical GitHub repo (connect the Blueprint here — not the archived alphalens-agent repo):
+#   https://github.com/billyliu007/TradingAgents
+# New Blueprint (after GitHub is linked):
+#   https://dashboard.render.com/blueprint/new?repo=https://github.com/billyliu007/TradingAgents
 #
 # Two web services by default:
 # - tradingagents-service: TRADINGAGENTS_DEPLOY_MODE=hosted (centralized; DATABASE_URL + /admin).
-# - Alphalens-Agent: TRADINGAGENTS_DEPLOY_MODE=ephemeral (BYOK in browser session; omit DATABASE_URL).
+# - Alphalens-Agent: TRADINGAGENTS_DEPLOY_MODE=ephemeral (AlphaLens public UI; BYOK in browser; omit DATABASE_URL).
+#   Service name kept for existing Blueprints; changing `name` can create a duplicate service on sync.
 #
 # DATABASE_URL (Postgres, e.g. Neon): optional on hosted; used for analysis caching and
 # app_settings. US ticker autocomplete is file-based (bundled JSON), not Postgres.
