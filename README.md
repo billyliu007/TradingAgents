@@ -102,6 +102,7 @@ If you use ideas from the original TradingAgents paper, cite it as the authors r
 
 ### Repository notes
 
+- **This repo:** [billyliu007/alphalens-agent](https://github.com/billyliu007/alphalens-agent)  
 - **Upstream:** [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents)  
 - **License:** Apache-2.0 — see `LICENSE` and `NOTICE`  
 - **Hosted app:** [alphalens-agent.onrender.com](https://alphalens-agent.onrender.com)

@@ -1,9 +1,9 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
 #
-# Canonical GitHub repo (connect the Blueprint here — not the archived alphalens-agent repo):
-#   https://github.com/billyliu007/TradingAgents
+# Canonical GitHub repo (connect the Blueprint here):
+#   https://github.com/billyliu007/alphalens-agent
 # New Blueprint (after GitHub is linked):
-#   https://dashboard.render.com/blueprint/new?repo=https://github.com/billyliu007/TradingAgents
+#   https://dashboard.render.com/blueprint/new?repo=https://github.com/billyliu007/alphalens-agent
 #
 # Two web services by default:
 # - tradingagents-service: TRADINGAGENTS_DEPLOY_MODE=hosted (centralized; DATABASE_URL + /admin).
